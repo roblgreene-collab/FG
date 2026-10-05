@@ -87,6 +87,28 @@ With R5 (countdown reset), the same bot wins in ~1:55 and finishes with ~55 rats
 
 With R13 added, the bot wins in ~1:45 with ~45 rats (was ~55 without R13). Its swarm peaks around 50 rats, so it spends the late game at a 1.1 s countdown.
 
+## 3c. Planned Mechanics (designer's ideas, NOT in the build yet)
+Status **Planned** = the designer wants this recorded for later levels or extra difficulty. It is not built until the designer says so; then it moves to §3 as Draft.
+
+### The Rat Hunter
+| ID | Rule (as given by the designer) | Status |
+|----|------|--------|
+| H1 | A rat hunter walks the level. He has a **number above his head**. | Planned |
+| H2 | The rat hunter is **highlighted on the minimap**. | Planned |
+| H3 | The rat hunter **cannot be killed unless the player's rat count is greater than his number**. | Planned |
+| H4 | When the player comes **near** the rat hunter, he tries to **follow the player to catch** the swarm. | Planned |
+| H5 | Being **caught while his number is higher than the player's rat count** is a **fail state** (the level is lost). | Planned |
+| H6 | When the player's rat count is **equal to or above** his number, he **does not chase** the swarm. | Planned |
+
+Points to settle before building (Claude's notes, not decisions):
+- **H3 vs H6 at a tie:** with equal numbers, he doesn't chase (H6) but can't be killed either (H3 needs strictly greater). Is that intended, a safe stalemate?
+- **Killing him:** does the swarm kill him by touching him like infecting someone? Is there a reward (bonus rats, he drops something), or a cost (rats lost in the fight)?
+- **Caught when he's lower:** if he's already chasing and the swarm grows past his number mid-chase, does he stop, flee, or become killable at once?
+- **His number:** fixed per level, or does it change (e.g. grows over time, or each hunter has a different number)? Can there be several hunters?
+- **"Near" and speed:** how close before he notices, and is he slower or faster than the rats? He probably needs to be a bit slower than the rats, so escape is possible.
+- **Minimap colour:** purple is reserved for the plague (V1), so suggest red for the hunter marker.
+- **Caught by what:** does any rat touching him count, or only the lead rat?
+
 ## 5. Open Questions (need the designer's call)
 - **Q1:** Should there also be a hard level timer, or is the die-off the only clock (current)?
 - **Q2:** Should the die-off speed up as the swarm grows? Currently flat, so a big swarm makes the level easier.
@@ -112,6 +134,7 @@ With R13 added, the bot wins in ~1:45 with ~45 rats (was ~55 without R13). Its s
 | 2026-10-05 | Chain spread moved to Parking Lot (former Q2) | Designer |
 | 2026-10-05 | R5 changed to trial: an infection restarts the die-off countdown. Old rule kept as R5a. | Designer |
 | 2026-10-05 | R5 (countdown reset on infection) locked | Designer |
+| 2026-10-05 | Recorded the Rat Hunter idea (H1–H6) as Planned, for later levels / difficulty; not built | Designer |
 | 2026-10-05 | Added V6: taverns, shops and trades with signs, props, lantern glow and chimney smoke | Designer |
 | 2026-10-05 | Plague colour changed from green to vibrant purple (V1, V2); green now allowed anywhere (resolves former Q4) | Designer |
 | 2026-10-05 | Added V5: buildings rebuilt as individual houses with cleaner, less noisy pixel art, plus a church | Designer |
