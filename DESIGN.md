@@ -8,6 +8,9 @@
 ## 1. Concept
 _TBD: one-paragraph pitch from the designer._
 
+## 1a. Platform (Locked)
+- Browser game: HTML + JavaScript, no install, playable on desktop and phone.
+
 ## 2. Core Loop
 _TBD: what the player does over and over (the 10-second, 1-minute, and 10-minute loops)._
 
@@ -33,3 +36,4 @@ Values we expect to tweak (speeds, costs, spawn rates). Kept in one place in cod
 | Date | Change | Approved by |
 |------|--------|-------------|
 | 2026-10-05 | Document created | Designer |
+| 2026-10-05 | Platform locked: browser game (HTML/JS) | Designer |
