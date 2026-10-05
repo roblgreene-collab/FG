@@ -47,6 +47,7 @@ Status: **Locked** (agreed, must be honored), **Draft** (being tried out), **Ret
 | V3 | **Bill of Mortality.** Every end screen (win or lose) shows a comic death report styled after the old London Bills of Mortality. It lists up to 5 gross, cartoonish causes picked at random from a pool of 20, with numbers that add up to the number of people infected that run. A new mix every play. | Draft |
 | V4 | **A filthy district.** Streets: uneven cobbles with missing stones, patchy mud, filth banked against walls, an open sewer channel down the middle of main streets, puddles (clear and murky), stains and a little litter. Parks are churchyards: green grass with tufts and flowers, a clean dirt path, headstones in rows, fresh graves, leafy and dead trees. Layout is the same every play (seeded). | Draft |
 | V5 | **Buildings are rows of individual houses.** Each block is split into 2–4 houses (24–48 px wide), and deep blocks have a back row of roofs too, so no two blocks look alike. Neighbouring houses never share a roof material. Roofs are drawn as clean shaded planes lit from the top-left: hipped (four faces) or gabled (two), in six materials (terracotta, slate, thatch, old tile, wooden shingle, lead) with tidy tile rows, ridge and hip lines. Wear comes from a few deliberate details instead of random specks: moss clumps, holes with rafters (some boarded over), chimneys, dormer windows. Each house has its own street-facing wall: timber-framed plaster (sometimes with X braces or fallen plaster), stone, brick, or a shopfront with a striped awning. Windows are dark, candle-lit, shuttered or boarded; doors are arched, and some carry a red plague cross. One landmark church per level: a long slate nave, a bell tower with a gold cross, stained-glass windows and a double door, placed beside a churchyard. | Draft |
+| V6 | **Taverns, shops and trades.** About 30% of street-facing houses (`businessShare`) are businesses, cycling through: tavern (×2 in the cycle, needs a wider house), bakery, butcher, smithy, apothecary, cobbler, chandler. Each has a hanging iron sign with a pixel icon (tankard, loaf, ham, anvil, bottle, boot, candle), its own wall type and goods out front: taverns get barrels, a bench, all windows lit and a flickering lantern; bakeries flour sacks and bread; butchers a chopping block, blood and hams on the wall; smithies an anvil, iron bars and a glowing open forge; apothecaries a window of coloured bottles and drying herbs; cobblers boots on a bench; chandlers candles and a crate. Bakeries and smithies have smoking chimneys. Business doors never carry a plague cross. Purely visual: no effect on gameplay. | Draft |
 
 ## 3b. Audio
 | ID | Rule | Status |
@@ -77,6 +78,7 @@ All live in the `CONFIG` object at the top of the script in `index.html`. Tuning
 | `stickFullAt` | 0.6 | Joystick push that gives full speed (0–1) |
 | `musicEighth` | 0.22 s | Length of one eighth note; lower = faster tune (A3) |
 | `musicVolume` | 0.03 | Melody volume (A3) |
+| `businessShare` | 0.3 | Share of street-facing houses that are businesses (V6) |
 | `minimapCell` | 2 | Map tiles per minimap pixel (lower = bigger, more detailed minimap) |
 
 Balance note: a pathfinding test bot wins Level 1 in about 1:45 with ~20 rats left, but the bot always knows where everyone is. The designer found the level too hard without that knowledge, which is why R12 (minimap) was added. Numbers unchanged pending a replay.
@@ -91,6 +93,7 @@ With R13 added, the bot wins in ~1:45 with ~45 rats (was ~55 without R13). Its s
 - **Q3:** Should townsfolk react to rats (flee, scream, stomp rats)? Currently no (R9).
 
 ## 6. Ideas Parking Lot (not in the game)
+- Businesses with gameplay: e.g. crowds gather outside taverns, the apothecary slows the plague nearby, or the market plaza gets stalls that rats can run under.
 - **Chain spread** (designer likes it, parked for later): infected townsfolk pass the plague to healthy people they touch. Would change R8.
 - Indicators at the screen edge pointing to nearby healthy townsfolk.
 - Combo streak: infections in quick succession give bonus rats.
@@ -109,6 +112,7 @@ With R13 added, the bot wins in ~1:45 with ~45 rats (was ~55 without R13). Its s
 | 2026-10-05 | Chain spread moved to Parking Lot (former Q2) | Designer |
 | 2026-10-05 | R5 changed to trial: an infection restarts the die-off countdown. Old rule kept as R5a. | Designer |
 | 2026-10-05 | R5 (countdown reset on infection) locked | Designer |
+| 2026-10-05 | Added V6: taverns, shops and trades with signs, props, lantern glow and chimney smoke | Designer |
 | 2026-10-05 | Plague colour changed from green to vibrant purple (V1, V2); green now allowed anywhere (resolves former Q4) | Designer |
 | 2026-10-05 | Added V5: buildings rebuilt as individual houses with cleaner, less noisy pixel art, plus a church | Designer |
 | 2026-10-05 | Added V4: dirty streets, run-down buildings, churchyards | Designer |
