@@ -1,0 +1,776 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Plague Rat</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Jacquard+12&family=Pixelify+Sans:wght@400;600&display=swap" rel="stylesheet">
+<style>
+/* Layout: full-bleed pixel canvas; HUD strip pinned to the top; message cards centred over a dimmed city. Single dark look by choice. */
+:root {
+  --ink: #120f0c;
+  --panel: #1d1813;
+  --edge: #4a3c2c;
+  --parch: #e9dcbc;
+  --dim: #a8987a;
+  --plague: #a3d13c;
+  --blood: #d04a32;
+  --font-display: 'Jacquard 12', 'Times New Roman', serif;
+  --font-ui: 'Pixelify Sans', ui-monospace, 'Courier New', monospace;
+  color-scheme: dark;
+}
+[hidden] { display: none !important; }
+html, body { height: 100%; margin: 0; background: var(--ink); color: var(--parch); overflow: hidden; }
+body { font-family: var(--font-ui); touch-action: none; user-select: none; -webkit-user-select: none; }
+#game { position: fixed; left: 0; top: 0; display: block; image-rendering: pixelated; image-rendering: crisp-edges; }
+
+#hud {
+  position: fixed; left: 0; right: 0; top: 0;
+  padding: calc(env(safe-area-inset-top, 0px) + 10px) 16px 10px;
+  display: flex; gap: 16px; align-items: flex-start; justify-content: space-between;
+  background: linear-gradient(var(--ink), transparent);
+  pointer-events: none;
+}
+.label { font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--dim); display: flex; justify-content: space-between; gap: 8px; }
+.meter { flex: 1; max-width: 360px; min-width: 0; }
+.meter .label b { color: var(--plague); font-weight: 600; font-variant-numeric: tabular-nums; }
+.bar { position: relative; height: 12px; margin-top: 4px; background: var(--panel); border: 2px solid var(--edge); }
+#pctFill { position: absolute; left: 0; top: 0; bottom: 0; width: 0; background: var(--plague); transition: width .15s; }
+#target { position: absolute; top: -5px; bottom: -5px; width: 2px; background: var(--parch); }
+.swarm { text-align: right; min-width: 92px; }
+.count { font-size: 28px; line-height: 1; font-weight: 600; font-variant-numeric: tabular-nums; margin-top: 2px; }
+.count small { font-size: 12px; color: var(--dim); font-weight: 400; }
+.swarm.low .count { color: var(--blood); animation: pulse .5s steps(2) infinite; }
+@keyframes pulse { 50% { opacity: .45; } }
+.decay { height: 4px; margin-top: 4px; background: var(--panel); }
+#decayFill { height: 100%; width: 100%; background: var(--blood); margin-left: auto; }
+
+.screen {
+  position: fixed; inset: 0; display: grid; place-items: center;
+  padding-block: 16px; padding-inline: 16px;
+  background: rgba(10, 8, 6, .62);
+}
+.card {
+  width: 100%; max-width: 30rem; box-sizing: border-box;
+  background: var(--panel); border: 2px solid var(--edge);
+  box-shadow: 6px 6px 0 #000;
+  padding: 22px 22px 20px;
+  display: grid; gap: 14px;
+}
+.eyebrow { font-size: 12px; letter-spacing: .1em; text-transform: uppercase; color: var(--plague); }
+h1, h2 { font-family: var(--font-display); font-weight: 400; margin: 0; line-height: .9; text-wrap: balance; }
+h1 { font-size: clamp(56px, 16vw, 84px); color: var(--parch); }
+h2 { font-size: clamp(40px, 11vw, 56px); }
+.card p { margin: 0; font-size: 16px; line-height: 1.45; color: var(--parch); }
+.card .controls { font-size: 13px; color: var(--dim); }
+.facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr)); gap: 10px; margin: 0; }
+.facts div { border-top: 2px solid var(--edge); padding-top: 6px; }
+.facts dt { font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--dim); }
+.facts dd { margin: 2px 0 0; font-size: 18px; font-weight: 600; font-variant-numeric: tabular-nums; }
+button {
+  font: 600 18px var(--font-ui); color: var(--ink); background: var(--plague);
+  border: 0; padding: 12px 18px; cursor: pointer; box-shadow: 4px 4px 0 #000;
+  justify-self: start;
+}
+button:hover { filter: brightness(1.1); }
+button:active { transform: translate(2px, 2px); box-shadow: 2px 2px 0 #000; }
+button:focus-visible { outline: 3px solid var(--parch); outline-offset: 3px; }
+#mute {
+  position: fixed; right: 16px; bottom: calc(env(safe-area-inset-bottom, 0px) + 12px);
+  font-size: 12px; padding: 6px 10px; background: var(--panel); color: var(--dim);
+  border: 2px solid var(--edge); box-shadow: none;
+}
+@media (prefers-reduced-motion: reduce) { .swarm.low .count { animation: none; } #pctFill { transition: none; } }
+</style>
+</head>
+<body>
+<canvas id="game"></canvas>
+
+<div id="hud" hidden>
+  <div class="meter">
+    <div class="label"><span>Plague spread</span><b id="pct">0%</b></div>
+    <div class="bar"><div id="pctFill"></div><div id="target"></div></div>
+  </div>
+  <div class="swarm" id="swarmBox">
+    <div class="label" style="justify-content:flex-end">Swarm</div>
+    <div class="count"><span id="rats">0</span> <small>rats</small></div>
+    <div class="decay" title="Time until the next rat dies"><div id="decayFill"></div></div>
+  </div>
+</div>
+
+<div class="screen" id="titleScreen">
+  <div class="card">
+    <div class="eyebrow" id="levelLine">Level 1 · The Market District</div>
+    <h1>Plague Rat</h1>
+    <p>Lead your swarm through the streets. Every townsperson a rat touches catches the plague, and every infection breeds another rat. Your rats die off one by one, so keep spreading.</p>
+    <dl class="facts">
+      <div><dt>Win</dt><dd id="goalLine">Infect 60%</dd></div>
+      <div><dt>Lose</dt><dd>Swarm dies out</dd></div>
+    </dl>
+    <p class="controls">Move with WASD or the arrow keys, or press and drag on the screen.</p>
+    <button id="startBtn">Begin the plague</button>
+  </div>
+</div>
+
+<div class="screen" id="endScreen" hidden>
+  <div class="card">
+    <div class="eyebrow" id="endEyebrow"></div>
+    <h2 id="endTitle"></h2>
+    <p id="endText"></p>
+    <dl class="facts" id="endFacts"></dl>
+    <button id="retryBtn">Play again</button>
+  </div>
+</div>
+
+<button id="mute" type="button">Sound: on</button>
+
+<script>
+'use strict';
+
+// ---------------------------------------------------------------------------
+// CONFIG: every tunable number lives here. Mirrored in DESIGN.md §4.
+// ---------------------------------------------------------------------------
+const CONFIG = {
+  levelName: 'The Market District',
+  population: 140,         // townsfolk in the level
+  targetPercent: 60,       // R7: win when this % are infected
+  startRats: 8,            // R2: swarm size at level start
+  ratsPerInfection: 1,     // R4: rats gained per infection
+  decayInterval: 1.5,      // R5: seconds between rat deaths
+  ratSpeed: 80,            // px/s, lead rat
+  citizenSpeed: 16,        // px/s, healthy townsfolk
+  infectedSpeedMult: 0.6,  // R8: infected townsfolk move slower
+  infectRadius: 7,         // R3: px distance that counts as touching
+};
+
+const TILE = 16, BLOCKS_X = 10, BLOCKS_Y = 8;
+const MAP_W = BLOCKS_X * 8 + 4, MAP_H = BLOCKS_Y * 8 + 4;
+const T = { STREET: 0, BUILDING: 1, PLAZA: 2, GRASS: 3, TREE: 4, WELL: 5, WALL: 6 };
+const SOLID = new Set([T.BUILDING, T.TREE, T.WELL, T.WALL]);
+const PLAZA_BLOCK = { bx: 4, by: 3 };
+const WELL = { x: (3 + PLAZA_BLOCK.bx * 8 + 2) * TILE + 16, y: (3 + PLAZA_BLOCK.by * 8 + 2) * TILE + 16 };
+const START = { x: WELL.x, y: WELL.y + 40 };
+
+function mulberry32(a) {
+  return function () {
+    a |= 0; a = a + 0x6D2B79F5 | 0;
+    let t = Math.imul(a ^ a >>> 15, 1 | a);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+const pick = (rng, arr) => arr[Math.floor(rng() * arr.length)];
+
+// ---------------------------------------------------------------------------
+// Level: a fixed district (same layout every play). Blocks of 6x6 tiles
+// separated by 2-wide streets; some blocks are split by alleys or are parks.
+// ---------------------------------------------------------------------------
+const map = new Uint8Array(MAP_W * MAP_H);
+const roofs = [];
+const trees = [];
+const at = (x, y) => map[y * MAP_W + x];
+const set = (x, y, v) => { map[y * MAP_W + x] = v; };
+
+function buildMap() {
+  const rng = mulberry32(1347);
+  for (let y = 0; y < MAP_H; y++) for (let x = 0; x < MAP_W; x++) {
+    let v;
+    if (x === 0 || y === 0 || x === MAP_W - 1 || y === MAP_H - 1) v = T.WALL;
+    else if ((x - 1) % 8 < 2 || (y - 1) % 8 < 2) v = T.STREET;
+    else v = T.BUILDING;
+    set(x, y, v);
+  }
+  const fill = (x0, y0, v) => { for (let y = y0; y < y0 + 6; y++) for (let x = x0; x < x0 + 6; x++) set(x, y, v); };
+  for (let by = 0; by < BLOCKS_Y; by++) for (let bx = 0; bx < BLOCKS_X; bx++) {
+    const x0 = 3 + bx * 8, y0 = 3 + by * 8, roll = rng();
+    if (bx === PLAZA_BLOCK.bx && by === PLAZA_BLOCK.by) { // market plaza with a well
+      fill(x0, y0, T.PLAZA);
+      for (const [dx, dy] of [[2, 2], [3, 2], [2, 3], [3, 3]]) set(x0 + dx, y0 + dy, T.WELL);
+    } else if (roll < 0.1) { // park
+      fill(x0, y0, T.GRASS);
+      for (let i = 0; i < 4; i++) {
+        const tx = x0 + 1 + Math.floor(rng() * 4), ty = y0 + 1 + Math.floor(rng() * 4);
+        if (at(tx, ty) === T.GRASS) { set(tx, ty, T.TREE); trees.push([tx, ty]); }
+      }
+    } else if (roll < 0.3) { // vertical alley
+      const ax = x0 + 2 + Math.floor(rng() * 2);
+      for (let y = y0; y < y0 + 6; y++) set(ax, y, T.STREET);
+      roofs.push({ x: x0, y: y0, w: ax - x0, h: 6 }, { x: ax + 1, y: y0, w: x0 + 5 - ax, h: 6 });
+    } else if (roll < 0.5) { // horizontal alley
+      const ay = y0 + 2 + Math.floor(rng() * 2);
+      for (let x = x0; x < x0 + 6; x++) set(x, ay, T.STREET);
+      roofs.push({ x: x0, y: y0, w: 6, h: ay - y0 }, { x: x0, y: ay + 1, w: 6, h: y0 + 5 - ay });
+    } else {
+      roofs.push({ x: x0, y: y0, w: 6, h: 6 });
+    }
+  }
+}
+
+function solidAt(px, py) {
+  const tx = Math.floor(px / TILE), ty = Math.floor(py / TILE);
+  if (tx < 0 || ty < 0 || tx >= MAP_W || ty >= MAP_H) return true;
+  return SOLID.has(at(tx, ty));
+}
+function blocked(x, y, hw, hh) {
+  return solidAt(x - hw, y - hh) || solidAt(x + hw, y - hh) || solidAt(x - hw, y + hh) || solidAt(x + hw, y + hh);
+}
+
+// ---------------------------------------------------------------------------
+// Art: everything is drawn as pixels into small canvases.
+// ---------------------------------------------------------------------------
+function makeCanvas(w, h) { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; }
+function disc(ctx, cx, cy, r, col) {
+  ctx.fillStyle = col;
+  for (let y = -r; y <= r; y++) {
+    const w = Math.floor(Math.sqrt(r * r - y * y));
+    ctx.fillRect(Math.round(cx - w), Math.round(cy + y), w * 2 + 1, 1);
+  }
+}
+
+const ROOF_STYLES = [
+  { base: '#8a4a32', light: '#a65d3e', dark: '#5a2e20' }, // terracotta
+  { base: '#4c5566', light: '#5f697c', dark: '#323846' }, // slate
+  { base: '#86703f', light: '#9f8850', dark: '#5a4a29' }, // thatch
+  { base: '#6e3d36', light: '#874c43', dark: '#472622' }, // old brick tile
+];
+
+function renderMap() {
+  const c = makeCanvas(MAP_W * TILE, MAP_H * TILE);
+  const g = c.getContext('2d');
+  const rng = mulberry32(90210);
+  for (let ty = 0; ty < MAP_H; ty++) for (let tx = 0; tx < MAP_W; tx++) {
+    const px = tx * TILE, py = ty * TILE, v = at(tx, ty);
+    if (v === T.STREET || v === T.BUILDING) {
+      g.fillStyle = '#29241f'; g.fillRect(px, py, TILE, TILE);
+      for (let cy = 0; cy < 4; cy++) for (let cx = 0; cx < 4; cx++) {
+        g.fillStyle = pick(rng, ['#4b453d', '#464038', '#514a41', '#413b34']);
+        g.fillRect(px + cx * 4 + (cy % 2), py + cy * 4, 3, 3);
+      }
+    } else if (v === T.PLAZA || v === T.WELL) {
+      g.fillStyle = '#4a443b'; g.fillRect(px, py, TILE, TILE);
+      for (let cy = 0; cy < 2; cy++) for (let cx = 0; cx < 2; cx++) {
+        g.fillStyle = pick(rng, ['#7a6f5e', '#837765', '#72685a']);
+        g.fillRect(px + cx * 8, py + cy * 8, 7, 7);
+      }
+    } else if (v === T.GRASS || v === T.TREE) {
+      g.fillStyle = '#3f5a2c'; g.fillRect(px, py, TILE, TILE);
+      for (let i = 0; i < 14; i++) {
+        g.fillStyle = pick(rng, ['#4a6833', '#35502a', '#466230']);
+        g.fillRect(px + Math.floor(rng() * 16), py + Math.floor(rng() * 16), 1, 1);
+      }
+      if (rng() < 0.3) { g.fillStyle = '#c9b45a'; g.fillRect(px + Math.floor(rng() * 14) + 1, py + Math.floor(rng() * 14) + 1, 1, 1); }
+    } else if (v === T.WALL) {
+      g.fillStyle = '#1b1814'; g.fillRect(px, py, TILE, TILE);
+      g.fillStyle = '#2a241f';
+      for (let r = 0; r < 4; r++) for (let k = 0; k < 2; k++) g.fillRect(px + k * 8 + (r % 2) * 4, py + r * 4, 7, 3);
+    }
+  }
+  // building shadows, then roofs
+  g.fillStyle = 'rgba(0,0,0,.38)';
+  for (const r of roofs) g.fillRect(r.x * TILE + 4, r.y * TILE + 5, r.w * TILE, r.h * TILE);
+  for (const r of roofs) {
+    const s = pick(rng, ROOF_STYLES);
+    const x = r.x * TILE, y = r.y * TILE, w = r.w * TILE, h = r.h * TILE;
+    const horiz = w >= h;
+    g.fillStyle = s.base; g.fillRect(x, y, w, h);
+    g.fillStyle = s.light;
+    if (horiz) g.fillRect(x, y, w, Math.floor(h / 2)); else g.fillRect(x, y, Math.floor(w / 2), h);
+    g.fillStyle = s.dark;
+    if (horiz) {
+      for (let yy = y + 3; yy < y + h; yy += 4) {
+        g.fillRect(x, yy, w, 1);
+        for (let xx = x + ((yy / 4) % 2 ? 3 : 0); xx < x + w; xx += 6) g.fillRect(xx, yy - 3, 1, 3);
+      }
+      g.fillRect(x, y + Math.floor(h / 2) - 1, w, 2);
+    } else {
+      for (let xx = x + 3; xx < x + w; xx += 4) {
+        g.fillRect(xx, y, 1, h);
+        for (let yy = y + ((xx / 4) % 2 ? 3 : 0); yy < y + h; yy += 6) g.fillRect(xx - 3, yy, 3, 1);
+      }
+      g.fillRect(x + Math.floor(w / 2) - 1, y, 2, h);
+    }
+    g.strokeStyle = s.dark; g.lineWidth = 1; g.strokeRect(x + .5, y + .5, w - 1, h - 1);
+    if (rng() < 0.7) { // chimney
+      const cx = x + 6 + Math.floor(rng() * (w - 16)), cy = y + 6 + Math.floor(rng() * (h - 16));
+      g.fillStyle = 'rgba(0,0,0,.4)'; g.fillRect(cx + 2, cy + 2, 6, 6);
+      g.fillStyle = '#5c4c40'; g.fillRect(cx, cy, 6, 6);
+      g.fillStyle = '#1e1915'; g.fillRect(cx + 1, cy + 1, 4, 4);
+    }
+  }
+  // well
+  disc(g, WELL.x, WELL.y + 2, 14, 'rgba(0,0,0,.35)');
+  disc(g, WELL.x, WELL.y, 14, '#6b6152');
+  disc(g, WELL.x, WELL.y, 12, '#585044');
+  disc(g, WELL.x, WELL.y, 9, '#16232b');
+  g.fillStyle = '#2f4a57'; g.fillRect(WELL.x - 5, WELL.y - 4, 3, 1); g.fillRect(WELL.x + 3, WELL.y + 3, 2, 1);
+  // trees
+  for (const [tx, ty] of trees) {
+    const cx = tx * TILE + 8, cy = ty * TILE + 8;
+    disc(g, cx + 3, cy + 4, 10, 'rgba(0,0,0,.35)');
+    disc(g, cx, cy, 10, '#24401d');
+    disc(g, cx - 2, cy - 2, 7, '#2f5226');
+    disc(g, cx - 4, cy - 4, 3, '#3d6530');
+  }
+  return c;
+}
+
+// Sprites are written as character grids and coloured with a palette.
+function spriteFrom(rows, pal) {
+  const c = makeCanvas(rows[0].length, rows.length), g = c.getContext('2d');
+  rows.forEach((row, y) => [...row].forEach((ch, x) => {
+    if (ch !== '.' && pal[ch]) { g.fillStyle = pal[ch]; g.fillRect(x, y, 1, 1); }
+  }));
+  return c;
+}
+const rotCW = rows => rows[0].split('').map((_, c) => rows.map(r => r[c]).reverse().join(''));
+const flipH = rows => rows.map(r => [...r].reverse().join(''));
+const flipV = rows => [...rows].reverse();
+
+const RAT_FRAMES = [
+  ['....p...p....',
+   '...ddggggde..',
+   'pp.gggggggggn',
+   '..pgggggggggn',
+   '...ddggggde..',
+   '.....p...p...'],
+  ['......p.p....',
+   '...ddggggde..',
+   '.ppgggggggggn',
+   'p..gggggggggn',
+   '...ddggggde..',
+   '...p...p.....'],
+];
+const RAT_PAL = { g: '#6e5b4c', d: '#4b3c31', p: '#c98d86', n: '#e3a69e', e: '#ff3b2f' };
+const ratSprites = { r: [], l: [], d: [], u: [] };
+for (const f of RAT_FRAMES) {
+  ratSprites.r.push(spriteFrom(f, RAT_PAL));
+  ratSprites.l.push(spriteFrom(flipH(f), RAT_PAL));
+  ratSprites.d.push(spriteFrom(rotCW(f), RAT_PAL));
+  ratSprites.u.push(spriteFrom(flipV(rotCW(f)), RAT_PAL));
+}
+
+const PERSON_FRAMES = [
+  ['..hhhh..',
+   '.hhhhhh.',
+   '.hssssh.',
+   '..ssss..',
+   '.cccccc.',
+   'sccccccs',
+   'sccccccs',
+   '.cccccc.',
+   '.bb..bb.',
+   '.bb..bb.',
+   '.ff..ff.'],
+  ['..hhhh..',
+   '.hhhhhh.',
+   '.hssssh.',
+   '..ssss..',
+   '.cccccc.',
+   'sccccccs',
+   'sccccccs',
+   '.cccccc.',
+   '..bbbb..',
+   '..b..b..',
+   '..f..f..'],
+];
+function shade(hex, k) {
+  const n = parseInt(hex.slice(1), 16);
+  const f = v => Math.max(0, Math.min(255, Math.round(v * k)));
+  return '#' + [f(n >> 16), f(n >> 8 & 255), f(n & 255)].map(v => v.toString(16).padStart(2, '0')).join('');
+}
+function makePersonSprites(rng) {
+  const pal = {
+    h: pick(rng, ['#2a1f18', '#5a3a22', '#b8934a', '#8a8a86', '#6b2f1c']),
+    s: pick(rng, ['#e2b48f', '#c99470', '#9a6a48', '#f0c9a8']),
+    c: pick(rng, ['#7d3a33', '#3d5677', '#8c7a3c', '#5b4a6e', '#4f6b45', '#8a5a3a']),
+    b: pick(rng, ['#3a2f26', '#2c3340', '#4a3d2c']),
+    f: '#1d1712',
+  };
+  const sick = { ...pal, s: '#9cb860', c: shade(pal.c, 0.7), b: shade(pal.b, 0.8) };
+  return {
+    healthy: PERSON_FRAMES.map(f => spriteFrom(f, pal)),
+    infected: PERSON_FRAMES.map(f => spriteFrom(f, sick)),
+  };
+}
+
+const GLYPHS = {
+  '+': ['...', '.#.', '###', '.#.', '...'], '-': ['...', '...', '###', '...', '...'],
+  '0': ['###', '#.#', '#.#', '#.#', '###'], '1': ['.#.', '##.', '.#.', '.#.', '###'],
+  '2': ['###', '..#', '###', '#..', '###'], '3': ['###', '..#', '###', '..#', '###'],
+  '4': ['#.#', '#.#', '###', '..#', '..#'], '5': ['###', '#..', '###', '..#', '###'],
+  '6': ['###', '#..', '###', '#.#', '###'], '7': ['###', '..#', '..#', '..#', '..#'],
+  '8': ['###', '#.#', '###', '#.#', '###'], '9': ['###', '#.#', '###', '..#', '###'],
+};
+function pixText(g, text, x, y, col) {
+  const draw = (ox, oy, c) => {
+    g.fillStyle = c;
+    [...text].forEach((ch, i) => (GLYPHS[ch] || []).forEach((row, ry) => [...row].forEach((p, rx) => {
+      if (p === '#') g.fillRect(x + ox + i * 4 + rx, y + oy + ry, 1, 1);
+    })));
+  };
+  for (const [ox, oy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) draw(ox, oy, '#0c0a08');
+  draw(0, 0, col);
+}
+
+// ---------------------------------------------------------------------------
+// Sound: tiny synth blips, started only after the player presses Begin.
+// ---------------------------------------------------------------------------
+let actx = null, muted = false;
+function tone(freq, freq2, start, dur, type, vol) {
+  if (!actx || muted) return;
+  const t = actx.currentTime + start;
+  const o = actx.createOscillator(), gn = actx.createGain();
+  o.type = type; o.frequency.setValueAtTime(freq, t);
+  o.frequency.exponentialRampToValueAtTime(freq2, t + dur);
+  gn.gain.setValueAtTime(vol, t); gn.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  o.connect(gn); gn.connect(actx.destination); o.start(t); o.stop(t + dur + 0.02);
+}
+const sfx = {
+  infect() { tone(650 + Math.random() * 250, 1500, 0, 0.07, 'square', 0.04); },
+  die() { tone(240, 80, 0, 0.18, 'triangle', 0.09); },
+  win() { [392, 494, 587, 784].forEach((f, i) => tone(f, f, i * 0.11, 0.16, 'square', 0.05)); },
+  lose() { [330, 262, 196, 131].forEach((f, i) => tone(f, f * 0.97, i * 0.16, 0.22, 'triangle', 0.08)); },
+};
+
+// ---------------------------------------------------------------------------
+// Game state
+// ---------------------------------------------------------------------------
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+let view = { w: 320, h: 180, scale: 3 }, vignette = null;
+let mapCanvas, state = 'title', game = null;
+const keys = new Set();
+const pointer = { active: false, sx: 0, sy: 0 };
+const dbg = { timeScale: 1, input: null };
+window.__plague = dbg;
+dbg.solid = (x, y) => solidAt(x, y);
+dbg.CONFIG = CONFIG;
+
+function newGame() {
+  const rng = mulberry32(4242);
+  const citizens = [];
+  while (citizens.length < CONFIG.population) {
+    const tx = 1 + Math.floor(rng() * (MAP_W - 2)), ty = 1 + Math.floor(rng() * (MAP_H - 2));
+    if (SOLID.has(at(tx, ty))) continue;
+    const x = tx * TILE + 8 + Math.floor(rng() * 7) - 3, y = ty * TILE + 8 + Math.floor(rng() * 7) - 3;
+    if (Math.hypot(x - START.x, y - START.y) < TILE * 5) continue;
+    if (blocked(x, y, 3, 3)) continue;
+    citizens.push({ x, y, dx: 0, dy: 0, t: rng() * 2, infected: false, anim: rng(), flip: rng() < 0.5, sprites: makePersonSprites(rng) });
+  }
+  const rats = [];
+  for (let i = 0; i < CONFIG.startRats; i++) rats.push(newRat(START.x, START.y + i * 4));
+  dbg.game = game = {
+    citizens, rats, trail: [{ x: START.x, y: START.y }],
+    infected: 0, time: 0, decayTimer: 0, peak: rats.length,
+    particles: [], texts: [], cam: { x: 0, y: 0 },
+  };
+}
+function newRat(x, y) { return { x, y, face: 'u', frame: 0, anim: Math.random(), moving: false }; }
+
+// ---------------------------------------------------------------------------
+// Update
+// ---------------------------------------------------------------------------
+function moveWithSlide(e, dx, dy, hw, hh, assist) {
+  if (dx) {
+    if (!blocked(e.x + dx, e.y, hw, hh)) e.x += dx;
+    else if (assist) nudge(e, 'y', dx, hw, hh);
+  }
+  if (dy) {
+    if (!blocked(e.x, e.y + dy, hw, hh)) e.y += dy;
+    else if (assist) nudge(e, 'x', dy, hw, hh);
+  }
+}
+// Corner assist: if a turn is blocked by a few pixels, slide toward the opening.
+function nudge(e, axis, step, hw, hh) {
+  for (let k = 1; k <= 7; k++) for (const s of [k, -k]) {
+    const tx = axis === 'x' ? e.x + s : e.x + step, ty = axis === 'y' ? e.y + s : e.y + step;
+    if (!blocked(tx, ty, hw, hh)) {
+      const amt = Math.sign(s) * Math.min(Math.abs(step), Math.abs(s));
+      if (axis === 'x' && !blocked(e.x + amt, e.y, hw, hh)) e.x += amt;
+      if (axis === 'y' && !blocked(e.x, e.y + amt, hw, hh)) e.y += amt;
+      return;
+    }
+  }
+}
+
+function inputDir() {
+  if (dbg.input) return dbg.input;
+  const L = game.rats[0];
+  if (pointer.active) {
+    const wx = pointer.sx / view.scale + game.cam.x, wy = pointer.sy / view.scale + game.cam.y;
+    const dx = wx - L.x, dy = wy - L.y, d = Math.hypot(dx, dy);
+    return d < 4 ? { x: 0, y: 0 } : { x: dx / d, y: dy / d };
+  }
+  let x = 0, y = 0;
+  if (keys.has('ArrowLeft') || keys.has('KeyA')) x -= 1;
+  if (keys.has('ArrowRight') || keys.has('KeyD')) x += 1;
+  if (keys.has('ArrowUp') || keys.has('KeyW')) y -= 1;
+  if (keys.has('ArrowDown') || keys.has('KeyS')) y += 1;
+  const d = Math.hypot(x, y) || 1;
+  return { x: x / d, y: y / d };
+}
+
+function faceOf(dx, dy, prev) {
+  if (Math.abs(dx) < 0.01 && Math.abs(dy) < 0.01) return prev;
+  return Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'r' : 'l') : (dy > 0 ? 'd' : 'u');
+}
+
+function trailPoint(dist) {
+  const tr = game.trail, i = Math.min(tr.length - 1, Math.floor(dist / 2));
+  const a = tr[Math.max(0, i - 1)], b = tr[Math.min(tr.length - 1, i + 1)];
+  const dx = a.x - b.x, dy = a.y - b.y, d = Math.hypot(dx, dy) || 1;
+  return { x: tr[i].x, y: tr[i].y, nx: -dy / d, ny: dx / d };
+}
+
+const LANES = [0, -1, 1];
+function update(dt) {
+  const G = game;
+  G.time += dt;
+
+  // R1: lead rat follows the player's input
+  const L = G.rats[0], dir = inputDir();
+  const ox = L.x, oy = L.y;
+  moveWithSlide(L, dir.x * CONFIG.ratSpeed * dt, dir.y * CONFIG.ratSpeed * dt, 3, 3, true);
+  L.moving = Math.hypot(L.x - ox, L.y - oy) > 0.01;
+  L.face = faceOf(L.x - ox, L.y - oy, L.face);
+  const head = G.trail[0];
+  if (Math.hypot(L.x - head.x, L.y - head.y) >= 2) {
+    G.trail.unshift({ x: L.x, y: L.y });
+    const maxLen = Math.ceil(G.rats.length / 3) * 3 + 20;
+    if (G.trail.length > maxLen) G.trail.length = maxLen;
+  }
+
+  // R1: the rest of the swarm runs along the leader's path, three abreast
+  for (let i = 1; i < G.rats.length; i++) {
+    const r = G.rats[i], k = i - 1;
+    const p = trailPoint((Math.floor(k / 3) + 1) * 6);
+    const off = LANES[k % 3] * 4 + Math.sin(G.time * 4 + i * 1.7) * 1.2;
+    let tx = p.x + p.nx * off, ty = p.y + p.ny * off;
+    if (solidAt(tx, ty)) { tx = p.x; ty = p.y; }
+    const a = Math.min(1, dt * 12), mx = (tx - r.x) * a, my = (ty - r.y) * a;
+    r.x += mx; r.y += my;
+    r.moving = Math.hypot(mx, my) > 0.15;
+    if (Math.hypot(mx, my) > 0.05) r.face = faceOf(mx, my, r.face);
+  }
+  for (const r of G.rats) {
+    r.anim += dt;
+    if (r.moving && r.anim > 0.08) { r.anim = 0; r.frame ^= 1; }
+  }
+
+  // R9: townsfolk wander, ignoring the rats
+  for (const c of G.citizens) {
+    c.t -= dt;
+    const sp = CONFIG.citizenSpeed * (c.infected ? CONFIG.infectedSpeedMult : 1) * dt;
+    let stuck = false;
+    if (c.dx || c.dy) {
+      const bx = c.x, by = c.y;
+      moveWithSlide(c, c.dx * sp, c.dy * sp, 3, 3, false);
+      stuck = bx === c.x && by === c.y;
+      c.anim += dt;
+      if (c.anim > 0.22) { c.anim = 0; c.frame = c.frame ? 0 : 1; }
+      if (c.dx) c.flip = c.dx < 0;
+    }
+    if (c.t <= 0 || stuck) {
+      const opts = [[1, 0], [-1, 0], [0, 1], [0, -1]].filter(([x, y]) => !blocked(c.x + x * 6, c.y + y * 6, 3, 3));
+      if (Math.random() < 0.15 || !opts.length) { c.dx = c.dy = 0; c.t = 0.6 + Math.random(); }
+      else { [c.dx, c.dy] = opts[Math.floor(Math.random() * opts.length)]; c.t = 1.5 + Math.random() * 3; }
+    }
+    if (c.infected && Math.random() < dt * 0.9) {
+      G.particles.push({ x: c.x + (Math.random() * 6 - 3), y: c.y - 10, vx: 0, vy: -8, life: 0.9, max: 0.9, col: '#a3d13c', size: 1 });
+    }
+  }
+
+  // R3 + R4: a rat touching a healthy townsperson infects them and breeds rats
+  const r2 = CONFIG.infectRadius * CONFIG.infectRadius;
+  for (const c of G.citizens) {
+    if (c.infected) continue;
+    for (const r of G.rats) {
+      const dx = r.x - c.x, dy = r.y - (c.y - 2);
+      if (dx * dx + dy * dy <= r2) { infect(c); break; }
+    }
+  }
+
+  // R5: the swarm dies off from the tail at a steady rate
+  G.decayTimer += dt;
+  while (G.decayTimer >= CONFIG.decayInterval && G.rats.length) {
+    G.decayTimer -= CONFIG.decayInterval;
+    const dead = G.rats.pop();
+    for (let i = 0; i < 6; i++) G.particles.push({ x: dead.x, y: dead.y, vx: (Math.random() - .5) * 20, vy: -10 - Math.random() * 14, life: 0.7, max: 0.7, col: '#8b8173', size: 1 });
+    G.texts.push({ x: dead.x, y: dead.y - 6, text: '-1', col: '#d04a32', life: 0.8 });
+    sfx.die();
+  }
+
+  for (const p of G.particles) { p.x += p.vx * dt; p.y += p.vy * dt; p.life -= dt; }
+  G.particles = G.particles.filter(p => p.life > 0);
+  for (const t of G.texts) { t.y -= 14 * dt; t.life -= dt; }
+  G.texts = G.texts.filter(t => t.life > 0);
+
+  // R6 / R7
+  if (G.infected * 100 >= CONFIG.targetPercent * CONFIG.population) endGame(true);
+  else if (G.rats.length === 0) endGame(false);
+}
+
+function infect(c) {
+  const G = game;
+  c.infected = true; G.infected++;
+  for (let i = 0; i < CONFIG.ratsPerInfection; i++) G.rats.push(newRat(c.x, c.y));
+  G.peak = Math.max(G.peak, G.rats.length);
+  for (let i = 0; i < 10; i++) {
+    const a = Math.random() * Math.PI * 2, s = 10 + Math.random() * 25;
+    G.particles.push({ x: c.x, y: c.y - 5, vx: Math.cos(a) * s, vy: Math.sin(a) * s, life: 0.5, max: 0.5, col: Math.random() < .5 ? '#a3d13c' : '#6f9a2a', size: 1 + (Math.random() < .3) });
+  }
+  G.texts.push({ x: c.x - 3, y: c.y - 16, text: '+' + CONFIG.ratsPerInfection, col: '#a3d13c', life: 0.8 });
+  sfx.infect();
+}
+
+// ---------------------------------------------------------------------------
+// Render
+// ---------------------------------------------------------------------------
+function render() {
+  const G = game, L = G.rats[0] || G.trail[0];
+  const mw = MAP_W * TILE, mh = MAP_H * TILE;
+  const cx = mw <= view.w ? (mw - view.w) / 2 : Math.max(0, Math.min(mw - view.w, L.x - view.w / 2));
+  const cy = mh <= view.h ? (mh - view.h) / 2 : Math.max(0, Math.min(mh - view.h, L.y - view.h / 2));
+  G.cam.x = Math.round(cx); G.cam.y = Math.round(cy);
+  const ox = -G.cam.x, oy = -G.cam.y;
+
+  ctx.fillStyle = '#120f0c'; ctx.fillRect(0, 0, view.w, view.h);
+  ctx.drawImage(mapCanvas, ox, oy);
+
+  if (G.rats[0]) { // miasma under the lead rat
+    const pulse = 9 + Math.round(Math.sin(G.time * 5));
+    ctx.globalAlpha = 0.22; disc(ctx, G.rats[0].x + ox, G.rats[0].y + oy, pulse, '#a3d13c'); ctx.globalAlpha = 1;
+  }
+
+  const ents = [];
+  for (const r of G.rats) ents.push({ y: r.y, r });
+  for (const c of G.citizens) ents.push({ y: c.y, c });
+  ents.sort((a, b) => a.y - b.y);
+  for (const e of ents) {
+    if (e.r) {
+      const r = e.r, s = ratSprites[r.face][r.frame];
+      ctx.drawImage(s, Math.round(r.x - s.width / 2 + ox), Math.round(r.y - s.height / 2 + oy));
+    } else {
+      const c = e.c, s = (c.infected ? c.sprites.infected : c.sprites.healthy)[c.frame || 0];
+      const x = Math.round(c.x - 4 + ox), y = Math.round(c.y - 10 + oy);
+      ctx.fillStyle = 'rgba(0,0,0,.35)'; ctx.fillRect(x + 1, y + 10, 6, 2);
+      if (c.flip) { ctx.save(); ctx.scale(-1, 1); ctx.drawImage(s, -x - 8, y); ctx.restore(); }
+      else ctx.drawImage(s, x, y);
+    }
+  }
+  for (const p of G.particles) {
+    ctx.globalAlpha = Math.max(0, p.life / p.max);
+    ctx.fillStyle = p.col; ctx.fillRect(Math.round(p.x + ox), Math.round(p.y + oy), p.size, p.size);
+  }
+  ctx.globalAlpha = 1;
+  for (const t of G.texts) pixText(ctx, t.text, Math.round(t.x + ox), Math.round(t.y + oy), t.col);
+  if (vignette) ctx.drawImage(vignette, 0, 0);
+}
+
+function makeVignette() {
+  const v = makeCanvas(view.w, view.h), g = v.getContext('2d');
+  const grad = g.createRadialGradient(view.w / 2, view.h / 2, Math.min(view.w, view.h) * 0.35, view.w / 2, view.h / 2, Math.max(view.w, view.h) * 0.75);
+  grad.addColorStop(0, 'rgba(10,8,6,0)'); grad.addColorStop(1, 'rgba(10,8,6,.6)');
+  g.fillStyle = grad; g.fillRect(0, 0, view.w, view.h);
+  return v;
+}
+
+function resize() {
+  const W = window.innerWidth, H = window.innerHeight;
+  const scale = Math.max(1, Math.floor(Math.min(W, H) / 190));
+  view = { w: Math.ceil(W / scale), h: Math.ceil(H / scale), scale };
+  canvas.width = view.w; canvas.height = view.h;
+  canvas.style.width = view.w * scale + 'px'; canvas.style.height = view.h * scale + 'px';
+  ctx.imageSmoothingEnabled = false;
+  vignette = makeVignette();
+}
+
+// ---------------------------------------------------------------------------
+// HUD + screens
+// ---------------------------------------------------------------------------
+const $ = id => document.getElementById(id);
+let hudCache = {};
+function updateHud() {
+  const G = game;
+  const pct = Math.floor(G.infected * 100 / CONFIG.population);
+  if (hudCache.pct !== pct) { $('pct').textContent = pct + '%'; $('pctFill').style.width = pct + '%'; hudCache.pct = pct; }
+  if (hudCache.rats !== G.rats.length) {
+    $('rats').textContent = G.rats.length; hudCache.rats = G.rats.length;
+    $('swarmBox').classList.toggle('low', G.rats.length <= 3);
+  }
+  $('decayFill').style.width = (100 - G.decayTimer / CONFIG.decayInterval * 100) + '%';
+}
+const fmtTime = s => Math.floor(s / 60) + ':' + String(Math.floor(s % 60)).padStart(2, '0');
+
+function startGame() {
+  if (!actx) { try { actx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { actx = null; } }
+  newGame(); hudCache = {};
+  state = 'playing';
+  $('titleScreen').hidden = true; $('endScreen').hidden = true; $('hud').hidden = false;
+  canvas.focus?.();
+}
+function endGame(won) {
+  const G = game;
+  state = won ? 'won' : 'lost';
+  updateHud();
+  const pct = Math.floor(G.infected * 100 / CONFIG.population);
+  $('endEyebrow').textContent = 'Level 1 · ' + CONFIG.levelName;
+  $('endTitle').textContent = won ? 'The district has fallen' : 'Your swarm died out';
+  $('endTitle').style.color = won ? 'var(--plague)' : 'var(--blood)';
+  $('endText').textContent = won
+    ? `You infected ${G.infected} of ${CONFIG.population} townsfolk with ${G.rats.length} rats still standing.`
+    : `You reached ${pct}% of the ${CONFIG.targetPercent}% needed. ${Math.ceil(CONFIG.targetPercent * CONFIG.population / 100) - G.infected} more infections would have done it.`;
+  const facts = [['Spread', pct + '%'], ['Time', fmtTime(G.time)], ['Biggest swarm', G.peak]];
+  $('endFacts').innerHTML = facts.map(([k, v]) => `<div><dt>${k}</dt><dd>${v}</dd></div>`).join('');
+  (won ? sfx.win : sfx.lose)();
+  setTimeout(() => { $('endScreen').hidden = false; $('retryBtn').focus(); }, 700);
+}
+
+// ---------------------------------------------------------------------------
+// Input + main loop
+// ---------------------------------------------------------------------------
+window.addEventListener('keydown', e => {
+  if (e.code.startsWith('Arrow') || e.code === 'Space') e.preventDefault();
+  keys.add(e.code);
+  if (state !== 'playing' && (e.code === 'Enter' || e.code === 'Space') && (!$('endScreen').hidden || !$('titleScreen').hidden)) startGame();
+  if (e.code === 'KeyM') toggleMute();
+});
+window.addEventListener('keyup', e => keys.delete(e.code));
+window.addEventListener('blur', () => keys.clear());
+canvas.addEventListener('pointerdown', e => { pointer.active = true; pointer.sx = e.clientX; pointer.sy = e.clientY; canvas.setPointerCapture?.(e.pointerId); });
+canvas.addEventListener('pointermove', e => { pointer.sx = e.clientX; pointer.sy = e.clientY; });
+const release = () => { pointer.active = false; };
+canvas.addEventListener('pointerup', release);
+canvas.addEventListener('pointercancel', release);
+$('startBtn').addEventListener('click', startGame);
+$('retryBtn').addEventListener('click', startGame);
+function toggleMute() { muted = !muted; $('mute').textContent = 'Sound: ' + (muted ? 'off' : 'on'); }
+$('mute').addEventListener('click', e => { toggleMute(); e.currentTarget.blur(); });
+
+$('target').style.left = CONFIG.targetPercent + '%';
+$('goalLine').textContent = `Infect ${CONFIG.targetPercent}% of ${CONFIG.population}`;
+$('levelLine').textContent = 'Level 1 · ' + CONFIG.levelName;
+
+buildMap();
+mapCanvas = renderMap();
+newGame();
+resize();
+window.addEventListener('resize', resize);
+
+let last = performance.now();
+function frame(now) {
+  const dt = Math.min(0.05, (now - last) / 1000); last = now;
+  if (state === 'playing') {
+    const steps = Math.max(1, Math.round(dbg.timeScale));
+    for (let i = 0; i < steps && state === 'playing'; i++) update(dt);
+    updateHud();
+  }
+  render();
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
