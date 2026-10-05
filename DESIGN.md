@@ -44,6 +44,7 @@ Status: **Locked** (agreed, must be honored), **Draft** (being tried out), **Ret
 | V1 | **Green means plague.** Green is reserved for the plague and the rats' miasma. Healthy townsfolk never wear or show green. | Draft |
 | V2 | Infected townsfolk are marked by: sickly green skin, dark plague sores on face and arm, clothes dulled toward olive, a bright green outline, a pulsing green glow on the ground, and rising green bubbles. Healthy townsfolk have a thin dark outline. | Draft |
 | V3 | **Bill of Mortality.** Every end screen (win or lose) shows a comic death report styled after the old London Bills of Mortality. It lists up to 5 gross, cartoonish causes picked at random from a pool of 20, with numbers that add up to the number of people infected that run. A new mix every play. | Draft |
+| V4 | **A filthy, run-down district.** Streets: uneven cobbles with missing stones, patchy mud, filth banked against walls, an open sewer channel down the middle of main streets, puddles (clear and murky), stains, and litter (straw, dung, bones, broken pots, rags). Buildings: roofs in six weathered styles (terracotta, slate, two thatches, brick tile, shingle) with colour jitter, sagging ridges, slipped and missing tiles, holes with exposed rafters (some boarded over), lichen, bird droppings and sooty chimneys. Each building shows a street-facing timber-framed wall with grimy plaster, damp streaks, exposed brick, shuttered, boarded or candle-lit windows, and a door, some marked with a red plague cross. Parks are now neglected churchyards with headstones, fresh grave mounds, a dirt path and some dead trees. The layout is the same every play (seeded). | Draft |
 
 ## 3b. Audio
 | ID | Rule | Status |
@@ -85,6 +86,7 @@ With R13 added, the bot wins in ~1:45 with ~45 rats (was ~55 without R13). Its s
 ## 5. Open Questions (need the designer's call)
 - **Q1:** Should there also be a hard level timer, or is the die-off the only clock (current)?
 - **Q2:** Should the die-off speed up as the swarm grows? Currently flat, so a big swarm makes the level easier.
+- **Q4:** V1 says green belongs to the plague. Churchyard grass and trees use dark, muddy olive, well away from the bright plague green. Is that OK, or should scenery avoid green completely?
 - **Q3:** Should townsfolk react to rats (flee, scream, stomp rats)? Currently no (R9).
 
 ## 6. Ideas Parking Lot (not in the game)
@@ -106,6 +108,7 @@ With R13 added, the bot wins in ~1:45 with ~45 rats (was ~55 without R13). Its s
 | 2026-10-05 | Chain spread moved to Parking Lot (former Q2) | Designer |
 | 2026-10-05 | R5 changed to trial: an infection restarts the die-off countdown. Old rule kept as R5a. | Designer |
 | 2026-10-05 | R5 (countdown reset on infection) locked | Designer |
+| 2026-10-05 | Added V4: dirty streets, run-down buildings, churchyards | Designer |
 | 2026-10-05 | Added V3 (Bill of Mortality end report) and A3 (Ring a Ring o' Roses music); recorded existing sound as A1, A2 | Designer |
 | 2026-10-05 | R11 touch control changed to a bottom-middle virtual joystick; drag-to-move retired as R11a | Designer |
 | 2026-10-05 | Added V1 (green = plague only) and V2 (stronger infected look) | Designer |
