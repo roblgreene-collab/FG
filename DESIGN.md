@@ -41,10 +41,12 @@ Status: **Locked** (agreed, must be honored), **Draft** (being tried out), **Ret
 ## 3a. Visual Language
 | ID | Rule | Status |
 |----|------|--------|
-| V1 | **Green means plague.** Green is reserved for the plague and the rats' miasma. Healthy townsfolk never wear or show green. | Draft |
-| V2 | Infected townsfolk are marked by: sickly green skin, dark plague sores on face and arm, clothes dulled toward olive, a bright green outline, a pulsing green glow on the ground, and rising green bubbles. Healthy townsfolk have a thin dark outline. | Draft |
+| V1 | **Purple means plague.** Vibrant purple is reserved for the plague: infected people, the rats' haze, the plague HUD and effects. Healthy townsfolk never wear purple. Green is allowed anywhere (grass, trees, moss, clothes, awnings). | Draft |
+| V1a | *(old V1)* Green means plague; nothing healthy shows green. | Retired |
+| V2 | Infected townsfolk are marked by: lavender-grey skin, dark plague sores on face and arm, clothes dulled toward deep purple, a bright purple outline, a pulsing purple glow on the ground, and rising purple bubbles. Healthy townsfolk have a thin dark outline. | Draft |
 | V3 | **Bill of Mortality.** Every end screen (win or lose) shows a comic death report styled after the old London Bills of Mortality. It lists up to 5 gross, cartoonish causes picked at random from a pool of 20, with numbers that add up to the number of people infected that run. A new mix every play. | Draft |
-| V4 | **A filthy, run-down district.** Streets: uneven cobbles with missing stones, patchy mud, filth banked against walls, an open sewer channel down the middle of main streets, puddles (clear and murky), stains, and litter (straw, dung, bones, broken pots, rags). Buildings: roofs in six weathered styles (terracotta, slate, two thatches, brick tile, shingle) with colour jitter, sagging ridges, slipped and missing tiles, holes with exposed rafters (some boarded over), lichen, bird droppings and sooty chimneys. Each building shows a street-facing timber-framed wall with grimy plaster, damp streaks, exposed brick, shuttered, boarded or candle-lit windows, and a door, some marked with a red plague cross. Parks are now neglected churchyards with headstones, fresh grave mounds, a dirt path and some dead trees. The layout is the same every play (seeded). | Draft |
+| V4 | **A filthy district.** Streets: uneven cobbles with missing stones, patchy mud, filth banked against walls, an open sewer channel down the middle of main streets, puddles (clear and murky), stains and a little litter. Parks are churchyards: green grass with tufts and flowers, a clean dirt path, headstones in rows, fresh graves, leafy and dead trees. Layout is the same every play (seeded). | Draft |
+| V5 | **Buildings are rows of individual houses.** Each block is split into 2–4 houses (24–48 px wide), and deep blocks have a back row of roofs too, so no two blocks look alike. Neighbouring houses never share a roof material. Roofs are drawn as clean shaded planes lit from the top-left: hipped (four faces) or gabled (two), in six materials (terracotta, slate, thatch, old tile, wooden shingle, lead) with tidy tile rows, ridge and hip lines. Wear comes from a few deliberate details instead of random specks: moss clumps, holes with rafters (some boarded over), chimneys, dormer windows. Each house has its own street-facing wall: timber-framed plaster (sometimes with X braces or fallen plaster), stone, brick, or a shopfront with a striped awning. Windows are dark, candle-lit, shuttered or boarded; doors are arched, and some carry a red plague cross. One landmark church per level: a long slate nave, a bell tower with a gold cross, stained-glass windows and a double door, placed beside a churchyard. | Draft |
 
 ## 3b. Audio
 | ID | Rule | Status |
@@ -86,7 +88,6 @@ With R13 added, the bot wins in ~1:45 with ~45 rats (was ~55 without R13). Its s
 ## 5. Open Questions (need the designer's call)
 - **Q1:** Should there also be a hard level timer, or is the die-off the only clock (current)?
 - **Q2:** Should the die-off speed up as the swarm grows? Currently flat, so a big swarm makes the level easier.
-- **Q4:** V1 says green belongs to the plague. Churchyard grass and trees use dark, muddy olive, well away from the bright plague green. Is that OK, or should scenery avoid green completely?
 - **Q3:** Should townsfolk react to rats (flee, scream, stomp rats)? Currently no (R9).
 
 ## 6. Ideas Parking Lot (not in the game)
@@ -108,6 +109,8 @@ With R13 added, the bot wins in ~1:45 with ~45 rats (was ~55 without R13). Its s
 | 2026-10-05 | Chain spread moved to Parking Lot (former Q2) | Designer |
 | 2026-10-05 | R5 changed to trial: an infection restarts the die-off countdown. Old rule kept as R5a. | Designer |
 | 2026-10-05 | R5 (countdown reset on infection) locked | Designer |
+| 2026-10-05 | Plague colour changed from green to vibrant purple (V1, V2); green now allowed anywhere (resolves former Q4) | Designer |
+| 2026-10-05 | Added V5: buildings rebuilt as individual houses with cleaner, less noisy pixel art, plus a church | Designer |
 | 2026-10-05 | Added V4: dirty streets, run-down buildings, churchyards | Designer |
 | 2026-10-05 | Added V3 (Bill of Mortality end report) and A3 (Ring a Ring o' Roses music); recorded existing sound as A1, A2 | Designer |
 | 2026-10-05 | R11 touch control changed to a bottom-middle virtual joystick; drag-to-move retired as R11a | Designer |

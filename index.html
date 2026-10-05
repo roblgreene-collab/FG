@@ -15,7 +15,7 @@
   --edge: #4a3c2c;
   --parch: #e9dcbc;
   --dim: #a8987a;
-  --plague: #a3d13c;
+  --plague: #c05cff;
   --blood: #d04a32;
   --font-display: 'Jacquard 12', 'Times New Roman', serif;
   --font-ui: 'Pixelify Sans', ui-monospace, 'Courier New', monospace;
@@ -276,16 +276,6 @@ function disc(ctx, cx, cy, r, col) {
   }
 }
 
-// Scenery colours stay muddy and muted. V1: bright green is the plague's alone.
-const ROOF_STYLES = [
-  { kind: 'tile', base: '#8a4a32', light: '#a65d3e', dark: '#5a2e20' }, // terracotta
-  { kind: 'tile', base: '#4c5566', light: '#5f697c', dark: '#323846' }, // slate
-  { kind: 'thatch', base: '#76643a', light: '#8a7547', dark: '#4f4126' }, // thatch
-  { kind: 'tile', base: '#6e3d36', light: '#874c43', dark: '#472622' }, // old brick tile
-  { kind: 'thatch', base: '#6f5d3a', light: '#857049', dark: '#4a3d25' }, // old rotten thatch
-  { kind: 'tile', base: '#5b4a3f', light: '#6e5b4e', dark: '#3a2f28' }, // weathered shingle
-];
-const PLASTER = ['#9e8f73', '#93846a', '#877a63', '#9c8b6a', '#7f7563'];
 const tileAt = (px, py) => {
   const tx = Math.floor(px / TILE), ty = Math.floor(py / TILE);
   return tx < 0 || ty < 0 || tx >= MAP_W || ty >= MAP_H ? T.WALL : at(tx, ty);
@@ -344,175 +334,317 @@ function drawFlagTile(g, px, py, rng) {
   }
 }
 
-function drawRoof(g, r, rng) {
-  const s0 = pick(rng, ROOF_STYLES), k = 0.85 + rng() * 0.22;
-  const s = { kind: s0.kind, base: shade(s0.base, k), light: shade(s0.light, k), dark: shade(s0.dark, k) };
-  const FACADE = 10;
-  const x = r.x * TILE, y = r.y * TILE, w = r.w * TILE, h = r.h * TILE - FACADE;
-  const horiz = w >= h;
-  const sag = Math.floor(rng() * 3); // sagging ridge
-  const ridge = horiz ? y + Math.floor(h / 2) : x + Math.floor(w / 2);
-  g.fillStyle = s.base; g.fillRect(x, y, w, h);
-  g.fillStyle = s.light;
-  if (horiz) g.fillRect(x, y, w, ridge - y); else g.fillRect(x, y, ridge - x, h);
+// Roof materials. faces = [north (lit), west, east, south (shade)]; light comes from the top-left.
+const MATERIALS = [
+  { name: 'terracotta', kind: 'tile', faces: ['#b8683f', '#a35a37', '#8c4a2e', '#733b25'], line: '#4f2618', ridge: '#d08a5c' },
+  { name: 'slate', kind: 'slate', faces: ['#727d8f', '#646e80', '#555e6d', '#464d5a'], line: '#2c313b', ridge: '#8d98aa' },
+  { name: 'thatch', kind: 'thatch', faces: ['#a88d55', '#977e4b', '#836c40', '#6d5935'], line: '#4a3d24', ridge: '#5e4c2c' },
+  { name: 'old tile', kind: 'tile', faces: ['#93554a', '#814a41', '#6e3f37', '#5a332d'], line: '#3a1f1b', ridge: '#ab6b5f' },
+  { name: 'shingle', kind: 'shingle', faces: ['#857160', '#766453', '#665647', '#55473b'], line: '#362c24', ridge: '#9c8676' },
+  { name: 'lead', kind: 'slate', faces: ['#626a6e', '#575e62', '#4b5155', '#3f4447'], line: '#25292b', ridge: '#7c8589' },
+];
+const PLASTER = ['#b2a283', '#a79878', '#9d9070', '#b4a27c', '#a09a88'];
+const SHUTTERS = ['#4a5e3a', '#5a3a2a', '#3a4a5e', '#6b5233', null];
+const AWNINGS = [['#a8322c', '#dccba4'], ['#2f5a8a', '#dccba4'], ['#b08a2e', '#5a3a1c'], ['#3f6b3a', '#dccba4']];
+const FACADE_H = 12;
 
-  if (s.kind === 'thatch') {
-    for (let i = 0; i < w * h / 6; i++) { // straw strands
-      const sx = x + Math.floor(rng() * w), sy = y + Math.floor(rng() * h), len = 2 + Math.floor(rng() * 4);
-      g.fillStyle = rng() < .5 ? s.dark : shade(s.light, 1.1);
-      if (horiz) g.fillRect(sx, sy, 1, Math.min(len, y + h - sy)); else g.fillRect(sx, sy, Math.min(len, x + w - sx), 1);
+const rgbCache = new Map();
+function rgb(hex) {
+  let v = rgbCache.get(hex);
+  if (!v) { const n = parseInt(hex.slice(1), 16); v = [n >> 16, n >> 8 & 255, n & 255]; rgbCache.set(hex, v); }
+  return v;
+}
+function roofTexel(m, f, d, along) {
+  const base = m.faces[f], hi = m.hi[f], dk = m.dk[f];
+  if (m.kind === 'tile') { const r = d % 4, row = (d / 4) | 0; return r === 3 ? dk : r === 0 ? hi : (along + row * 3) % 6 === 0 ? dk : base; }
+  if (m.kind === 'slate') { const r = d % 3, row = (d / 3) | 0; return r === 2 ? dk : (along + (row % 2) * 4) % 8 === 0 ? dk : base; }
+  if (m.kind === 'shingle') { const r = d % 3, row = (d / 3) | 0; return r === 2 ? dk : (along * 7 + row * 5) % 9 === 0 ? dk : base; }
+  const r = d % 6; // thatch: soft bands with a ragged eave
+  return d < 2 && along % 3 === 0 ? m.line : r === 5 ? dk : r === 0 ? hi : base;
+}
+
+// Draws one roof as clean shaded planes: hip roofs have four faces, gables two.
+function drawRoofUnit(g, x, y, w, h, m0, form, k) {
+  const m = { ...m0, faces: m0.faces.map(c => shade(c, k)) };
+  m.hi = m.faces.map(c => shade(c, 1.12)); m.dk = m.faces.map(c => shade(c, 0.8));
+  const img = g.createImageData(w, h), data = img.data, faces = new Int8Array(w * h);
+  const put = (i, hex) => { const c = rgb(hex), o = i * 4; data[o] = c[0]; data[o + 1] = c[1]; data[o + 2] = c[2]; data[o + 3] = 255; };
+  for (let py = 0; py < h; py++) for (let px = 0; px < w; px++) {
+    const dT = py, dB = h - 1 - py, dL = px, dR = w - 1 - px;
+    let f;
+    if (form === 'gable-h') f = dT <= dB ? 0 : 3;
+    else if (form === 'gable-v') f = dL <= dR ? 1 : 2;
+    else { const mn = Math.min(dT, dB, dL, dR); f = mn === dT ? 0 : mn === dL ? 1 : mn === dR ? 2 : 3; }
+    const d = [dT, dL, dR, dB][f], along = f === 0 || f === 3 ? px : py;
+    faces[py * w + px] = f;
+    put(py * w + px, roofTexel(m, f, d, along));
+  }
+  // ridges and hips where two faces meet, then the eave outline
+  const ridgeW = m.kind === 'thatch' ? 2 : 1;
+  for (let py = 0; py < h; py++) for (let px = 0; px < w; px++) {
+    const i = py * w + px, f = faces[i];
+    if ((px + 1 < w && faces[i + 1] !== f) || (py + 1 < h && faces[i + w] !== f)) {
+      put(i, m.ridge);
+      if (ridgeW > 1 && py + 1 < h) put(i + w, m.ridge);
     }
-    for (let i = 0; i < 2 + rng() * 3; i++) { // rot
-      g.globalAlpha = 0.35 + rng() * 0.25;
-      blob(rng, x + 6 + rng() * (w - 12), y + 4 + rng() * (h - 8), 3 + rng() * 5, (bx, by) => {
-        if (bx >= x && bx < x + w && by >= y && by < y + h) px1(g, bx, by, '#2a2014');
-      });
-      g.globalAlpha = 1;
+    if (px === 0 || py === 0 || px === w - 1 || py === h - 1) put(i, m.line);
+  }
+  g.putImageData(img, x, y);
+  return m;
+}
+
+function drawChimney(g, cx, cy) {
+  g.fillStyle = 'rgba(0,0,0,.35)'; g.fillRect(cx + 2, cy + 3, 7, 8);
+  g.fillStyle = '#7a4a3a'; g.fillRect(cx, cy + 2, 6, 7);
+  g.fillStyle = '#5a3428'; g.fillRect(cx, cy + 4, 6, 1); g.fillRect(cx, cy + 7, 6, 1); px1(g, cx + 3, cy + 5, '#5a3428'); px1(g, cx + 1, cy + 8, '#5a3428');
+  g.fillStyle = '#94604c'; g.fillRect(cx, cy + 2, 1, 7);
+  g.fillStyle = '#5c4d44'; g.fillRect(cx - 1, cy, 8, 3);
+  g.fillStyle = '#120d0a'; g.fillRect(cx + 1, cy + 1, 4, 1);
+}
+function drawDormer(g, x, y, m, rng) { // a little gabled window on the street-facing slope, 9x9
+  g.fillStyle = 'rgba(0,0,0,.3)'; g.fillRect(x + 1, y + 2, 9, 8);
+  for (let i = 0; i < 5; i++) { g.fillStyle = m.faces[1]; g.fillRect(x + 4 - i, y + i, i + 1, 1); g.fillStyle = m.faces[2]; g.fillRect(x + 5, y + i, i, 1); }
+  g.fillStyle = m.line; g.fillRect(x, y + 4, 9, 1);
+  g.fillStyle = pick(rng, PLASTER); g.fillRect(x + 1, y + 5, 7, 4);
+  g.fillStyle = '#2e2016'; g.fillRect(x + 2, y + 5, 5, 4);
+  g.fillStyle = '#1b242a'; g.fillRect(x + 3, y + 6, 3, 2); px1(g, x + 3, y + 6, '#4b6270');
+}
+function drawRoofHole(g, x, y, m, rng) {
+  const w = 6 + Math.floor(rng() * 3), h = 4;
+  g.fillStyle = m.line; g.fillRect(x - 1, y - 1, w + 2, h + 2);
+  g.fillStyle = '#140e0a'; g.fillRect(x, y, w, h);
+  g.fillStyle = '#5a4028'; g.fillRect(x, y + 1, w, 1); g.fillRect(x + 2, y, 1, h);
+  if (rng() < 0.5) { // boarded over
+    g.fillStyle = '#7a5b3b'; g.fillRect(x - 2, y, w + 4, 2);
+    g.fillStyle = '#634a30'; g.fillRect(x - 2, y + 2, w + 4, 1);
+    px1(g, x - 1, y, '#2a2a2a'); px1(g, x + w, y, '#2a2a2a');
+  }
+}
+const MOSS = ['.mm..', 'mMMm.', '.mMmm'];
+function drawMoss(g, x, y) {
+  MOSS.forEach((row, yy) => [...row].forEach((ch, xx) => { if (ch !== '.') px1(g, x + xx, y + yy, ch === 'M' ? '#5f7f3a' : '#3f5a2a'); }));
+}
+
+function drawWindow(g, x, y, kind, shutter) { // 4x4
+  g.fillStyle = '#2e2016'; g.fillRect(x, y, 4, 4);
+  if (kind === 'boarded') {
+    g.fillStyle = '#7a5b3b'; g.fillRect(x - 1, y, 6, 1); g.fillRect(x - 1, y + 2, 6, 1);
+    g.fillStyle = '#5a4028'; g.fillRect(x - 1, y + 1, 6, 1); g.fillRect(x - 1, y + 3, 6, 1);
+    return;
+  }
+  const glass = kind === 'lit' ? ['#d99a36', '#f4cc6a'] : ['#1b242a', '#4b6270'];
+  g.fillStyle = glass[0]; g.fillRect(x + 1, y + 1, 2, 2); px1(g, x + 1, y + 1, glass[1]);
+  if (shutter) { g.fillStyle = shutter; g.fillRect(x - 1, y, 1, 4); g.fillRect(x + 4, y, 1, 4); }
+}
+function drawDoor(g, x, y, cross) { // 5x8, arched
+  g.fillStyle = '#2e2016'; g.fillRect(x, y + 1, 5, 7); g.fillRect(x + 1, y, 3, 1);
+  g.fillStyle = '#5a3d26'; g.fillRect(x + 1, y + 1, 3, 7);
+  g.fillStyle = '#6e4c30'; g.fillRect(x + 1, y + 1, 1, 7);
+  px1(g, x + 3, y + 4, '#c9a560');
+  if (cross) { g.fillStyle = '#c0281f'; g.fillRect(x + 2, y + 1, 1, 6); g.fillRect(x + 1, y + 3, 3, 1); }
+}
+function drawStainedGlass(g, x, y) { // 4x7 arched
+  g.fillStyle = '#2b2620'; g.fillRect(x, y + 1, 4, 6); g.fillRect(x + 1, y, 2, 1);
+  const cols = ['#b3332b', '#2f5a9a', '#d4a03a', '#3f7a3a'];
+  for (let yy = 1; yy < 6; yy++) for (let xx = 1; xx < 3; xx++) px1(g, x + xx, y + yy, cols[(xx + yy) % 4]);
+}
+
+// The street-facing wall of a building: timber frame, stone, brick or shopfront.
+function drawFacade(g, x, y, w, rng, opts = {}) {
+  const H = FACADE_H, type = opts.type || pick(rng, ['timber', 'timber', 'stone', 'brick', 'shop']);
+  const plaster = pick(rng, PLASTER), beam = '#3a2a1c';
+  if (type === 'stone') {
+    g.fillStyle = '#837c6e'; g.fillRect(x, y, w, H);
+    for (let r = 0; r * 3 < H; r++) {
+      g.fillStyle = '#958e7f'; g.fillRect(x, y + r * 3, w, 1);
+      g.fillStyle = '#5f594e'; g.fillRect(x, y + r * 3 + 2, w, 1);
+      for (let jx = x + (r % 2) * 3; jx < x + w; jx += 6) px1(g, jx, y + r * 3 + 1, '#5f594e');
+    }
+  } else if (type === 'brick') {
+    g.fillStyle = '#8a4c3a'; g.fillRect(x, y, w, H);
+    for (let r = 0; r * 3 < H; r++) {
+      g.fillStyle = '#5a3226'; g.fillRect(x, y + r * 3 + 2, w, 1);
+      for (let jx = x + (r % 2) * 2; jx < x + w; jx += 5) { g.fillRect(jx, y + r * 3, 1, 2); }
+      g.fillStyle = '#9c5a45'; for (let jx = x + 1 + (r % 2) * 2; jx < x + w; jx += 5) px1(g, jx, y + r * 3, '#9c5a45');
     }
   } else {
-    // individual tiles with colour jitter, slipped tiles and gaps
-    const tw = 6, th = 4;
-    for (let ty = y; ty < y + h; ty += th) for (let tx = x + ((ty - y) / th % 2 ? 3 : 0) - 3; tx < x + w; tx += tw) {
-      const rr = rng(), cx0 = Math.max(x, tx), cw = Math.min(x + w, tx + tw) - cx0, ch = Math.min(th, y + h - ty);
-      if (cw <= 0 || ch <= 0) continue;
-      const lit = horiz ? ty < ridge : cx0 < ridge;
-      let col = lit ? s.light : s.base;
-      if (rr < 0.1) col = shade(col, 0.82); else if (rr < 0.18) col = shade(col, 1.12);
-      g.fillStyle = col; g.fillRect(cx0, ty, cw, ch);
-      if (rr > 0.988) { g.fillStyle = '#17110c'; g.fillRect(cx0, ty, cw, ch); px1(g, cx0 + 1, ty + 1, '#3a2a1c'); } // missing tile
-      g.fillStyle = s.dark; g.fillRect(cx0, ty + ch - 1, cw, 1); g.fillRect(cx0, ty, 1, ch);
+    g.fillStyle = plaster; g.fillRect(x, y, w, H);
+    if (rng() < 0.45) { // fallen plaster showing brick
+      const bx = x + 3 + Math.floor(rng() * Math.max(1, w - 10)), by = y + 7;
+      g.fillStyle = '#7a4a36'; g.fillRect(bx, by, 5, 3);
+      g.fillStyle = '#4a2e22'; g.fillRect(bx, by + 1, 5, 1); px1(g, bx + 2, by, '#4a2e22'); px1(g, bx + 4, by + 2, '#4a2e22');
+      g.fillStyle = shade(plaster, 0.8); g.fillRect(bx - 1, by - 1, 7, 1);
     }
   }
-  // sagging ridge line
-  g.fillStyle = s.dark;
-  if (horiz) for (let xx = x; xx < x + w; xx++) {
-    const d = Math.round(Math.sin((xx - x) / w * Math.PI) * sag); g.fillRect(xx, ridge - 1 + d, 1, 2);
-  } else for (let yy = y; yy < y + h; yy++) {
-    const d = Math.round(Math.sin((yy - y) / h * Math.PI) * sag); g.fillRect(ridge - 1 + d, yy, 2, 1);
-  }
-  // holes with exposed rafters, some patched with planks
-  for (let i = 0; i < (rng() < 0.45 ? 1 + Math.floor(rng() * 2) : 0); i++) {
-    const hw = 5 + Math.floor(rng() * 6), hh = 4 + Math.floor(rng() * 4);
-    const hx = x + 3 + Math.floor(rng() * (w - hw - 6)), hy = y + 3 + Math.floor(rng() * Math.max(1, h - hh - 6));
-    g.fillStyle = '#120d09'; g.fillRect(hx, hy, hw, hh);
-    g.fillStyle = '#4a3523';
-    for (let rx = hx + 1; rx < hx + hw; rx += 3) g.fillRect(rx, hy, 1, hh);
-    g.fillStyle = shade(s.dark, 0.8); g.fillRect(hx, hy, hw, 1);
-    if (rng() < 0.5) { // nailed planks
-      for (let p = 0; p < 2; p++) {
-        const py = hy + 1 + p * 2; g.fillStyle = p ? '#6b4f33' : '#7a5b3b'; g.fillRect(hx - 1, py, hw + 2, 2);
-        px1(g, hx, py, '#2a2a2a'); px1(g, hx + hw - 1, py, '#2a2a2a');
-      }
-    }
-  }
-  // lichen and droppings (yellow-grey and white, never green)
-  for (let i = 0; i < w * h / 360; i++) {
-    const lx = x + Math.floor(rng() * w), ly = y + Math.floor(rng() * h);
-    const col = pick(rng, ['#a39a6a', '#8f8a6a', '#b0a77c']);
-    px1(g, lx, ly, col); if (rng() < .6) px1(g, lx + 1, ly, col); if (rng() < .4) px1(g, lx, ly + 1, col);
-  }
-  for (let i = 0; i < w * h / 600; i++) px1(g, x + Math.floor(rng() * w), y + Math.floor(rng() * h), '#d8d2c0');
-  // ragged eaves outline
-  g.fillStyle = s.dark;
-  g.fillRect(x, y, w, 1); g.fillRect(x, y, 1, h); g.fillRect(x + w - 1, y, 1, h);
-  for (let xx = x; xx < x + w; xx++) if (rng() < 0.12) px1(g, xx, y + h - 1, '#120d09');
-  // chimney with soot
-  if (rng() < 0.75) {
-    const cx = x + 6 + Math.floor(rng() * (w - 16)), cy = y + 4 + Math.floor(rng() * Math.max(1, h - 14));
-    g.fillStyle = 'rgba(10,8,6,.28)'; g.fillRect(cx - 1, cy + 6, 8, 7);
-    g.fillStyle = 'rgba(0,0,0,.4)'; g.fillRect(cx + 2, cy + 2, 6, 6);
-    const brick = pick(rng, ['#5c4c40', '#6a4a3a', '#4f4640']);
-    g.fillStyle = brick; g.fillRect(cx, cy, 6, 6);
-    if (rng() < 0.4) px1(g, cx + 5, cy, s.base); // crumbled corner
-    px1(g, cx + 1, cy + 4, shade(brick, 1.2)); px1(g, cx + 4, cy + 1, shade(brick, 0.8));
-    g.fillStyle = '#1e1915'; g.fillRect(cx + 1, cy + 1, 4, 4);
-  }
-  drawFacade(g, x, y + h, w, FACADE, rng);
-}
-
-// The street-facing wall: timber frame, grimy plaster, windows and a door.
-function drawFacade(g, x, y, w, h, rng) {
-  const plaster = pick(rng, PLASTER);
-  g.fillStyle = plaster; g.fillRect(x, y, w, h);
-  for (let i = 0; i < w / 5; i++) { // damp streaks running down from the eaves
-    g.globalAlpha = 0.15 + rng() * 0.25;
-    g.fillStyle = pick(rng, ['#3a2e20', '#4a3a26', '#2a2620']);
-    g.fillRect(x + Math.floor(rng() * w), y, 1, 2 + Math.floor(rng() * (h - 2)));
-  }
-  g.globalAlpha = 1;
-  if (rng() < 0.6) { // fallen plaster showing brick
-    const bx = x + 2 + Math.floor(rng() * (w - 10)), by = y + 2 + Math.floor(rng() * 3), bw = 4 + Math.floor(rng() * 4);
-    g.fillStyle = '#7a4a36'; g.fillRect(bx, by, bw, 3);
-    g.fillStyle = '#4a2e22'; g.fillRect(bx, by + 1, bw, 1); px1(g, bx + 2, by, '#4a2e22'); px1(g, bx + 1, by + 2, '#4a2e22');
-  }
-  const beam = '#3a2a1c';
-  g.fillStyle = beam; g.fillRect(x, y, w, 2); g.fillRect(x, y + h - 1, w, 1);
+  // bays: timber posts or implied piers
   const posts = [x];
-  for (let px = x + 8 + Math.floor(rng() * 5); px < x + w - 6; px += 9 + Math.floor(rng() * 6)) posts.push(px);
+  for (let p = x + 9 + Math.floor(rng() * 3); p < x + w - 7; p += 9 + Math.floor(rng() * 3)) posts.push(p);
   posts.push(x + w - 1);
-  for (const p of posts) { g.fillStyle = beam; g.fillRect(p, y, 1, h); }
-  const doorBay = 1 + Math.floor(rng() * Math.max(1, posts.length - 2));
-  for (let i = 0; i < posts.length - 1; i++) {
-    const a = posts[i] + 1, b = posts[i + 1], mid = Math.floor((a + b) / 2), gap = b - a;
-    if (i === doorBay - 1 && gap >= 6) { // door, sometimes marked with a plague cross
-      g.fillStyle = '#4a3424'; g.fillRect(mid - 2, y + 3, 4, h - 3);
-      g.fillStyle = '#2e2016'; g.fillRect(mid - 2, y + 3, 4, 1); px1(g, mid + 1, y + 6, '#b8a070');
-      if (rng() < 0.35) { g.fillStyle = '#b3261e'; g.fillRect(mid - 1, y + 3, 2, 6); g.fillRect(mid - 2, y + 5, 4, 2); }
-    } else if (gap >= 5) {
-      const roll = rng();
-      if (roll < 0.25) { g.fillStyle = '#6b4f33'; g.fillRect(mid - 2, y + 3, 4, 4); g.fillStyle = '#3a2a1c'; g.fillRect(mid - 2, y + 5, 4, 1); } // boarded up
-      else if (roll < 0.4) { g.fillStyle = '#d9a441'; g.fillRect(mid - 1, y + 3, 3, 3); px1(g, mid, y + 4, '#f0c870'); } // candle lit
-      else if (roll < 0.9) { g.fillStyle = '#14100c'; g.fillRect(mid - 1, y + 3, 3, 3); px1(g, mid - 2, y + 3, '#5a4330'); px1(g, mid + 2, y + 3, '#5a4330'); }
+  if (type === 'timber' || type === 'shop') {
+    g.fillStyle = beam; g.fillRect(x, y + 2, w, 1); g.fillRect(x, y + 9, w, 1);
+    for (const p of posts) g.fillRect(p, y, 1, H);
+    for (let i = 0; i < posts.length - 1; i++) if (rng() < 0.25) { // X brace in a bay
+      const a = posts[i] + 1, b = posts[i + 1] - 1, span = b - a;
+      for (let k = 0; k <= span; k++) { const t = Math.round(k / span * 5); px1(g, a + k, y + 3 + t, beam); px1(g, b - k, y + 3 + t, beam); }
+      posts[i] = -1; // braced bays get no window
     }
   }
-  if (rng() < 0.4) { // diagonal brace
-    const p = posts[Math.floor(rng() * (posts.length - 1))];
-    g.fillStyle = beam; for (let k = 0; k < h - 3; k++) px1(g, p + 1 + k, y + 2 + k, beam);
+  // eaves shadow
+  g.fillStyle = 'rgba(0,0,0,.35)'; g.fillRect(x, y, w, 2);
+  const bays = [];
+  for (let i = 0; i < posts.length - 1; i++) {
+    const a = (posts[i] < 0 ? null : posts[i] + 1), b = posts[i + 1];
+    if (a !== null && b - a >= 6) bays.push([a, b]);
+  }
+  const doorBay = opts.door === false ? -1 : Math.floor(rng() * bays.length);
+  bays.forEach(([a, b], i) => {
+    const mid = Math.floor((a + b) / 2);
+    if (opts.stained) { drawStainedGlass(g, mid - 2, y + 3); return; }
+    if (i === doorBay) { drawDoor(g, mid - 2, y + H - 8, rng() < 0.15); return; }
+    const r = rng();
+    const kind = r < 0.2 ? 'lit' : r < 0.36 ? 'boarded' : r < 0.9 ? 'dark' : null;
+    if (kind) drawWindow(g, mid - 2, y + 4, kind, kind === 'dark' ? pick(rng, SHUTTERS) : null);
+    if (kind && rng() < 0.3) { g.globalAlpha = .25; g.fillStyle = '#2a2018'; g.fillRect(mid - 1, y + 8, 2, 3); g.globalAlpha = 1; } // damp streak
+  });
+  if (type === 'shop' && bays.length) { // striped awning over a bay
+    const [a, b] = bays[(doorBay + 1) % bays.length], cols = pick(rng, AWNINGS);
+    for (let xx = a - 1; xx <= b; xx++) {
+      const c = cols[Math.floor((xx - a + 1) / 2) % 2];
+      g.fillStyle = c; g.fillRect(xx, y + 2, 1, 3);
+      if ((xx - a) % 2 === 0) px1(g, xx, y + 5, c);
+    }
+    g.fillStyle = 'rgba(0,0,0,.3)'; g.fillRect(a - 1, y + 6, b - a + 2, 1);
+  }
+  g.fillStyle = '#1a140f'; g.fillRect(x, y + H - 1, w, 1);
+}
+
+function splitWidth(W, rng) {
+  const out = [];
+  let rem = W;
+  while (rem > 0) {
+    const ok = [24, 32, 40, 48].filter(c => c <= rem && (rem - c === 0 || rem - c >= 24));
+    const c = ok.length ? pick(rng, ok) : rem;
+    out.push(c); rem -= c;
+  }
+  return out;
+}
+function roofForm(w, h, rng) {
+  if (w >= h * 1.3) return pick(rng, ['gable-h', 'hip', 'hip']);
+  if (h >= w * 1.3) return pick(rng, ['gable-v', 'hip']);
+  return 'hip';
+}
+
+// One house: roof (with features) and, if it faces the street, a facade.
+function drawHouse(g, x, y, w, h, withFacade, rng, prevMat) {
+  let mat = pick(rng, MATERIALS);
+  if (mat === prevMat) mat = MATERIALS[(MATERIALS.indexOf(mat) + 1) % MATERIALS.length];
+  const roofH = h - (withFacade ? FACADE_H : 0);
+  const form = roofForm(w, roofH, rng);
+  const m = drawRoofUnit(g, x, y, w, roofH, mat, form, 0.92 + rng() * 0.14);
+  const r = rng();
+  if (r < 0.25) drawMoss(g, x + 3 + Math.floor(rng() * (w - 10)), y + roofH - 6);
+  if (rng() < 0.22) drawRoofHole(g, x + 4 + Math.floor(rng() * (w - 14)), y + 4 + Math.floor(rng() * Math.max(1, roofH / 2 - 8)), m, rng);
+  if (withFacade && roofH >= 22 && w >= 24 && rng() < 0.4) drawDormer(g, x + Math.floor((w - 9) / 2), y + roofH - 11, m, rng);
+  if (rng() < 0.7) drawChimney(g, x + 4 + Math.floor(rng() * (w - 14)), y + 3 + Math.floor(rng() * Math.max(1, roofH / 3)));
+  if (withFacade) drawFacade(g, x, y + roofH, w, rng);
+  return mat;
+}
+
+function drawChurch(g, x, y, rng) {
+  const slate = MATERIALS[1], lead = MATERIALS[5];
+  drawRoofUnit(g, x, y, 96, 56, slate, 'gable-h', 0.95);                 // nave
+  const m = drawRoofUnit(g, x + 32, y + 56, 64, 28, slate, 'gable-h', 1.02); // porch aisle
+  drawFacade(g, x + 32, y + 84, 64, rng, { type: 'stone', stained: true, door: false });
+  drawDoor(g, x + 61, y + 88, false); drawDoor(g, x + 66, y + 88, false);  // double door
+  g.fillStyle = 'rgba(0,0,0,.4)'; g.fillRect(x + 32, y + 40, 4, 44);
+  drawRoofUnit(g, x, y + 40, 32, 44, lead, 'hip', 0.9);                   // bell tower
+  drawFacade(g, x, y + 84, 32, rng, { type: 'stone', stained: true, door: false });
+  // gilded cross on the tower's peak
+  const cx = x + 15, cy = y + 56;
+  g.fillStyle = 'rgba(0,0,0,.4)'; g.fillRect(cx + 2, cy + 2, 2, 8); g.fillRect(cx, cy + 4, 6, 2);
+  g.fillStyle = '#d8b04a'; g.fillRect(cx + 1, cy, 2, 8); g.fillRect(cx - 1, cy + 2, 6, 2);
+  px1(g, cx + 1, cy, '#f2d47a');
+  void m;
+}
+
+function drawBuildings(g, rng) {
+  const W = (r) => r.w * TILE, H = (r) => r.h * TILE;
+  const parkAt = (tx, ty) => tx > 0 && ty > 0 && tx < MAP_W && ty < MAP_H && (at(tx, ty) === T.GRASS || at(tx, ty) === T.TREE);
+  const church = roofs.find(r => r.w === 6 && r.h === 6 && (parkAt(r.x + 8, r.y) || parkAt(r.x - 8, r.y) || parkAt(r.x, r.y + 8) || parkAt(r.x, r.y - 8)));
+  // shadows first: east side and a sliver to the south
+  for (const r of roofs) {
+    g.fillStyle = 'rgba(0,0,0,.38)'; g.fillRect(r.x * TILE + W(r), r.y * TILE + 4, 4, H(r) - 2);
+    g.fillStyle = 'rgba(0,0,0,.3)'; g.fillRect(r.x * TILE + 2, r.y * TILE + H(r), W(r), 2);
+  }
+  for (const r of roofs) {
+    const x = r.x * TILE, y = r.y * TILE;
+    if (r === church) { drawChurch(g, x, y, rng); continue; }
+    const rows = H(r) >= 80 ? [[0, 40 + Math.floor(rng() * 2) * 8, false]] : [];
+    const backH = rows.length ? rows[0][1] : 0;
+    rows.push([backH, H(r) - backH, true]);
+    for (const [oy, h, facade] of rows) {
+      let cx = x, prev = null;
+      for (const w of splitWidth(W(r), rng)) { prev = drawHouse(g, cx, y + oy, w, h, facade, rng, prev); cx += w; }
+    }
   }
 }
 
+const TUFT = ['.g.', 'gGg'];
 function drawChurchyard(g, x0, y0, rng) {
   const x = x0 * TILE, y = y0 * TILE, S = 6 * TILE;
-  g.fillStyle = '#3c3f27'; g.fillRect(x, y, S, S); // tired, muddy grass
-  for (let i = 0; i < 900; i++) px1(g, x + Math.floor(rng() * S), y + Math.floor(rng() * S), pick(rng, ['#454829', '#33361f', '#4f4a2c', '#5a5233', '#2e3020']));
-  for (let i = 0; i < 6; i++) { // dead patches and mud
-    const col = pick(rng, ['#5a5233', '#6b5f3a', '#3a2e20']);
-    blob(rng, x + 8 + rng() * (S - 16), y + 8 + rng() * (S - 16), 4 + rng() * 6, (bx, by) => { if (rng() < .8) px1(g, bx, by, col); });
+  g.fillStyle = '#4a6a32'; g.fillRect(x, y, S, S);
+  const n = valueNoise(4040 + x0 * 7 + y0, 18);
+  for (let yy = 0; yy < S; yy += 2) for (let xx = 0; xx < S; xx += 2) { // soft light and dark patches
+    const v = n(x + xx, y + yy);
+    if (v > 0.62) { g.fillStyle = '#557a3a'; g.fillRect(x + xx, y + yy, 2, 2); }
+    else if (v < 0.3) { g.fillStyle = '#3f5c2b'; g.fillRect(x + xx, y + yy, 2, 2); }
   }
-  // trodden dirt path cross
-  g.fillStyle = '#4a3a28'; g.fillRect(x + S / 2 - 2, y, 4, S); g.fillRect(x, y + S / 2 - 2, S, 4);
-  for (let i = 0; i < 60; i++) px1(g, x + S / 2 - 2 + Math.floor(rng() * 4), y + Math.floor(rng() * S), pick(rng, ['#3a2e20', '#5a4a34']));
-  for (let i = 0; i < 60; i++) px1(g, x + Math.floor(rng() * S), y + S / 2 - 2 + Math.floor(rng() * 4), pick(rng, ['#3a2e20', '#5a4a34']));
-  // graves: headstones and fresh mounds
-  for (let i = 0; i < 9; i++) {
-    const gx = x + 6 + Math.floor(rng() * (S - 14)), gy = y + 6 + Math.floor(rng() * (S - 16));
-    if (Math.abs(gx + 2 - (x + S / 2)) < 6 || Math.abs(gy + 3 - (y + S / 2)) < 7) continue;
-    if (rng() < 0.4) { g.fillStyle = '#3a2a1a'; g.fillRect(gx - 1, gy + 2, 7, 4); g.fillStyle = '#4e3a24'; g.fillRect(gx, gy + 2, 5, 2); continue; }
-    const tilt = rng() < 0.4 ? 1 : 0, stone = pick(rng, ['#7d7768', '#6b665a', '#8a8473']);
-    g.fillStyle = 'rgba(0,0,0,.35)'; g.fillRect(gx + 1, gy + 5, 5, 2);
-    g.fillStyle = stone; g.fillRect(gx + tilt, gy, 3, 1); g.fillRect(gx, gy + 1, 4, 4);
-    px1(g, gx + 1, gy + 2, shade(stone, 0.7));
+  for (let i = 0; i < 40; i++) { // grass tufts
+    const tx = x + 2 + Math.floor(rng() * (S - 5)), ty = y + 2 + Math.floor(rng() * (S - 4));
+    TUFT.forEach((row, yy) => [...row].forEach((ch, xx) => { if (ch !== '.') px1(g, tx + xx, ty + yy, ch === 'G' ? '#6a9046' : '#365226'); }));
+  }
+  for (let i = 0; i < 6; i++) { px1(g, x + 3 + Math.floor(rng() * (S - 6)), y + 3 + Math.floor(rng() * (S - 6)), pick(rng, ['#d8c46a', '#d9d2c0', '#b84a3a'])); } // flowers
+  // trodden dirt path cross with clean edges
+  g.fillStyle = '#6a5438'; g.fillRect(x + S / 2 - 3, y, 6, S); g.fillRect(x, y + S / 2 - 3, S, 6);
+  g.fillStyle = '#5a4630'; g.fillRect(x + S / 2 - 3, y, 1, S); g.fillRect(x, y + S / 2 - 3, S, 1);
+  g.fillStyle = '#7a6444'; g.fillRect(x + S / 2 + 2, y, 1, S); g.fillRect(x, y + S / 2 + 2, S, 1);
+  // graves in neat rows: headstones and fresh mounds
+  for (const qx of [0, 1]) for (const qy of [0, 1]) for (let i = 0; i < 3; i++) {
+    const gx = x + 8 + qx * 50 + i * 12, gy = y + 10 + qy * 50;
+    if (rng() < 0.2) continue;
+    if (rng() < 0.35) { // fresh grave
+      g.fillStyle = '#4e3a24'; g.fillRect(gx - 1, gy + 3, 7, 10);
+      g.fillStyle = '#6a5034'; g.fillRect(gx, gy + 3, 5, 2);
+      g.fillStyle = '#3a2a1a'; g.fillRect(gx - 1, gy + 12, 7, 1);
+      continue;
+    }
+    const stone = pick(rng, ['#8d8778', '#7b7668', '#999383']), tilt = rng() < 0.3;
+    g.fillStyle = 'rgba(0,0,0,.35)'; g.fillRect(gx + 2, gy + 7, 5, 2);
+    g.fillStyle = shade(stone, 0.75); g.fillRect(gx, gy + 2, 5, 6);
+    g.fillStyle = stone; g.fillRect(gx + (tilt ? 1 : 0), gy, 4, 1); g.fillRect(gx, gy + 1, 5, 5);
+    g.fillStyle = shade(stone, 1.15); g.fillRect(gx, gy + 1, 1, 5);
+    g.fillStyle = shade(stone, 0.6); g.fillRect(gx + 2, gy + 2, 1, 3); g.fillRect(gx + 1, gy + 3, 3, 1);
   }
 }
 
 function drawTree(g, cx, cy, rng) {
   disc(g, cx + 3, cy + 4, 10, 'rgba(0,0,0,.35)');
-  if (rng() < 0.4) { // dead tree: bare twisted branches
+  if (rng() < 0.3) { // dead tree: bare branches
     g.fillStyle = '#3a2a1c';
     for (let b = 0; b < 6; b++) {
       let bx = cx, by = cy; const a = b / 6 * Math.PI * 2 + rng();
-      for (let k = 0; k < 7 + rng() * 4; k++) { bx += Math.cos(a + (rng() - .5)); by += Math.sin(a + (rng() - .5)); g.fillRect(Math.round(bx), Math.round(by), 1, 1); }
+      for (let k = 0; k < 7 + rng() * 4; k++) { bx += Math.cos(a + (rng() - .5) * .6); by += Math.sin(a + (rng() - .5) * .6); g.fillRect(Math.round(bx), Math.round(by), 1, 1); }
     }
     disc(g, cx, cy, 2, '#4a3524');
     return;
   }
-  disc(g, cx, cy, 10, '#26301b');
-  disc(g, cx - 1, cy - 1, 8, '#2f3a20');
-  for (let i = 0; i < 40; i++) {
-    const a = rng() * Math.PI * 2, d = rng() * 9;
-    px1(g, Math.round(cx + Math.cos(a) * d), Math.round(cy + Math.sin(a) * d), pick(rng, ['#1e2615', '#3a4527', '#3d4229']));
-  }
-  disc(g, cx - 4, cy - 4, 2, '#45502e');
+  // layered canopy: dark rim, mid body, lit clusters top-left
+  disc(g, cx, cy, 10, '#24401f');
+  disc(g, cx - 1, cy - 1, 8, '#32552a');
+  disc(g, cx - 3, cy - 3, 5, '#41692f');
+  disc(g, cx + 3, cy - 2, 3, '#3a5f2c');
+  disc(g, cx - 4, cy - 4, 2, '#56813c');
+  disc(g, cx + 2, cy + 3, 2, '#2a4823');
 }
 
 function renderMap() {
@@ -593,22 +725,18 @@ function renderMap() {
     px1(g, Math.round(sx + size * .2), Math.round(sy + 1), murky ? '#4a4636' : '#4d6470');
   }
   // 6. litter: straw, dung, bones, broken pots, rags
-  for (let i = 0; i < 700; i++) {
+  for (let i = 0; i < 300; i++) {
     const lx = Math.floor(rng() * W), ly = Math.floor(rng() * H); if (!isGround(lx, ly)) continue;
     const r = rng();
     if (r < 0.4) { g.fillStyle = pick(rng, ['#8c7438', '#a08648', '#6e5a2c']); rng() < .5 ? g.fillRect(lx, ly, 3, 1) : g.fillRect(lx, ly, 1, 3); }
     else if (r < 0.6) { g.fillStyle = '#3b2a17'; g.fillRect(lx, ly, 2, 2); px1(g, lx + 1, ly, '#4e3820'); }
     else if (r < 0.72) { g.fillStyle = '#cfc6b0'; g.fillRect(lx, ly, 3, 1); px1(g, lx, ly - 1, '#cfc6b0'); px1(g, lx + 2, ly + 1, '#cfc6b0'); }
     else if (r < 0.86) { px1(g, lx, ly, '#8a4a32'); px1(g, lx + 1, ly, '#6e3a28'); px1(g, lx + 3, ly + 1, '#8a4a32'); }
-    else { g.fillStyle = pick(rng, ['#5b4a6e', '#7d3a33', '#4a4038']); g.fillRect(lx, ly, 3, 2); px1(g, lx + 2, ly + 2, '#2a221c'); }
+    else { g.fillStyle = pick(rng, ['#3f5a4a', '#7d3a33', '#4a4038']); g.fillRect(lx, ly, 3, 2); px1(g, lx + 2, ly + 2, '#2a221c'); }
   }
 
-  // 7. buildings: shadow to the east, then roofs and facades
-  g.fillStyle = 'rgba(0,0,0,.38)';
-  for (const r of roofs) g.fillRect(r.x * TILE + r.w * TILE, r.y * TILE + 4, 4, r.h * TILE - 2);
-  g.fillStyle = 'rgba(0,0,0,.3)';
-  for (const r of roofs) g.fillRect(r.x * TILE + 2, r.y * TILE + r.h * TILE, r.w * TILE, 2);
-  for (const r of roofs) drawRoof(g, r, rng);
+  // 7. buildings: rows of individual houses, plus the church
+  drawBuildings(g, rng);
 
   // 8. the well, with a winch beam and a bucket
   disc(g, WELL.x, WELL.y + 2, 14, 'rgba(0,0,0,.35)');
@@ -706,22 +834,23 @@ function mix(a, b, t) {
 }
 // Plague buboes: dark sores on the face and arms of infected townsfolk.
 const sores = f => f.map((row, y) => y === 2 ? '.hsxssh.' : y === 3 ? '..ssxs..' : y === 6 ? 'xccccccs' : row);
-// Visual rule V1: green belongs to the plague, so healthy palettes contain no green.
+// Visual rule V1: purple belongs to the plague, so healthy palettes contain no purple.
+const PLAGUE = '#c05cff', PLAGUE_DARK = '#7d34c4';
 function makePersonSprites(rng) {
   const pal = {
     h: pick(rng, ['#2a1f18', '#5a3a22', '#b8934a', '#8a8a86', '#6b2f1c']),
     s: pick(rng, ['#e2b48f', '#c99470', '#9a6a48', '#f0c9a8']),
-    c: pick(rng, ['#7d3a33', '#3d5677', '#a07c3c', '#5b4a6e', '#6e3b52', '#8a5a3a']),
+    c: pick(rng, ['#7d3a33', '#3d5677', '#a07c3c', '#3f6b4a', '#56603a', '#8a5a3a']),
     b: pick(rng, ['#3a2f26', '#2c3340', '#4a3d2c']),
     f: '#1d1712',
   };
   const sick = {
-    ...pal, s: '#a8cf52', x: '#3a1626',
-    h: shade(pal.h, 0.7), c: mix(pal.c, '#3e4a1c', 0.6), b: mix(pal.b, '#2a3014', 0.5),
+    ...pal, s: '#b49ad6', x: '#2e0f3a',
+    h: shade(pal.h, 0.7), c: mix(pal.c, '#3a2350', 0.6), b: mix(pal.b, '#24182e', 0.5),
   };
   return {
     healthy: PERSON_FRAMES.map(f => spriteFrom(f, pal, 'rgba(10,8,6,.55)')),
-    infected: PERSON_FRAMES.map(f => spriteFrom(sores(f), sick, '#a3d13c')),
+    infected: PERSON_FRAMES.map(f => spriteFrom(sores(f), sick, PLAGUE)),
   };
 }
 
@@ -811,7 +940,7 @@ const MORTALITY = [
   'Coughed up a lung, then went back for the other',
   'Boils burst at the dinner table',
   'Sneezed so hard their eyes left town',
-  'Turned green and stayed that way',
+  'Turned purple and stayed that way',
   'Leaked from places best not mentioned',
   'Melted into a puddle by the fish market',
   'Grew a boil the size of a cabbage',
@@ -982,7 +1111,7 @@ function update(dt) {
       else { [c.dx, c.dy] = opts[Math.floor(Math.random() * opts.length)]; c.t = 1.5 + Math.random() * 3; }
     }
     if (c.infected && Math.random() < dt * 1.6) {
-      G.particles.push({ x: c.x + (Math.random() * 6 - 3), y: c.y - 10, vx: 0, vy: -8, life: 0.9, max: 0.9, col: '#a3d13c', size: 1 });
+      G.particles.push({ x: c.x + (Math.random() * 6 - 3), y: c.y - 10, vx: 0, vy: -8, life: 0.9, max: 0.9, col: PLAGUE, size: 1 });
     }
   }
 
@@ -1030,9 +1159,9 @@ function infect(c) {
   G.peak = Math.max(G.peak, G.rats.length);
   for (let i = 0; i < 10; i++) {
     const a = Math.random() * Math.PI * 2, s = 10 + Math.random() * 25;
-    G.particles.push({ x: c.x, y: c.y - 5, vx: Math.cos(a) * s, vy: Math.sin(a) * s, life: 0.5, max: 0.5, col: Math.random() < .5 ? '#a3d13c' : '#6f9a2a', size: 1 + (Math.random() < .3) });
+    G.particles.push({ x: c.x, y: c.y - 5, vx: Math.cos(a) * s, vy: Math.sin(a) * s, life: 0.5, max: 0.5, col: Math.random() < .5 ? PLAGUE : PLAGUE_DARK, size: 1 + (Math.random() < .3) });
   }
-  G.texts.push({ x: c.x - 3, y: c.y - 16, text: '+' + CONFIG.ratsPerInfection, col: '#a3d13c', life: 0.8 });
+  G.texts.push({ x: c.x - 3, y: c.y - 16, text: '+' + CONFIG.ratsPerInfection, col: PLAGUE, life: 0.8 });
   sfx.infect();
 }
 
@@ -1054,7 +1183,7 @@ function render() {
 
   if (G.rats[0]) { // miasma under the lead rat
     const pulse = 9 + Math.round(Math.sin(G.time * 5));
-    ctx.globalAlpha = 0.22; disc(ctx, G.rats[0].x + ox, G.rats[0].y + oy, pulse, '#a3d13c'); ctx.globalAlpha = 1;
+    ctx.globalAlpha = 0.22; disc(ctx, G.rats[0].x + ox, G.rats[0].y + oy, pulse, PLAGUE); ctx.globalAlpha = 1;
   }
 
   const ents = [];
@@ -1070,7 +1199,7 @@ function render() {
       const x = Math.round(c.x - 4 + ox), y = Math.round(c.y - 10 + oy);
       if (c.infected) { // sickly glow on the ground
         ctx.globalAlpha = 0.18 + 0.08 * Math.sin(G.time * 4 + c.phase);
-        disc(ctx, x + 4, y + 10, 6, '#a3d13c'); ctx.globalAlpha = 1;
+        disc(ctx, x + 4, y + 10, 6, PLAGUE); ctx.globalAlpha = 1;
       }
       ctx.fillStyle = 'rgba(0,0,0,.35)'; ctx.fillRect(x + 1, y + 10, 6, 2);
       if (c.flip) { ctx.save(); ctx.scale(-1, 1); ctx.drawImage(s, -x - 9, y - 1); ctx.restore(); }
@@ -1100,7 +1229,7 @@ function renderMinimap() {
   const L = G.rats[0];
   if (L && Math.floor(G.time * 3) % 3 !== 0) {
     const px = Math.floor(L.x / cell) * 2, py = Math.floor(L.y / cell) * 2;
-    mctx.fillStyle = '#a3d13c'; mctx.fillRect(px - 2, py - 2, 6, 6);
+    mctx.fillStyle = PLAGUE; mctx.fillRect(px - 2, py - 2, 6, 6);
     mctx.fillStyle = '#120f0c'; mctx.fillRect(px, py, 2, 2);
   }
 }
