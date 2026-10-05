@@ -34,8 +34,8 @@ Status: **Locked** (agreed, must be honored), **Draft** (being tried out), **Ret
 | R9 | Townsfolk wander the streets at random and do not react to rats. | Draft |
 | R10 | A level is a fixed hand-set district (same layout every play). There is no clock; level length comes from the die-off (R5). | Draft |
 | R11 | Controls: WASD / arrow keys, or press-and-drag on screen (the leader runs toward the finger/cursor). | Draft |
-| R13 | The die-off countdown shrinks as the swarm grows: `decayInterval` (1.5 s) for 1–10 rats, then `decayStep` (0.1 s) shorter for every further `decayStepEvery` (10) rats: 11–20 → 1.4 s, 21–30 → 1.3 s, … 60 → 1.0 s. It never goes below `decayMin` (0.5 s). The countdown gets longer again when the swarm shrinks. The HUD shows the current countdown in seconds next to the bar. | Draft |
 | R12 | A super-minimal minimap in the bottom-left corner shows the whole district with only two things on it: the player (blinking green marker) and each healthy townsperson (pale dot). No streets, buildings or infected people. | Draft |
+| R13 | The die-off countdown shrinks as the swarm grows: `decayInterval` (1.5 s) for 1–10 rats, then `decayStep` (0.1 s) shorter for every further `decayStepEvery` (10) rats: 11–20 → 1.4 s, 21–30 → 1.3 s, … 60 → 1.0 s. It never goes below `decayMin` (0.5 s). The countdown gets longer again when the swarm shrinks. The HUD shows the current countdown in seconds next to the bar. | Draft |
 
 ## 4. Tunable Numbers
 All live in the `CONFIG` object at the top of the script in `index.html`. Tuning these never changes a rule.
