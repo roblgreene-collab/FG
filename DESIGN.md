@@ -33,7 +33,8 @@ Status: **Locked** (agreed, must be honored), **Draft** (being tried out), **Ret
 | R8 | Infected townsfolk stay infected and keep wandering, more slowly. They do not spread the plague themselves. | Draft |
 | R9 | Townsfolk wander the streets at random and do not react to rats. | Draft |
 | R10 | A level is a fixed hand-set district (same layout every play). There is no clock; level length comes from the die-off (R5). | Draft |
-| R11 | Controls: WASD / arrow keys, or press-and-drag on screen (the leader runs toward the finger/cursor). | Draft |
+| R11 | Controls: WASD / arrow keys on keyboard. On touch screens, a virtual joystick sits at the bottom middle of the screen: the leader runs in the direction it is pushed, faster the further it is pushed (full speed at `stickFullAt`, nothing inside `stickDeadZone`). Touching the rest of the screen does nothing. With the joystick showing, the camera keeps the leader in the middle of the space above it. | Draft |
+| R11a | *(old R11 touch control)* Press and drag anywhere on screen; the leader runs toward the finger. Replaced because the hand covered the play area. | Retired |
 | R12 | A super-minimal minimap in the bottom-left corner shows the whole district with only two things on it: the player (blinking green marker) and each healthy townsperson (pale dot). No streets, buildings or infected people. | Draft |
 | R13 | The die-off countdown shrinks as the swarm grows: `decayInterval` (1.5 s) for 1–10 rats, then `decayStep` (0.1 s) shorter for every further `decayStepEvery` (10) rats: 11–20 → 1.4 s, 21–30 → 1.3 s, … 60 → 1.0 s. It never goes below `decayMin` (0.5 s). The countdown gets longer again when the swarm shrinks. The HUD shows the current countdown in seconds next to the bar. | Draft |
 
@@ -61,6 +62,8 @@ All live in the `CONFIG` object at the top of the script in `index.html`. Tuning
 | `citizenSpeed` | 16 px/s | |
 | `infectedSpeedMult` | 0.6 | |
 | `infectRadius` | 7 px | How close counts as touching |
+| `stickDeadZone` | 0.15 | Joystick push ignored near its centre (0–1) |
+| `stickFullAt` | 0.6 | Joystick push that gives full speed (0–1) |
 | `minimapCell` | 2 | Map tiles per minimap pixel (lower = bigger, more detailed minimap) |
 
 Balance note: a pathfinding test bot wins Level 1 in about 1:45 with ~20 rats left, but the bot always knows where everyone is. The designer found the level too hard without that knowledge, which is why R12 (minimap) was added. Numbers unchanged pending a replay.
@@ -93,5 +96,6 @@ With R13 added, the bot wins in ~1:45 with ~45 rats (was ~55 without R13). Its s
 | 2026-10-05 | Chain spread moved to Parking Lot (former Q2) | Designer |
 | 2026-10-05 | R5 changed to trial: an infection restarts the die-off countdown. Old rule kept as R5a. | Designer |
 | 2026-10-05 | R5 (countdown reset on infection) locked | Designer |
+| 2026-10-05 | R11 touch control changed to a bottom-middle virtual joystick; drag-to-move retired as R11a | Designer |
 | 2026-10-05 | Added V1 (green = plague only) and V2 (stronger infected look) | Designer |
 | 2026-10-05 | Added R13: countdown shortens by 0.1 s per 10 rats above 10 (min 0.5 s) | Designer |

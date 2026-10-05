@@ -90,6 +90,21 @@ button:focus-visible { outline: 3px solid var(--parch); outline-offset: 3px; }
   image-rendering: pixelated; image-rendering: crisp-edges;
   border: 2px solid var(--edge); pointer-events: none;
 }
+#stick {
+  position: fixed; left: 50%; bottom: calc(env(safe-area-inset-bottom, 0px) + 20px);
+  width: 128px; height: 128px; margin-left: -64px; box-sizing: border-box;
+  border-radius: 50%; border: 2px solid var(--edge);
+  background: rgba(29, 24, 19, .55); touch-action: none;
+}
+#stick::after { /* larger invisible grab area */
+  content: ''; position: absolute; inset: -28px; border-radius: 50%;
+}
+#knob {
+  position: absolute; left: 50%; top: 50%; width: 52px; height: 52px; margin: -26px 0 0 -26px;
+  border-radius: 50%; background: var(--plague); opacity: .75;
+  box-shadow: 3px 3px 0 #000; pointer-events: none;
+}
+#stick.active #knob { opacity: 1; }
 @media (prefers-reduced-motion: reduce) { .swarm.low .count { animation: none; } #pctFill { transition: none; } }
 </style>
 </head>
@@ -117,7 +132,7 @@ button:focus-visible { outline: 3px solid var(--parch); outline-offset: 3px; }
       <div><dt>Win</dt><dd id="goalLine">Infect 60%</dd></div>
       <div><dt>Lose</dt><dd>Swarm dies out</dd></div>
     </dl>
-    <p class="controls">Move with WASD or the arrow keys, or press and drag on the screen. The map in the corner shows where the healthy townsfolk are.</p>
+    <p class="controls">Move with WASD or the arrow keys, or the joystick at the bottom of the screen on touch devices. The map in the corner shows where the healthy townsfolk are.</p>
     <button id="startBtn">Begin the plague</button>
   </div>
 </div>
@@ -133,6 +148,8 @@ button:focus-visible { outline: 3px solid var(--parch); outline-offset: 3px; }
 </div>
 
 <canvas id="minimap" hidden></canvas>
+
+<div id="stick" hidden aria-hidden="true"><div id="knob"></div></div>
 
 <button id="mute" type="button">Sound: on</button>
 
@@ -157,6 +174,8 @@ const CONFIG = {
   citizenSpeed: 16,        // px/s, healthy townsfolk
   infectedSpeedMult: 0.6,  // R8: infected townsfolk move slower
   infectRadius: 7,         // R3: px distance that counts as touching
+  stickDeadZone: 0.15,     // R11: joystick deflection ignored near the centre (0-1)
+  stickFullAt: 0.6,        // R11: deflection that gives full speed (0-1)
   minimapCell: 2,          // R12: map tiles per minimap pixel
 };
 
@@ -477,7 +496,7 @@ const ctx = canvas.getContext('2d');
 let view = { w: 320, h: 180, scale: 3 }, vignette = null;
 let mapCanvas, state = 'title', game = null;
 const keys = new Set();
-const pointer = { active: false, sx: 0, sy: 0 };
+const stick = { id: null, x: 0, y: 0 }; // R11: joystick deflection, -1..1 on each axis
 const dbg = { timeScale: 1, input: null };
 window.__plague = dbg;
 dbg.solid = (x, y) => solidAt(x, y);
@@ -532,11 +551,11 @@ function nudge(e, axis, step, hw, hh) {
 
 function inputDir() {
   if (dbg.input) return dbg.input;
-  const L = game.rats[0];
-  if (pointer.active) {
-    const wx = pointer.sx / view.scale + game.cam.x, wy = pointer.sy / view.scale + game.cam.y;
-    const dx = wx - L.x, dy = wy - L.y, d = Math.hypot(dx, dy);
-    return d < 4 ? { x: 0, y: 0 } : { x: dx / d, y: dy / d };
+  if (stick.id !== null) {
+    const n = Math.hypot(stick.x, stick.y);
+    if (n < CONFIG.stickDeadZone) return { x: 0, y: 0 };
+    const mag = Math.min(1, (n - CONFIG.stickDeadZone) / (CONFIG.stickFullAt - CONFIG.stickDeadZone));
+    return { x: stick.x / n * mag, y: stick.y / n * mag };
   }
   let x = 0, y = 0;
   if (keys.has('ArrowLeft') || keys.has('KeyA')) x -= 1;
@@ -674,7 +693,9 @@ function render() {
   const G = game, L = G.rats[0] || G.trail[0];
   const mw = MAP_W * TILE, mh = MAP_H * TILE;
   const cx = mw <= view.w ? (mw - view.w) / 2 : Math.max(0, Math.min(mw - view.w, L.x - view.w / 2));
-  const cy = mh <= view.h ? (mh - view.h) / 2 : Math.max(0, Math.min(mh - view.h, L.y - view.h / 2));
+  // With the joystick showing, centre the leader in the space above it instead of the whole screen.
+  const lift = stickEl.hidden ? 0 : 84 / view.scale;
+  const cy = mh <= view.h ? (mh - view.h) / 2 : Math.max(0, Math.min(mh - view.h, L.y + lift - view.h / 2));
   G.cam.x = Math.round(cx); G.cam.y = Math.round(cy);
   const ox = -G.cam.x, oy = -G.cam.y;
 
@@ -776,11 +797,13 @@ function startGame() {
   newGame(); hudCache = {};
   state = 'playing';
   $('titleScreen').hidden = true; $('endScreen').hidden = true; $('hud').hidden = false; mini.hidden = false;
+  stickEl.hidden = !isTouch();
   canvas.focus?.();
 }
 function endGame(won) {
   const G = game;
   state = won ? 'won' : 'lost';
+  stickEl.hidden = true; stick.id = null; stick.x = stick.y = 0; knobEl.style.transform = '';
   updateHud();
   const pct = Math.floor(G.infected * 100 / CONFIG.population);
   $('endEyebrow').textContent = 'Level 1 · ' + CONFIG.levelName;
@@ -806,11 +829,30 @@ window.addEventListener('keydown', e => {
 });
 window.addEventListener('keyup', e => keys.delete(e.code));
 window.addEventListener('blur', () => keys.clear());
-canvas.addEventListener('pointerdown', e => { pointer.active = true; pointer.sx = e.clientX; pointer.sy = e.clientY; canvas.setPointerCapture?.(e.pointerId); });
-canvas.addEventListener('pointermove', e => { pointer.sx = e.clientX; pointer.sy = e.clientY; });
-const release = () => { pointer.active = false; };
-canvas.addEventListener('pointerup', release);
-canvas.addEventListener('pointercancel', release);
+// R11: virtual joystick, bottom middle. Shown on touch screens.
+const stickEl = $('stick'), knobEl = $('knob');
+const isTouch = () => (window.matchMedia && matchMedia('(pointer: coarse)').matches) || navigator.maxTouchPoints > 0;
+function moveStick(e) {
+  const r = stickEl.getBoundingClientRect(), rad = r.width / 2;
+  let dx = (e.clientX - (r.left + rad)) / rad, dy = (e.clientY - (r.top + rad)) / rad;
+  const n = Math.hypot(dx, dy);
+  if (n > 1) { dx /= n; dy /= n; }
+  stick.x = dx; stick.y = dy;
+  knobEl.style.transform = `translate(${dx * rad * 0.62}px, ${dy * rad * 0.62}px)`;
+}
+function releaseStick(e) {
+  if (e.pointerId !== stick.id) return;
+  stick.id = null; stick.x = stick.y = 0;
+  knobEl.style.transform = ''; stickEl.classList.remove('active');
+}
+stickEl.addEventListener('pointerdown', e => {
+  e.preventDefault(); stick.id = e.pointerId; stickEl.setPointerCapture?.(e.pointerId);
+  stickEl.classList.add('active'); moveStick(e);
+});
+stickEl.addEventListener('pointermove', e => { if (e.pointerId === stick.id) moveStick(e); });
+stickEl.addEventListener('pointerup', releaseStick);
+stickEl.addEventListener('pointercancel', releaseStick);
+window.addEventListener('touchstart', () => { if (state === 'playing') stickEl.hidden = false; }, { passive: true });
 $('startBtn').addEventListener('click', startGame);
 $('retryBtn').addEventListener('click', startGame);
 function toggleMute() { muted = !muted; $('mute').textContent = 'Sound: ' + (muted ? 'off' : 'on'); }
