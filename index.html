@@ -102,7 +102,7 @@ button:focus-visible { outline: 3px solid var(--parch); outline-offset: 3px; }
   <div class="swarm" id="swarmBox">
     <div class="label" style="justify-content:flex-end">Swarm</div>
     <div class="count"><span id="rats">0</span> <small>rats</small></div>
-    <div class="decay" title="Time until the next rat dies"><div id="decayFill"></div></div>
+    <div class="decay" title="Time until the next rat dies. Infect someone to refill it."><div id="decayFill"></div></div>
   </div>
 </div>
 
@@ -110,7 +110,7 @@ button:focus-visible { outline: 3px solid var(--parch); outline-offset: 3px; }
   <div class="card">
     <div class="eyebrow" id="levelLine">Level 1 · The Market District</div>
     <h1>Plague Rat</h1>
-    <p>Lead your swarm through the streets. Every townsperson a rat touches catches the plague, and every infection breeds another rat. Your rats die off one by one, so keep spreading.</p>
+    <p>Lead your swarm through the streets. Every townsperson a rat touches catches the plague, and every infection breeds another rat. If too long passes without an infection, a rat dies, so keep spreading.</p>
     <dl class="facts">
       <div><dt>Win</dt><dd id="goalLine">Infect 60%</dd></div>
       <div><dt>Lose</dt><dd>Swarm dies out</dd></div>
@@ -146,7 +146,8 @@ const CONFIG = {
   targetPercent: 60,       // R7: win when this % are infected
   startRats: 8,            // R2: swarm size at level start
   ratsPerInfection: 1,     // R4: rats gained per infection
-  decayInterval: 1.5,      // R5: seconds between rat deaths
+  decayInterval: 1.5,      // R5: seconds without an infection before a rat dies
+  decayResetOnInfect: true,// R5: true = an infection restarts the countdown; false = old steady die-off (R5a)
   ratSpeed: 80,            // px/s, lead rat
   citizenSpeed: 16,        // px/s, healthy townsfolk
   infectedSpeedMult: 0.6,  // R8: infected townsfolk move slower
@@ -601,7 +602,7 @@ function update(dt) {
     }
   }
 
-  // R5: the swarm dies off from the tail at a steady rate
+  // R5: a rat dies from the tail each time the countdown runs out (infect() restarts it)
   G.decayTimer += dt;
   while (G.decayTimer >= CONFIG.decayInterval && G.rats.length) {
     G.decayTimer -= CONFIG.decayInterval;
@@ -624,6 +625,7 @@ function update(dt) {
 function infect(c) {
   const G = game;
   c.infected = true; G.infected++;
+  if (CONFIG.decayResetOnInfect) G.decayTimer = 0;
   for (let i = 0; i < CONFIG.ratsPerInfection; i++) G.rats.push(newRat(c.x, c.y));
   G.peak = Math.max(G.peak, G.rats.length);
   for (let i = 0; i < 10; i++) {
