@@ -33,6 +33,7 @@ Status: **Locked** (agreed, must be honored), **Draft** (being tried out), **Ret
 | R9 | Townsfolk wander the streets at random and do not react to rats. | Draft |
 | R10 | A level is a fixed hand-set district (same layout every play). There is no clock; level length comes from the die-off (R5). | Draft |
 | R11 | Controls: WASD / arrow keys, or press-and-drag on screen (the leader runs toward the finger/cursor). | Draft |
+| R12 | A super-minimal minimap in the bottom-left corner shows the whole district with only two things on it: the player (blinking green marker) and each healthy townsperson (pale dot). No streets, buildings or infected people. | Draft |
 
 ## 4. Tunable Numbers
 All live in the `CONFIG` object at the top of the script in `index.html`. Tuning these never changes a rule.
@@ -48,17 +49,18 @@ All live in the `CONFIG` object at the top of the script in `index.html`. Tuning
 | `citizenSpeed` | 16 px/s | |
 | `infectedSpeedMult` | 0.6 | |
 | `infectRadius` | 7 px | How close counts as touching |
+| `minimapCell` | 2 | Map tiles per minimap pixel (lower = bigger, more detailed minimap) |
 
-Balance note: a pathfinding test bot (which always runs straight to the nearest healthy person) wins Level 1 in about 1:45 with ~20 rats left. A human player will be less efficient, so expect closer runs.
+Balance note: a pathfinding test bot wins Level 1 in about 1:45 with ~20 rats left, but the bot always knows where everyone is. The designer found the level too hard without that knowledge, which is why R12 (minimap) was added. Numbers unchanged pending a replay.
 
 ## 5. Open Questions (need the designer's call)
 - **Q1:** Should there also be a hard level timer, or is the die-off the only clock (current)?
-- **Q2:** Should infected townsfolk spread the plague to others (chain reactions)? Currently no (R8).
-- **Q3:** Should the die-off speed up as the swarm grows? Currently flat, so a big swarm makes the level easier.
-- **Q4:** Should townsfolk react to rats (flee, scream, stomp rats)? Currently no (R9).
+- **Q2:** Should the die-off speed up as the swarm grows? Currently flat, so a big swarm makes the level easier.
+- **Q3:** Should townsfolk react to rats (flee, scream, stomp rats)? Currently no (R9).
 
-## 6. Ideas Parking Lot (Claude's suggestions, not in the game)
-- Indicators at the screen edge pointing to nearby healthy townsfolk, or a minimap.
+## 6. Ideas Parking Lot (not in the game)
+- **Chain spread** (designer likes it, parked for later): infected townsfolk pass the plague to healthy people they touch. Would change R8.
+- Indicators at the screen edge pointing to nearby healthy townsfolk.
 - Combo streak: infections in quick succession give bonus rats.
 - Hazards: cats, rat-catchers, or guards that kill rats.
 - Townsfolk types: e.g. a doctor who cures, a crowd that clusters at a market.
@@ -71,3 +73,5 @@ Balance note: a pathfinding test bot (which always runs straight to the nearest 
 | 2026-10-05 | Document created | Designer |
 | 2026-10-05 | Platform locked: browser game (HTML/JS) | Designer |
 | 2026-10-05 | Concept recorded; first prototype with rules R1–R11 as Draft | Pending designer review |
+| 2026-10-05 | Added R12: minimal minimap of the player and healthy townsfolk | Designer |
+| 2026-10-05 | Chain spread moved to Parking Lot (former Q2) | Designer |

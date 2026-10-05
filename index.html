@@ -82,6 +82,12 @@ button:focus-visible { outline: 3px solid var(--parch); outline-offset: 3px; }
   font-size: 12px; padding: 6px 10px; background: var(--panel); color: var(--dim);
   border: 2px solid var(--edge); box-shadow: none;
 }
+#minimap {
+  position: fixed; left: 16px; bottom: calc(env(safe-area-inset-bottom, 0px) + 12px);
+  width: clamp(96px, 24vw, 160px); height: auto;
+  image-rendering: pixelated; image-rendering: crisp-edges;
+  border: 2px solid var(--edge); pointer-events: none;
+}
 @media (prefers-reduced-motion: reduce) { .swarm.low .count { animation: none; } #pctFill { transition: none; } }
 </style>
 </head>
@@ -109,7 +115,7 @@ button:focus-visible { outline: 3px solid var(--parch); outline-offset: 3px; }
       <div><dt>Win</dt><dd id="goalLine">Infect 60%</dd></div>
       <div><dt>Lose</dt><dd>Swarm dies out</dd></div>
     </dl>
-    <p class="controls">Move with WASD or the arrow keys, or press and drag on the screen.</p>
+    <p class="controls">Move with WASD or the arrow keys, or press and drag on the screen. The map in the corner shows where the healthy townsfolk are.</p>
     <button id="startBtn">Begin the plague</button>
   </div>
 </div>
@@ -123,6 +129,8 @@ button:focus-visible { outline: 3px solid var(--parch); outline-offset: 3px; }
     <button id="retryBtn">Play again</button>
   </div>
 </div>
+
+<canvas id="minimap" hidden></canvas>
 
 <button id="mute" type="button">Sound: on</button>
 
@@ -143,6 +151,7 @@ const CONFIG = {
   citizenSpeed: 16,        // px/s, healthy townsfolk
   infectedSpeedMult: 0.6,  // R8: infected townsfolk move slower
   infectRadius: 7,         // R3: px distance that counts as touching
+  minimapCell: 2,          // R12: map tiles per minimap pixel
 };
 
 const TILE = 16, BLOCKS_X = 10, BLOCKS_Y = 8;
@@ -669,6 +678,25 @@ function render() {
   if (vignette) ctx.drawImage(vignette, 0, 0);
 }
 
+// R12: minimap shows only the player and the townsfolk who are still healthy.
+const mini = document.getElementById('minimap'), mctx = mini.getContext('2d');
+function renderMinimap() {
+  const G = game, cell = CONFIG.minimapCell * TILE;
+  const w = Math.ceil(MAP_W / CONFIG.minimapCell), h = Math.ceil(MAP_H / CONFIG.minimapCell);
+  if (mini.width !== w * 2) { mini.width = w * 2; mini.height = h * 2; }
+  mctx.fillStyle = 'rgba(18,15,12,.72)'; mctx.fillRect(0, 0, mini.width, mini.height);
+  mctx.fillStyle = '#e9dcbc';
+  for (const c of G.citizens) {
+    if (!c.infected) mctx.fillRect(Math.floor(c.x / cell) * 2, Math.floor(c.y / cell) * 2, 2, 2);
+  }
+  const L = G.rats[0];
+  if (L && Math.floor(G.time * 3) % 3 !== 0) {
+    const px = Math.floor(L.x / cell) * 2, py = Math.floor(L.y / cell) * 2;
+    mctx.fillStyle = '#a3d13c'; mctx.fillRect(px - 2, py - 2, 6, 6);
+    mctx.fillStyle = '#120f0c'; mctx.fillRect(px, py, 2, 2);
+  }
+}
+
 function makeVignette() {
   const v = makeCanvas(view.w, view.h), g = v.getContext('2d');
   const grad = g.createRadialGradient(view.w / 2, view.h / 2, Math.min(view.w, view.h) * 0.35, view.w / 2, view.h / 2, Math.max(view.w, view.h) * 0.75);
@@ -708,7 +736,7 @@ function startGame() {
   if (!actx) { try { actx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { actx = null; } }
   newGame(); hudCache = {};
   state = 'playing';
-  $('titleScreen').hidden = true; $('endScreen').hidden = true; $('hud').hidden = false;
+  $('titleScreen').hidden = true; $('endScreen').hidden = true; $('hud').hidden = false; mini.hidden = false;
   canvas.focus?.();
 }
 function endGame(won) {
@@ -766,6 +794,7 @@ function frame(now) {
     const steps = Math.max(1, Math.round(dbg.timeScale));
     for (let i = 0; i < steps && state === 'playing'; i++) update(dt);
     updateHud();
+    renderMinimap();
   }
   render();
   requestAnimationFrame(frame);
