@@ -44,7 +44,9 @@ body { font-family: var(--font-ui); touch-action: none; user-select: none; -webk
 .count small { font-size: 12px; color: var(--dim); font-weight: 400; }
 .swarm.low .count { color: var(--blood); animation: pulse .5s steps(2) infinite; }
 @keyframes pulse { 50% { opacity: .45; } }
-.decay { height: 4px; margin-top: 4px; background: var(--panel); }
+.decayRow { display: flex; align-items: center; gap: 6px; margin-top: 4px; }
+#decaySecs { font-size: 11px; color: var(--blood); font-variant-numeric: tabular-nums; }
+.decay { flex: 1; height: 4px; background: var(--panel); }
 #decayFill { height: 100%; width: 100%; background: var(--blood); margin-left: auto; }
 
 .screen {
@@ -102,7 +104,7 @@ button:focus-visible { outline: 3px solid var(--parch); outline-offset: 3px; }
   <div class="swarm" id="swarmBox">
     <div class="label" style="justify-content:flex-end">Swarm</div>
     <div class="count"><span id="rats">0</span> <small>rats</small></div>
-    <div class="decay" title="Time until the next rat dies. Infect someone to refill it."><div id="decayFill"></div></div>
+    <div class="decayRow"><span id="decaySecs">1.5s</span><div class="decay" title="Time until the next rat dies. Infect someone to refill it."><div id="decayFill"></div></div></div>
   </div>
 </div>
 
@@ -110,7 +112,7 @@ button:focus-visible { outline: 3px solid var(--parch); outline-offset: 3px; }
   <div class="card">
     <div class="eyebrow" id="levelLine">Level 1 · The Market District</div>
     <h1>Plague Rat</h1>
-    <p>Lead your swarm through the streets. Every townsperson a rat touches catches the plague, and every infection breeds another rat. If too long passes without an infection, a rat dies, so keep spreading.</p>
+    <p>Lead your swarm through the streets. Every townsperson a rat touches catches the plague, and every infection breeds another rat. If too long passes without an infection, a rat dies, and the bigger your swarm, the shorter that grace time. Keep spreading.</p>
     <dl class="facts">
       <div><dt>Win</dt><dd id="goalLine">Infect 60%</dd></div>
       <div><dt>Lose</dt><dd>Swarm dies out</dd></div>
@@ -146,7 +148,10 @@ const CONFIG = {
   targetPercent: 60,       // R7: win when this % are infected
   startRats: 8,            // R2: swarm size at level start
   ratsPerInfection: 1,     // R4: rats gained per infection
-  decayInterval: 1.5,      // R5: seconds without an infection before a rat dies
+  decayInterval: 1.5,      // R5: seconds without an infection before a rat dies (swarm of 1-10 rats)
+  decayStepEvery: 10,      // R13: every 10 rats above 10...
+  decayStep: 0.1,          // R13: ...the countdown gets this many seconds shorter
+  decayMin: 0.5,           // R13: the countdown never drops below this
   decayResetOnInfect: true,// R5: true = an infection restarts the countdown; false = old steady die-off (R5a)
   ratSpeed: 80,            // px/s, lead rat
   citizenSpeed: 16,        // px/s, healthy townsfolk
@@ -604,8 +609,8 @@ function update(dt) {
 
   // R5: a rat dies from the tail each time the countdown runs out (infect() restarts it)
   G.decayTimer += dt;
-  while (G.decayTimer >= CONFIG.decayInterval && G.rats.length) {
-    G.decayTimer -= CONFIG.decayInterval;
+  while (G.rats.length && G.decayTimer >= decayIntervalFor(G.rats.length)) {
+    G.decayTimer -= decayIntervalFor(G.rats.length);
     const dead = G.rats.pop();
     for (let i = 0; i < 6; i++) G.particles.push({ x: dead.x, y: dead.y, vx: (Math.random() - .5) * 20, vy: -10 - Math.random() * 14, life: 0.7, max: 0.7, col: '#8b8173', size: 1 });
     G.texts.push({ x: dead.x, y: dead.y - 6, text: '-1', col: '#d04a32', life: 0.8 });
@@ -620,6 +625,12 @@ function update(dt) {
   // R6 / R7
   if (G.infected * 100 >= CONFIG.targetPercent * CONFIG.population) endGame(true);
   else if (G.rats.length === 0) endGame(false);
+}
+
+// R13: the bigger the swarm, the shorter the die-off countdown
+function decayIntervalFor(n) {
+  const tier = Math.max(0, Math.floor((n - 1) / CONFIG.decayStepEvery));
+  return Math.max(CONFIG.decayMin, +(CONFIG.decayInterval - tier * CONFIG.decayStep).toFixed(2));
 }
 
 function infect(c) {
@@ -730,7 +741,9 @@ function updateHud() {
     $('rats').textContent = G.rats.length; hudCache.rats = G.rats.length;
     $('swarmBox').classList.toggle('low', G.rats.length <= 3);
   }
-  $('decayFill').style.width = (100 - G.decayTimer / CONFIG.decayInterval * 100) + '%';
+  const di = decayIntervalFor(G.rats.length);
+  $('decayFill').style.width = Math.max(0, 100 - G.decayTimer / di * 100) + '%';
+  if (hudCache.di !== di) { $('decaySecs').textContent = di.toFixed(1) + 's'; hudCache.di = di; }
 }
 const fmtTime = s => Math.floor(s / 60) + ':' + String(Math.floor(s % 60)).padStart(2, '0');
 

@@ -26,7 +26,7 @@ Status: **Locked** (agreed, must be honored), **Draft** (being tried out), **Ret
 | R2 | The swarm size is the number of rats, the leader included. A level starts with `startRats` rats. | Draft |
 | R3 | Any rat in the swarm touching a healthy townsperson infects them instantly. | Draft |
 | R4 | Each infection adds `ratsPerInfection` new rats to the swarm (they join at the tail). | Draft |
-| R5 | Die-off countdown: if `decayInterval` seconds pass without an infection, the swarm loses one rat from the tail and the countdown starts again. Every infection restarts the countdown, so as long as the player keeps infecting within the window, no rats die. | Draft (trial) |
+| R5 | Die-off countdown: if `decayInterval` seconds pass without an infection, the swarm loses one rat from the tail and the countdown starts again. Every infection restarts the countdown, so as long as the player keeps infecting within the window, no rats die. The countdown length is set by R13. | Locked |
 | R5a | *(old R5)* The swarm loses one rat every `decayInterval` seconds, from the tail, at all times, whatever the player does. Still available via `decayResetOnInfect: false`. | Retired (kept for comparison) |
 | R6 | **Lose:** the swarm reaches 0 rats. | Draft |
 | R7 | **Win:** the infected share of the population reaches `targetPercent`. | Draft |
@@ -34,6 +34,7 @@ Status: **Locked** (agreed, must be honored), **Draft** (being tried out), **Ret
 | R9 | Townsfolk wander the streets at random and do not react to rats. | Draft |
 | R10 | A level is a fixed hand-set district (same layout every play). There is no clock; level length comes from the die-off (R5). | Draft |
 | R11 | Controls: WASD / arrow keys, or press-and-drag on screen (the leader runs toward the finger/cursor). | Draft |
+| R13 | The die-off countdown shrinks as the swarm grows: `decayInterval` (1.5 s) for 1–10 rats, then `decayStep` (0.1 s) shorter for every further `decayStepEvery` (10) rats: 11–20 → 1.4 s, 21–30 → 1.3 s, … 60 → 1.0 s. It never goes below `decayMin` (0.5 s). The countdown gets longer again when the swarm shrinks. The HUD shows the current countdown in seconds next to the bar. | Draft |
 | R12 | A super-minimal minimap in the bottom-left corner shows the whole district with only two things on it: the player (blinking green marker) and each healthy townsperson (pale dot). No streets, buildings or infected people. | Draft |
 
 ## 4. Tunable Numbers
@@ -45,7 +46,10 @@ All live in the `CONFIG` object at the top of the script in `index.html`. Tuning
 | `targetPercent` | 60 | 84 infections needed |
 | `startRats` | 8 | |
 | `ratsPerInfection` | 1 | |
-| `decayInterval` | 1.5 s | Seconds without an infection before a rat dies |
+| `decayInterval` | 1.5 s | Countdown for a swarm of 1–10 rats |
+| `decayStepEvery` | 10 rats | Swarm size per countdown step (R13) |
+| `decayStep` | 0.1 s | How much shorter each step makes the countdown (R13) |
+| `decayMin` | 0.5 s | Shortest the countdown can get (R13) |
 | `decayResetOnInfect` | true | true = R5 (infection restarts the countdown); false = R5a (steady die-off) |
 | `ratSpeed` | 80 px/s | |
 | `citizenSpeed` | 16 px/s | |
@@ -56,6 +60,8 @@ All live in the `CONFIG` object at the top of the script in `index.html`. Tuning
 Balance note: a pathfinding test bot wins Level 1 in about 1:45 with ~20 rats left, but the bot always knows where everyone is. The designer found the level too hard without that knowledge, which is why R12 (minimap) was added. Numbers unchanged pending a replay.
 
 With R5 (countdown reset), the same bot wins in ~1:55 and finishes with ~55 rats: it almost never loses a rat. Bot results at other values: 1.0 s → wins with ~25 rats left; 0.75 s → loses.
+
+With R13 added, the bot wins in ~1:45 with ~45 rats (was ~55 without R13). Its swarm peaks around 50 rats, so it spends the late game at a 1.1 s countdown.
 
 ## 5. Open Questions (need the designer's call)
 - **Q1:** Should there also be a hard level timer, or is the die-off the only clock (current)?
@@ -80,3 +86,5 @@ With R5 (countdown reset), the same bot wins in ~1:55 and finishes with ~55 rats
 | 2026-10-05 | Added R12: minimal minimap of the player and healthy townsfolk | Designer |
 | 2026-10-05 | Chain spread moved to Parking Lot (former Q2) | Designer |
 | 2026-10-05 | R5 changed to trial: an infection restarts the die-off countdown. Old rule kept as R5a. | Designer |
+| 2026-10-05 | R5 (countdown reset on infection) locked | Designer |
+| 2026-10-05 | Added R13: countdown shortens by 0.1 s per 10 rats above 10 (min 0.5 s) | Designer |
