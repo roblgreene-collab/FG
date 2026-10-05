@@ -43,6 +43,14 @@ Status: **Locked** (agreed, must be honored), **Draft** (being tried out), **Ret
 |----|------|--------|
 | V1 | **Green means plague.** Green is reserved for the plague and the rats' miasma. Healthy townsfolk never wear or show green. | Draft |
 | V2 | Infected townsfolk are marked by: sickly green skin, dark plague sores on face and arm, clothes dulled toward olive, a bright green outline, a pulsing green glow on the ground, and rising green bubbles. Healthy townsfolk have a thin dark outline. | Draft |
+| V3 | **Bill of Mortality.** Every end screen (win or lose) shows a comic death report styled after the old London Bills of Mortality. It lists up to 5 gross, cartoonish causes picked at random from a pool of 20, with numbers that add up to the number of people infected that run. A new mix every play. | Draft |
+
+## 3b. Audio
+| ID | Rule | Status |
+|----|------|--------|
+| A1 | Short synth sound effects: a squeak on each infection, a low blip when a rat dies, a jingle on win and lose. | Draft |
+| A2 | One "Sound" button (bottom right, or the M key) mutes and unmutes everything, music included. | Draft |
+| A3 | Background music: a looping music-box version of "Ring a Ring o' Roses" over a slow bass, about 12 s per loop. It plays during a level and stops at the end screen. | Draft |
 
 ## 4. Tunable Numbers
 All live in the `CONFIG` object at the top of the script in `index.html`. Tuning these never changes a rule.
@@ -64,6 +72,8 @@ All live in the `CONFIG` object at the top of the script in `index.html`. Tuning
 | `infectRadius` | 7 px | How close counts as touching |
 | `stickDeadZone` | 0.15 | Joystick push ignored near its centre (0–1) |
 | `stickFullAt` | 0.6 | Joystick push that gives full speed (0–1) |
+| `musicEighth` | 0.22 s | Length of one eighth note; lower = faster tune (A3) |
+| `musicVolume` | 0.03 | Melody volume (A3) |
 | `minimapCell` | 2 | Map tiles per minimap pixel (lower = bigger, more detailed minimap) |
 
 Balance note: a pathfinding test bot wins Level 1 in about 1:45 with ~20 rats left, but the bot always knows where everyone is. The designer found the level too hard without that knowledge, which is why R12 (minimap) was added. Numbers unchanged pending a replay.
@@ -96,6 +106,7 @@ With R13 added, the bot wins in ~1:45 with ~45 rats (was ~55 without R13). Its s
 | 2026-10-05 | Chain spread moved to Parking Lot (former Q2) | Designer |
 | 2026-10-05 | R5 changed to trial: an infection restarts the die-off countdown. Old rule kept as R5a. | Designer |
 | 2026-10-05 | R5 (countdown reset on infection) locked | Designer |
+| 2026-10-05 | Added V3 (Bill of Mortality end report) and A3 (Ring a Ring o' Roses music); recorded existing sound as A1, A2 | Designer |
 | 2026-10-05 | R11 touch control changed to a bottom-middle virtual joystick; drag-to-move retired as R11a | Designer |
 | 2026-10-05 | Added V1 (green = plague only) and V2 (stronger infected look) | Designer |
 | 2026-10-05 | Added R13: countdown shortens by 0.1 s per 10 rats above 10 (min 0.5 s) | Designer |

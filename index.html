@@ -53,9 +53,11 @@ body { font-family: var(--font-ui); touch-action: none; user-select: none; -webk
   position: fixed; inset: 0; display: grid; place-items: center;
   padding-block: 16px; padding-inline: 16px;
   background: rgba(10, 8, 6, .62);
+  z-index: 5;
 }
 .card {
   width: 100%; max-width: 30rem; box-sizing: border-box;
+  max-height: calc(100vh - 32px); overflow-y: auto;
   background: var(--panel); border: 2px solid var(--edge);
   box-shadow: 6px 6px 0 #000;
   padding: 22px 22px 20px;
@@ -105,6 +107,14 @@ button:focus-visible { outline: 3px solid var(--parch); outline-offset: 3px; }
   box-shadow: 3px 3px 0 #000; pointer-events: none;
 }
 #stick.active #knob { opacity: 1; }
+.bill { border: 2px solid var(--edge); padding: 10px 12px 12px; display: grid; gap: 6px; }
+.bill h3 { font-family: var(--font-display); font-weight: 400; font-size: 30px; line-height: 1; margin: 0; color: var(--parch); }
+.bill .sub { font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--dim); margin-top: -2px; }
+.bill ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.bill li { display: flex; align-items: baseline; gap: 6px; font-size: 14px; line-height: 1.3; }
+.bill li span { min-width: 0; }
+.bill li .lead { flex: 1; border-bottom: 2px dotted var(--edge); transform: translateY(-3px); min-width: 12px; }
+.bill li b { color: var(--plague); font-variant-numeric: tabular-nums; font-weight: 600; }
 @media (prefers-reduced-motion: reduce) { .swarm.low .count { animation: none; } #pctFill { transition: none; } }
 </style>
 </head>
@@ -143,6 +153,7 @@ button:focus-visible { outline: 3px solid var(--parch); outline-offset: 3px; }
     <h2 id="endTitle"></h2>
     <p id="endText"></p>
     <dl class="facts" id="endFacts"></dl>
+    <div class="bill" id="bill" hidden></div>
     <button id="retryBtn">Play again</button>
   </div>
 </div>
@@ -173,6 +184,8 @@ const CONFIG = {
   ratSpeed: 80,            // px/s, lead rat
   citizenSpeed: 16,        // px/s, healthy townsfolk
   infectedSpeedMult: 0.6,  // R8: infected townsfolk move slower
+  musicEighth: 0.22,       // A3: seconds per eighth note (lower = faster tune)
+  musicVolume: 0.03,       // A3: melody volume
   infectRadius: 7,         // R3: px distance that counts as touching
   stickDeadZone: 0.15,     // R11: joystick deflection ignored near the centre (0-1)
   stickFullAt: 0.6,        // R11: deflection that gives full speed (0-1)
@@ -488,6 +501,80 @@ const sfx = {
   lose() { [330, 262, 196, 131].forEach((f, i) => tone(f, f * 0.97, i * 0.16, 0.22, 'triangle', 0.08)); },
 };
 
+// A3: background music, a music-box take on "Ring a Ring o' Roses" over a slow bass.
+const NOTE = { C2: 65.41, F2: 87.31, G2: 98.0, C4: 261.63, E4: 329.63, G4: 392.0, A4: 440.0 };
+const MELODY = [ // [note, length in eighth notes], 6/8 time
+  ['G4', 2], ['G4', 1], ['E4', 2], ['A4', 1], ['G4', 3], ['E4', 3],   // Ring-a-ring o' ro-ses
+  ['G4', 2], ['G4', 1], ['E4', 2], ['A4', 1], ['G4', 3], ['E4', 3],   // a pock-et full of po-sies
+  ['A4', 2], ['A4', 1], ['G4', 3], ['A4', 2], ['A4', 1], ['G4', 3],   // a-tish-oo! a-tish-oo!
+  ['G4', 2], ['G4', 1], ['G4', 3], ['C4', 6],                         // we all fall down
+  [null, 6],
+];
+const BASS = ['C2', 'C2', 'C2', 'C2', 'F2', 'F2', 'G2', 'C2', null]; // one per bar
+const music = { gain: null, timer: null, next: 0, i: 0, eighth: 0 };
+function musicNote(freq, t, dur, type, vol) {
+  const o = actx.createOscillator(), g = actx.createGain();
+  o.type = type; o.frequency.setValueAtTime(freq, t);
+  g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + 0.01);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  o.connect(g); g.connect(music.gain); o.start(t); o.stop(t + dur + 0.02);
+}
+function startMusic() {
+  if (!actx || music.timer) return;
+  if (!music.gain) { music.gain = actx.createGain(); music.gain.connect(actx.destination); }
+  music.gain.gain.setValueAtTime(muted ? 0 : 1, actx.currentTime);
+  music.next = actx.currentTime + 0.1; music.i = 0; music.eighth = 0;
+  const E = CONFIG.musicEighth;
+  music.timer = setInterval(() => {
+    while (music.next < actx.currentTime + 0.25) {
+      const [n, len] = MELODY[music.i];
+      if (music.eighth % 6 === 0) { // bass on each bar
+        const b = BASS[music.eighth / 6 % BASS.length];
+        if (b) { musicNote(NOTE[b], music.next, E * 3, 'triangle', 0.07); musicNote(NOTE[b], music.next + E * 3, E * 3, 'triangle', 0.05); }
+      }
+      if (n) musicNote(NOTE[n], music.next, Math.min(E * len, 0.6), 'square', CONFIG.musicVolume);
+      music.next += E * len; music.eighth += len;
+      music.i = (music.i + 1) % MELODY.length;
+      if (music.i === 0) music.eighth = 0;
+    }
+  }, 50);
+}
+function stopMusic() { clearInterval(music.timer); music.timer = null; }
+
+// ---------------------------------------------------------------------------
+// V3: Bill of Mortality, the comic death report at the end of a level.
+// ---------------------------------------------------------------------------
+const MORTALITY = [
+  'Coughed up a lung, then went back for the other',
+  'Boils burst at the dinner table',
+  'Sneezed so hard their eyes left town',
+  'Turned green and stayed that way',
+  'Leaked from places best not mentioned',
+  'Melted into a puddle by the fish market',
+  'Grew a boil the size of a cabbage',
+  'Was sick in the well (sorry, everyone)',
+  'Fell to pieces while dancing',
+  'Sweated themselves into soup',
+  'Kissed a rat. Regrets.',
+  'Treated with leeches. The leeches died too',
+  'Scratched until there was nothing left',
+  'Popped like an overripe plum',
+  'Nose fell off into the stew',
+  'Rotted standing up, out of politeness',
+  'Tried to cure it with onions',
+  'Hiccuped themselves inside out',
+  'Gave the plague to the doctor, then the priest',
+  'Wheezed a sea shanty, then never again',
+];
+function billOfMortality(n) {
+  const rows = Math.min(5, n);
+  if (!rows) return [];
+  const causes = [...MORTALITY].sort(() => Math.random() - 0.5).slice(0, rows);
+  const counts = Array(rows).fill(1);
+  for (let k = rows; k < n; k++) counts[Math.floor(Math.random() ** 1.6 * rows)]++; // uneven split, sums to n
+  return causes.map((c, i) => [c, counts[i]]).sort((a, b) => b[1] - a[1]);
+}
+
 // ---------------------------------------------------------------------------
 // Game state
 // ---------------------------------------------------------------------------
@@ -796,6 +883,7 @@ function startGame() {
   if (!actx) { try { actx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { actx = null; } }
   newGame(); hudCache = {};
   state = 'playing';
+  startMusic();
   $('titleScreen').hidden = true; $('endScreen').hidden = true; $('hud').hidden = false; mini.hidden = false;
   stickEl.hidden = !isTouch();
   canvas.focus?.();
@@ -803,6 +891,7 @@ function startGame() {
 function endGame(won) {
   const G = game;
   state = won ? 'won' : 'lost';
+  mini.hidden = true;
   stickEl.hidden = true; stick.id = null; stick.x = stick.y = 0; knobEl.style.transform = '';
   updateHud();
   const pct = Math.floor(G.infected * 100 / CONFIG.population);
@@ -814,6 +903,11 @@ function endGame(won) {
     : `You reached ${pct}% of the ${CONFIG.targetPercent}% needed. ${Math.ceil(CONFIG.targetPercent * CONFIG.population / 100) - G.infected} more infections would have done it.`;
   const facts = [['Spread', pct + '%'], ['Time', fmtTime(G.time)], ['Biggest swarm', G.peak]];
   $('endFacts').innerHTML = facts.map(([k, v]) => `<div><dt>${k}</dt><dd>${v}</dd></div>`).join('');
+  const bill = billOfMortality(G.infected);
+  $('bill').hidden = !bill.length;
+  $('bill').innerHTML = `<h3>Bill of Mortality</h3><div class="sub">${CONFIG.levelName}, this week</div><ol>` +
+    bill.map(([c, n]) => `<li><span>${c}</span><span class="lead"></span><b>${n}</b></li>`).join('') + '</ol>';
+  stopMusic();
   (won ? sfx.win : sfx.lose)();
   setTimeout(() => { $('endScreen').hidden = false; $('retryBtn').focus(); }, 700);
 }
@@ -855,7 +949,10 @@ stickEl.addEventListener('pointercancel', releaseStick);
 window.addEventListener('touchstart', () => { if (state === 'playing') stickEl.hidden = false; }, { passive: true });
 $('startBtn').addEventListener('click', startGame);
 $('retryBtn').addEventListener('click', startGame);
-function toggleMute() { muted = !muted; $('mute').textContent = 'Sound: ' + (muted ? 'off' : 'on'); }
+function toggleMute() {
+  muted = !muted; $('mute').textContent = 'Sound: ' + (muted ? 'off' : 'on');
+  if (music.gain) music.gain.gain.setValueAtTime(muted ? 0 : 1, actx.currentTime);
+}
 $('mute').addEventListener('click', e => { toggleMute(); e.currentTarget.blur(); });
 
 $('target').style.left = CONFIG.targetPercent + '%';
