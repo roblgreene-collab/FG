@@ -37,6 +37,12 @@ Status: **Locked** (agreed, must be honored), **Draft** (being tried out), **Ret
 | R12 | A super-minimal minimap in the bottom-left corner shows the whole district with only two things on it: the player (blinking green marker) and each healthy townsperson (pale dot). No streets, buildings or infected people. | Draft |
 | R13 | The die-off countdown shrinks as the swarm grows: `decayInterval` (1.5 s) for 1–10 rats, then `decayStep` (0.1 s) shorter for every further `decayStepEvery` (10) rats: 11–20 → 1.4 s, 21–30 → 1.3 s, … 60 → 1.0 s. It never goes below `decayMin` (0.5 s). The countdown gets longer again when the swarm shrinks. The HUD shows the current countdown in seconds next to the bar. | Draft |
 
+## 3a. Visual Language
+| ID | Rule | Status |
+|----|------|--------|
+| V1 | **Green means plague.** Green is reserved for the plague and the rats' miasma. Healthy townsfolk never wear or show green. | Draft |
+| V2 | Infected townsfolk are marked by: sickly green skin, dark plague sores on face and arm, clothes dulled toward olive, a bright green outline, a pulsing green glow on the ground, and rising green bubbles. Healthy townsfolk have a thin dark outline. | Draft |
+
 ## 4. Tunable Numbers
 All live in the `CONFIG` object at the top of the script in `index.html`. Tuning these never changes a rule.
 
@@ -87,4 +93,5 @@ With R13 added, the bot wins in ~1:45 with ~45 rats (was ~55 without R13). Its s
 | 2026-10-05 | Chain spread moved to Parking Lot (former Q2) | Designer |
 | 2026-10-05 | R5 changed to trial: an infection restarts the die-off countdown. Old rule kept as R5a. | Designer |
 | 2026-10-05 | R5 (countdown reset on infection) locked | Designer |
+| 2026-10-05 | Added V1 (green = plague only) and V2 (stronger infected look) | Designer |
 | 2026-10-05 | Added R13: countdown shortens by 0.1 s per 10 rats above 10 (min 0.5 s) | Designer |

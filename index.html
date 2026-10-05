@@ -332,10 +332,19 @@ function renderMap() {
 }
 
 // Sprites are written as character grids and coloured with a palette.
-function spriteFrom(rows, pal) {
-  const c = makeCanvas(rows[0].length, rows.length), g = c.getContext('2d');
+// With an outline colour, the sprite gets a 1px border (canvas grows by 2px each way).
+function spriteFrom(rows, pal, outline) {
+  const o = outline ? 1 : 0, h = rows.length, w = rows[0].length;
+  const c = makeCanvas(w + o * 2, h + o * 2), g = c.getContext('2d');
+  const filled = (x, y) => y >= 0 && y < h && x >= 0 && x < w && rows[y][x] !== '.' && !!pal[rows[y][x]];
+  if (outline) {
+    g.fillStyle = outline;
+    for (let y = -1; y <= h; y++) for (let x = -1; x <= w; x++) {
+      if (!filled(x, y) && (filled(x - 1, y) || filled(x + 1, y) || filled(x, y - 1) || filled(x, y + 1))) g.fillRect(x + o, y + o, 1, 1);
+    }
+  }
   rows.forEach((row, y) => [...row].forEach((ch, x) => {
-    if (ch !== '.' && pal[ch]) { g.fillStyle = pal[ch]; g.fillRect(x, y, 1, 1); }
+    if (filled(x, y)) { g.fillStyle = pal[ch]; g.fillRect(x + o, y + o, 1, 1); }
   }));
   return c;
 }
@@ -395,18 +404,29 @@ function shade(hex, k) {
   const f = v => Math.max(0, Math.min(255, Math.round(v * k)));
   return '#' + [f(n >> 16), f(n >> 8 & 255), f(n & 255)].map(v => v.toString(16).padStart(2, '0')).join('');
 }
+function mix(a, b, t) {
+  const A = parseInt(a.slice(1), 16), B = parseInt(b.slice(1), 16);
+  const ch = s => Math.round((A >> s & 255) * (1 - t) + (B >> s & 255) * t);
+  return '#' + [ch(16), ch(8), ch(0)].map(v => v.toString(16).padStart(2, '0')).join('');
+}
+// Plague buboes: dark sores on the face and arms of infected townsfolk.
+const sores = f => f.map((row, y) => y === 2 ? '.hsxssh.' : y === 3 ? '..ssxs..' : y === 6 ? 'xccccccs' : row);
+// Visual rule V1: green belongs to the plague, so healthy palettes contain no green.
 function makePersonSprites(rng) {
   const pal = {
     h: pick(rng, ['#2a1f18', '#5a3a22', '#b8934a', '#8a8a86', '#6b2f1c']),
     s: pick(rng, ['#e2b48f', '#c99470', '#9a6a48', '#f0c9a8']),
-    c: pick(rng, ['#7d3a33', '#3d5677', '#8c7a3c', '#5b4a6e', '#4f6b45', '#8a5a3a']),
+    c: pick(rng, ['#7d3a33', '#3d5677', '#a07c3c', '#5b4a6e', '#6e3b52', '#8a5a3a']),
     b: pick(rng, ['#3a2f26', '#2c3340', '#4a3d2c']),
     f: '#1d1712',
   };
-  const sick = { ...pal, s: '#9cb860', c: shade(pal.c, 0.7), b: shade(pal.b, 0.8) };
+  const sick = {
+    ...pal, s: '#a8cf52', x: '#3a1626',
+    h: shade(pal.h, 0.7), c: mix(pal.c, '#3e4a1c', 0.6), b: mix(pal.b, '#2a3014', 0.5),
+  };
   return {
-    healthy: PERSON_FRAMES.map(f => spriteFrom(f, pal)),
-    infected: PERSON_FRAMES.map(f => spriteFrom(f, sick)),
+    healthy: PERSON_FRAMES.map(f => spriteFrom(f, pal, 'rgba(10,8,6,.55)')),
+    infected: PERSON_FRAMES.map(f => spriteFrom(sores(f), sick, '#a3d13c')),
   };
 }
 
@@ -592,7 +612,7 @@ function update(dt) {
       if (Math.random() < 0.15 || !opts.length) { c.dx = c.dy = 0; c.t = 0.6 + Math.random(); }
       else { [c.dx, c.dy] = opts[Math.floor(Math.random() * opts.length)]; c.t = 1.5 + Math.random() * 3; }
     }
-    if (c.infected && Math.random() < dt * 0.9) {
+    if (c.infected && Math.random() < dt * 1.6) {
       G.particles.push({ x: c.x + (Math.random() * 6 - 3), y: c.y - 10, vx: 0, vy: -8, life: 0.9, max: 0.9, col: '#a3d13c', size: 1 });
     }
   }
@@ -635,7 +655,7 @@ function decayIntervalFor(n) {
 
 function infect(c) {
   const G = game;
-  c.infected = true; G.infected++;
+  c.infected = true; G.infected++; c.phase = Math.random() * 6;
   if (CONFIG.decayResetOnInfect) G.decayTimer = 0;
   for (let i = 0; i < CONFIG.ratsPerInfection; i++) G.rats.push(newRat(c.x, c.y));
   G.peak = Math.max(G.peak, G.rats.length);
@@ -677,9 +697,13 @@ function render() {
     } else {
       const c = e.c, s = (c.infected ? c.sprites.infected : c.sprites.healthy)[c.frame || 0];
       const x = Math.round(c.x - 4 + ox), y = Math.round(c.y - 10 + oy);
+      if (c.infected) { // sickly glow on the ground
+        ctx.globalAlpha = 0.18 + 0.08 * Math.sin(G.time * 4 + c.phase);
+        disc(ctx, x + 4, y + 10, 6, '#a3d13c'); ctx.globalAlpha = 1;
+      }
       ctx.fillStyle = 'rgba(0,0,0,.35)'; ctx.fillRect(x + 1, y + 10, 6, 2);
-      if (c.flip) { ctx.save(); ctx.scale(-1, 1); ctx.drawImage(s, -x - 8, y); ctx.restore(); }
-      else ctx.drawImage(s, x, y);
+      if (c.flip) { ctx.save(); ctx.scale(-1, 1); ctx.drawImage(s, -x - 9, y - 1); ctx.restore(); }
+      else ctx.drawImage(s, x - 1, y - 1);
     }
   }
   for (const p of G.particles) {
