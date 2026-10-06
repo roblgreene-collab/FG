@@ -74,8 +74,10 @@ Status: **Locked** (agreed, must be honored), **Draft** (being tried out), **Ret
 | A1 | Short synth sound effects: a squeak on each infection, a low blip when a rat dies, a jingle on win and lose. | Draft |
 | A2 | One "Sound" button (bottom right, or the M key) mutes and unmutes everything, music included. | Draft |
 | A4 | A rising whistle when a hunter starts chasing; a crunch when the swarm eats a hunter. | Draft |
-| A3 | Background music: "Ring a Ring o' Roses" arranged for a small band rather than a music box. A rounded lead (triangle with a soft octave sine) with gentle attack and release, a warm detuned chord pad, bass on root and fifth, a soft arpeggio, a frame drum on the bar and a brushed tap mid-bar, all through reverb. Chords: C C C Am F F G7 C, plus a ninth instrumental bar with a fill. Two verses alternate: plain, then ornamented with passing notes and a harmony line a third below. One loop of both verses is about 26 s. It plays during a level (including the well intro) and fades out at the end screen. | Draft |
+| A3 | Background music: "Ring a Ring o' Roses" as a driving chase theme. The nursery-rhyme melody is played by a punchy saw/square lead over a darker A-minor progression (Am Am Am Em F F G Am, then an instrumental fill bar over E that pulls back to Am). Two verses alternate: plain, then ornamented with passing notes. 6/8 time; tempo and layers follow A5. It plays during a level (including the well intro and feasts) and fades out at the end screen. | Draft |
 | A3a | *(old A3)* Music-box square-wave melody over a slow triangle bass, about 12 s per loop. | Retired |
+| A3b | *(second A3)* Gentle small-band arrangement in C major: rounded lead, chord pad, bass, arpeggio, frame drum, reverb; fixed tempo (0.24 s per eighth). Replaced because it lacked pace. | Retired |
+| A5 | **The music builds with the plague.** Five tiers, chosen on each bar line from the spread so far (as a share of the level's target): **0** (under 25%) lead, kick on the beats, bass pulse; **1** (25%+) adds a snare backbeat, running bass and an arpeggio; **2** (50%+) adds hi-hats, a harmony line, a string pad and an octave-pumping bass; **3** (75%+) doubles the lead an octave up, adds off-beat hats, an extra kick and snare rolls into each verse; **4** (target reached but hunters still alive) adds a shrill high pad for the final hunt. Each tier is a little faster (eighth note 170 → 163 → 156 → 150 → 143 ms) and a cymbal crash marks every step up. | Draft |
 
 ## 4. Tunable Numbers
 All live in the `CONFIG` object at the top of the script in `index.html`. Tuning these never changes a rule.
@@ -95,7 +97,7 @@ All live in the `CONFIG` object at the top of the script in `index.html`. Tuning
 | `infectRadius` | 7 px | How close counts as touching |
 | `stickDeadZone` | 0.15 | Joystick push ignored near its centre (0–1) |
 | `stickFullAt` | 0.6 | Joystick push that gives full speed (0–1) |
-| `musicEighth` | 0.24 s | Length of one eighth note; lower = faster tune (A3) |
+| `musicEighth` | 0.17 s | Length of one eighth note at tier 0; each tier above is 4% faster (A5) |
 | `musicVolume` | 0.03 | Overall music level; each part is scaled from it (A3) |
 | `businessShare` | 0.3 | Share of street-facing houses that are businesses (V6) |
 | `hunterSpeed` | 68 px/s | Hunter speed when chasing or fleeing (H4, H6) |
@@ -172,6 +174,7 @@ Status **Planned** = recorded for later; not built until the designer says so.
 | 2026-10-05 | R5 changed to trial: an infection restarts the die-off countdown. Old rule kept as R5a. | Designer |
 | 2026-10-05 | R5 (countdown reset on infection) locked | Designer |
 | 2026-10-05 | Recorded the Rat Hunter idea (H1–H6) as Planned, for later levels / difficulty; not built | Designer |
+| 2026-10-06 | Music rewritten as an action theme that builds in five tiers with the plague spread (A3, A5; previous arrangement retired as A3b) | Designer |
 | 2026-10-06 | Art pass (V8), detailed well (V9) and well intro (R15); music rearranged (A3, old A3a retired); title screen split from a separate level select, plus reset progress (R14) | Designer |
 | 2026-10-06 | Eating a hunter gives 5 bonus rats (H3); Level 1 has no hunters; win now also needs every hunter eaten (R7, old rule R7a retired); feast animation that pauses play (H7) | Designer |
 | 2026-10-06 | Balance tunables after the new win rule: hunter flee speed 56; Level 4 and 5 hunter numbers lowered and start rats raised to 12; Level 5 townsfolk 120 | Claude (tuning), pending designer review |

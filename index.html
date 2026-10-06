@@ -216,7 +216,7 @@ const CONFIG = {
   ratSpeed: 80,            // px/s, lead rat
   citizenSpeed: 16,        // px/s, healthy townsfolk
   infectedSpeedMult: 0.6,  // R8: infected townsfolk move slower
-  musicEighth: 0.24,       // A3: seconds per eighth note (lower = faster tune)
+  musicEighth: 0.17,       // A3: seconds per eighth note at the calmest tier (lower = faster tune)
   musicVolume: 0.03,       // A3: overall music level (each part is scaled from this)
   infectRadius: 7,         // R3: px distance that counts as touching
   stickDeadZone: 0.15,     // R11: joystick deflection ignored near the centre (0-1)
@@ -1331,9 +1331,10 @@ const sfx = {
   lose() { [330, 262, 196, 131].forEach((f, i) => tone(f, f * 0.97, i * 0.16, 0.22, 'triangle', 0.08)); },
 };
 
-// A3: "Ring a Ring o' Roses" arranged for a small band: a soft, rounded lead
-// with harmony, a warm chord pad, bass, a gentle arpeggio, a light drum and
-// reverb. Two verses alternate: plain, then ornamented with passing notes.
+// A3: "Ring a Ring o' Roses" as a driving chase theme that builds with the
+// plague. The tune is the nursery rhyme over a darker A-minor progression. The
+// arrangement has five intensity tiers (A5), chosen at the start of each bar
+// from how close the spread is to the level's target.
 const NOTE_NUM = name => {
   const m = /^([A-G])(#|b)?(\d)$/.exec(name);
   return { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 }[m[1]] + (m[2] === '#' ? 1 : m[2] === 'b' ? -1 : 0) + (+m[3] + 1) * 12;
@@ -1345,53 +1346,40 @@ const VERSE_A = [
   ['G4', 2], ['G4', 1], ['E4', 2], ['A4', 1], ['G4', 3], ['E4', 3],              // a pock-et full of po-sies
   ['A4', 2], ['A4', 1], ['G4', 3], ['A4', 2], ['A4', 1], ['G4', 3],              // a-tish-oo! a-tish-oo!
   ['G4', 2], ['G4', 1], ['G4', 3], ['C4', 6],                                    // we all fall down
-  ['E5', 1], ['D5', 1], ['C5', 1], ['G4', 1], ['E4', 1], ['D4', 1],              // fill
+  ['E5', 1], ['D5', 1], ['B4', 1], ['G#4', 1], ['E4', 1], ['B3', 1],             // fill over E
 ];
 const VERSE_B = [
   ['G4', 2], ['G4', 1], ['E4', 1], ['F4', 1], ['A4', 1], ['G4', 2], ['F4', 1], ['E4', 3],
   ['G4', 2], ['G4', 1], ['E4', 1], ['F4', 1], ['A4', 1], ['G4', 2], ['A4', 1], ['G4', 1], ['F4', 1], ['E4', 1],
   ['A4', 2], ['A4', 1], ['C5', 3], ['A4', 2], ['A4', 1], ['G4', 3],
   ['G4', 2], ['A4', 1], ['G4', 1], ['F4', 1], ['D4', 1], ['C4', 6],
-  ['A4', 1], ['C5', 1], ['E5', 1], ['D5', 1], ['B4', 1], ['G4', 1],              // a-tish-oo fill
+  ['A4', 1], ['C5', 1], ['E5', 1], ['D5', 1], ['B4', 1], ['G#4', 1],            // a-tish-oo fill
 ];
-const CHORDS = ['C', 'C', 'C', 'Am', 'F', 'F', 'G7', 'C', 'C'];
-const CHORD_NOTES = { C: [48, 52, 55], Am: [45, 48, 52], F: [45, 48, 53], G7: [43, 47, 50, 53] };
-const CHORD_ROOT = { C: 36, Am: 33, F: 41, G7: 43 };
+const MELODY_STEPS = [VERSE_A, VERSE_B].map(v => { // step -> [midi, length]
+  const map = {}; let t = 0;
+  for (const [n, len] of v) { map[t] = [NOTE_NUM(n), len]; t += len; }
+  return map;
+});
+const ACT_CHORDS = ['Am', 'Am', 'Am', 'Em', 'F', 'F', 'G', 'Am', 'E'];
+const ACT_TONES = { Am: [57, 60, 64], Em: [52, 55, 59], F: [53, 57, 60], G: [55, 59, 62], E: [52, 56, 59] };
+const ACT_ROOT = { Am: 33, Em: 40, F: 41, G: 43, E: 40 };
 const SCALE = [0, 2, 4, 5, 7, 9, 11];
-function thirdBelow(n) { // diatonic third below, in C major
+function thirdBelow(n) {
   const pc = n % 12, oct = Math.floor(n / 12), i = SCALE.indexOf(pc);
   if (i < 0) return n - 3;
   const j = i - 2;
   return j >= 0 ? oct * 12 + SCALE[j] : (oct - 1) * 12 + SCALE[j + 7];
 }
-function buildSong() {
-  const ev = [];
-  let at = 0;
-  [VERSE_A, VERSE_B].forEach((verse, vi) => {
-    let t = at;
-    for (const [n, len] of verse) {
-      const m = NOTE_NUM(n);
-      ev.push({ at: t, len, inst: 'lead', m });
-      if (vi === 1 && t - at < 48) ev.push({ at: t, len, inst: 'harm', m: thirdBelow(m) });
-      t += len;
-    }
-    for (let bar = 0; bar < 9; bar++) {
-      const c = CHORDS[bar], b0 = at + bar * 6;
-      ev.push({ at: b0, len: 6, inst: 'pad', chord: CHORD_NOTES[c] });
-      ev.push({ at: b0, len: 3, inst: 'bass', m: CHORD_ROOT[c] });
-      ev.push({ at: b0 + 3, len: 3, inst: 'bass', m: CHORD_ROOT[c] + 7 });
-      ev.push({ at: b0, len: 1, inst: 'drum' });
-      ev.push({ at: b0 + 3, len: 1, inst: 'tick' });
-      const notes = CHORD_NOTES[c], pat = [0, 1, 2, 1, 2, 1];
-      for (let k = 0; k < 6; k++) ev.push({ at: b0 + k, len: 1, inst: 'arp', m: notes[pat[k] % notes.length] + 12, soft: vi === 0 });
-    }
-    at += 54;
-  });
-  ev.sort((a, b) => a.at - b.at);
-  return { ev, len: at };
+const TIER_SPEED = [1, 0.96, 0.92, 0.88, 0.84]; // each tier tightens the tempo a little
+const music = { gain: null, dry: null, wet: null, noise: null, timer: null, next: 0, step: 0, verse: 0, tier: 0 };
+
+// A5: intensity tier from the spread so far. 0: under 25% of the target,
+// 1: 25%+, 2: 50%+, 3: 75%+, 4: target reached but hunters still alive.
+function musicTier() {
+  if (state !== 'playing' || !game) return 0;
+  const p = game.infected * 100 / (CONFIG.targetPercent * CONFIG.population);
+  return p >= 1 ? 4 : p >= 0.75 ? 3 : p >= 0.5 ? 2 : p >= 0.25 ? 1 : 0;
 }
-const SONG = buildSong();
-const music = { gain: null, dry: null, wet: null, noise: null, timer: null, start: 0, idx: 0, loops: 0 };
 
 function envGain(t, attack, peak, hold, release) {
   const g = actx.createGain();
@@ -1405,68 +1393,113 @@ function voice(type, freq, t, dur, out, detune = 0) {
   const o = actx.createOscillator(); o.type = type; o.frequency.setValueAtTime(freq, t); o.detune.value = detune;
   o.connect(out); o.start(t); o.stop(t + dur + 0.05); return o;
 }
-function playEvent(e, t) {
-  const E = CONFIG.musicEighth, dur = e.len * E, V = CONFIG.musicVolume;
-  const lp = (f) => { const l = actx.createBiquadFilter(); l.type = 'lowpass'; l.frequency.value = f; return l; };
-  if (e.inst === 'lead' || e.inst === 'harm') {
-    const vol = e.inst === 'lead' ? V * 1.7 : V * 0.7;
-    const g = envGain(t, 0.03, vol, Math.max(0.02, dur * 0.8), 0.18), f = lp(e.inst === 'lead' ? 2600 : 1800);
+function filt(type, f, q = 0.7) { const b = actx.createBiquadFilter(); b.type = type; b.frequency.value = f; b.Q.value = q; return b; }
+function noiseHit(t, type, f, peak, decay, wet = false) {
+  const s = actx.createBufferSource(); s.buffer = music.noise;
+  const g = envGain(t, 0.002, peak, 0.004, decay), b = filt(type, f);
+  s.connect(b); b.connect(g); g.connect(music.dry); if (wet) g.connect(music.wet);
+  s.start(t); s.stop(t + decay + 0.05);
+}
+const INST = {
+  lead(t, m, dur, vol) { // punchy saw + square through a resonant filter
+    const g = envGain(t, 0.01, vol, Math.max(0.02, dur * 0.8), 0.09), f = filt('lowpass', 2800, 2);
     g.connect(f); f.connect(music.dry); f.connect(music.wet);
-    voice('triangle', hz(e.m), t, dur + 0.25, g);
-    if (e.inst === 'lead') { const g2 = actx.createGain(); g2.gain.value = 0.25; g2.connect(g); voice('sine', hz(e.m) * 2, t, dur + 0.25, g2, 4); }
-  } else if (e.inst === 'pad') {
-    const g = envGain(t, 0.35, V * 0.35, Math.max(0.05, dur - 0.45), 0.7), f = lp(900);
+    voice('sawtooth', hz(m), t, dur + 0.15, g, -5); voice('square', hz(m), t, dur + 0.15, g, 5);
+  },
+  harm(t, m, dur, vol) {
+    const g = envGain(t, 0.02, vol, Math.max(0.02, dur * 0.8), 0.1), f = filt('lowpass', 1800);
     g.connect(f); f.connect(music.dry); f.connect(music.wet);
-    for (const n of e.chord) { voice('sawtooth', hz(n), t, dur + 0.8, g, -6); voice('sawtooth', hz(n), t, dur + 0.8, g, 6); }
-  } else if (e.inst === 'bass') {
-    const g = envGain(t, 0.015, V * 2.2, dur * 0.5, dur * 0.5), f = lp(500);
+    voice('triangle', hz(m), t, dur + 0.15, g);
+  },
+  bass(t, m, dur, vol) { // tight, growling bass
+    const g = envGain(t, 0.004, vol, dur * 0.45, dur * 0.4), f = filt('lowpass', 650, 3);
     g.connect(f); f.connect(music.dry);
-    voice('triangle', hz(e.m), t, dur + 0.1, g); voice('sine', hz(e.m) / 2, t, dur + 0.1, g);
-  } else if (e.inst === 'arp') {
-    const g = envGain(t, 0.008, V * (e.soft ? 0.25 : 0.45), 0.02, 0.32);
-    g.connect(music.dry); g.connect(music.wet);
-    voice('sine', hz(e.m), t, 0.4, g);
-  } else if (e.inst === 'drum') { // soft frame drum
-    const g = envGain(t, 0.005, V * 2.5, 0.01, 0.22);
-    g.connect(music.dry);
-    const o = voice('sine', 95, t, 0.3, g); o.frequency.exponentialRampToValueAtTime(48, t + 0.2);
-  } else if (e.inst === 'tick') { // brushed tap
-    const s = actx.createBufferSource(); s.buffer = music.noise;
-    const g = envGain(t, 0.002, V * 0.8, 0.005, 0.07), f = actx.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 3200;
-    s.connect(f); f.connect(g); g.connect(music.dry); s.start(t); s.stop(t + 0.1);
+    voice('sawtooth', hz(m), t, dur + 0.05, g); voice('sine', hz(m) / 2, t, dur + 0.05, g);
+  },
+  arp(t, m, vol) {
+    const g = envGain(t, 0.004, vol, 0.01, 0.12), f = filt('lowpass', 2000);
+    g.connect(f); f.connect(music.dry); f.connect(music.wet);
+    voice('square', hz(m), t, 0.16, g);
+  },
+  pad(t, notes, dur, vol) {
+    const g = envGain(t, 0.15, vol, Math.max(0.05, dur - 0.3), 0.35), f = filt('lowpass', 1300);
+    g.connect(f); f.connect(music.dry); f.connect(music.wet);
+    for (const n of notes) { voice('sawtooth', hz(n), t, dur + 0.4, g, -8); voice('sawtooth', hz(n), t, dur + 0.4, g, 8); }
+  },
+  kick(t, vol) {
+    const g = envGain(t, 0.003, vol, 0.01, 0.2); g.connect(music.dry);
+    const o = voice('sine', 140, t, 0.25, g); o.frequency.exponentialRampToValueAtTime(42, t + 0.12);
+  },
+  snare(t, vol) {
+    noiseHit(t, 'bandpass', 1900, vol, 0.13, true);
+    const g = envGain(t, 0.002, vol * 0.6, 0.005, 0.07); g.connect(music.dry); voice('triangle', 190, t, 0.1, g);
+  },
+  hat(t, vol) { noiseHit(t, 'highpass', 7500, vol, 0.035); },
+  crash(t, vol) { noiseHit(t, 'highpass', 4200, vol, 1.3, true); },
+};
+
+// Schedules one eighth-note step of the arrangement at time t.
+function scheduleStep(t, E) {
+  const V = CONFIG.musicVolume, s = music.step, bar = Math.floor(s / 6), pos = s % 6, tier = music.tier;
+  const chord = ACT_CHORDS[bar], root = ACT_ROOT[chord], tones = ACT_TONES[chord];
+  const mel = MELODY_STEPS[music.verse][s];
+  if (mel) {
+    const [m, len] = mel, dur = len * E;
+    INST.lead(t, m, dur, V * (tier >= 2 ? 1.05 : 0.95));
+    if (tier >= 2) INST.harm(t, thirdBelow(m), dur, V * 0.55);
+    if (tier >= 3) INST.lead(t, m + 12, dur, V * 0.4);                       // octave doubling
   }
+  // bass: dotted-quarter pulse, then running eighths, then octave pumping
+  const bassPat = tier === 0 ? [1, 0, 0, 1, 0, 1] : [1, 1, 1, 1, 1, 1];
+  if (bassPat[pos]) INST.bass(t, root + (tier >= 2 && pos % 2 ? 12 : 0), E * (tier === 0 && pos === 0 ? 2.5 : 0.9), V * 2.1);
+  // drums
+  if (pos === 0 || pos === 3) INST.kick(t, V * (pos === 0 ? 4.5 : 3.6));
+  if (tier >= 3 && pos === 5) INST.kick(t, V * 2.4);
+  if (tier >= 1 && pos === 3) INST.snare(t, V * 2.3);
+  if (tier >= 3 && bar === 8 && pos >= 4) { INST.snare(t, V * 1.6); INST.snare(t + E / 2, V * 1.9); } // fill roll
+  if (tier >= 2) { INST.hat(t, V * (pos % 3 === 0 ? 1.4 : 0.8)); if (tier >= 3) INST.hat(t + E / 2, V * 0.5); }
+  // accompaniment
+  if (tier >= 1) INST.arp(t, tones[[0, 1, 2, 1, 2, 1][pos]] + 12, V * (tier >= 3 ? 0.55 : 0.4));
+  if (tier >= 2 && pos === 0) INST.pad(t, tones, E * 6, V * 0.28);
+  if (tier === 4 && pos === 0) INST.pad(t, tones.map(n => n + 12), E * 6, V * 0.18);  // shrill top line for the final hunt
 }
 function setupMusicGraph() {
   music.gain = actx.createGain(); music.gain.connect(actx.destination);
   music.dry = actx.createGain(); music.dry.connect(music.gain);
-  const rev = actx.createConvolver(), len = actx.sampleRate * 2.2, ir = actx.createBuffer(2, len, actx.sampleRate);
-  for (let ch = 0; ch < 2; ch++) { const d = ir.getChannelData(ch); for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 3); }
+  const rev = actx.createConvolver(), len = actx.sampleRate * 1.6, ir = actx.createBuffer(2, len, actx.sampleRate);
+  for (let ch = 0; ch < 2; ch++) { const d = ir.getChannelData(ch); for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 3.5); }
   rev.buffer = ir;
-  music.wet = actx.createGain(); music.wet.gain.value = 0.35; music.wet.connect(rev); rev.connect(music.gain);
-  music.noise = actx.createBuffer(1, actx.sampleRate * 0.2, actx.sampleRate);
+  music.wet = actx.createGain(); music.wet.gain.value = 0.22; music.wet.connect(rev); rev.connect(music.gain);
+  music.noise = actx.createBuffer(1, actx.sampleRate * 1.5, actx.sampleRate);
   const nd = music.noise.getChannelData(0); for (let i = 0; i < nd.length; i++) nd[i] = Math.random() * 2 - 1;
+}
+function stepMusic(horizon) {
+  for (;;) {
+    if (music.step % 6 === 0) { // the tier only changes on a bar line, with a crash when it rises
+      const nt = musicTier();
+      if (nt > music.tier) INST.crash(music.next, CONFIG.musicVolume * 1.6);
+      music.tier = nt;
+    }
+    const E = CONFIG.musicEighth * TIER_SPEED[music.tier];
+    if (music.next > horizon) return;
+    scheduleStep(music.next, E);
+    music.next += E;
+    if (++music.step >= 54) { music.step = 0; music.verse ^= 1; }
+  }
 }
 function startMusic() {
   if (!actx || music.timer) return;
   if (!music.gain) setupMusicGraph();
+  music.gain.gain.cancelScheduledValues(actx.currentTime);
   music.gain.gain.setValueAtTime(muted ? 0 : 1, actx.currentTime);
-  music.start = actx.currentTime + 0.1; music.idx = 0;
-  music.timer = setInterval(() => {
-    const E = CONFIG.musicEighth, horizon = actx.currentTime + 0.3;
-    for (;;) {
-      const e = SONG.ev[music.idx], t = music.start + e.at * E;
-      if (t > horizon) break;
-      if (t >= actx.currentTime - 0.05) playEvent(e, t);
-      music.idx++;
-      if (music.idx >= SONG.ev.length) { music.idx = 0; music.start += SONG.len * E; }
-    }
-  }, 60);
+  music.next = actx.currentTime + 0.08; music.step = 0; music.verse = 0; music.tier = 0;
+  music.timer = setInterval(() => stepMusic(actx.currentTime + 0.18), 40);
 }
 function stopMusic() {
   clearInterval(music.timer); music.timer = null;
   if (music.gain) { // let the reverb tail die rather than cutting off, then restore the level
-    const t = actx.currentTime; music.gain.gain.setValueAtTime(muted ? 0 : 1, t); music.gain.gain.linearRampToValueAtTime(0, t + 0.4);
-    setTimeout(() => { if (!music.timer && music.gain) music.gain.gain.setValueAtTime(muted ? 0 : 1, actx.currentTime); }, 2600);
+    const t = actx.currentTime; music.gain.gain.cancelScheduledValues(t); music.gain.gain.setValueAtTime(muted ? 0 : 1, t); music.gain.gain.linearRampToValueAtTime(0, t + 0.4);
+    setTimeout(() => { if (!music.timer && music.gain) { music.gain.gain.cancelScheduledValues(actx.currentTime); music.gain.gain.setValueAtTime(muted ? 0 : 1, actx.currentTime); } }, 1800);
   }
 }
 
