@@ -65,7 +65,7 @@ body { font-family: var(--font-ui); touch-action: none; user-select: none; -webk
 }
 .eyebrow { font-size: 12px; letter-spacing: .1em; text-transform: uppercase; color: var(--plague); }
 h1, h2 { font-family: var(--font-display); font-weight: 400; margin: 0; line-height: .9; text-wrap: balance; }
-h1 { font-size: clamp(56px, 16vw, 84px); color: var(--parch); }
+h1 { font-size: clamp(48px, 13vw, 72px); color: var(--parch); }
 h2 { font-size: clamp(40px, 11vw, 56px); }
 .card p { margin: 0; font-size: 16px; line-height: 1.45; color: var(--parch); }
 .card .controls { font-size: 13px; color: var(--dim); }
@@ -115,6 +115,22 @@ button:focus-visible { outline: 3px solid var(--parch); outline-offset: 3px; }
 .bill li span { min-width: 0; }
 .bill li .lead { flex: 1; border-bottom: 2px dotted var(--edge); transform: translateY(-3px); min-width: 12px; }
 .bill li b { color: var(--plague); font-variant-numeric: tabular-nums; font-weight: 600; }
+.hunterNote { font-size: 14px !important; color: var(--dim) !important; }
+.hunterNote b { color: #e0482c; font-weight: 600; }
+.levels { display: grid; gap: 6px; }
+.lvl {
+  display: grid; grid-template-columns: 1.6rem 1fr auto; align-items: baseline; gap: 8px; justify-self: stretch;
+  font: 400 15px var(--font-ui); text-align: left; padding: 8px 10px;
+  background: var(--ink); color: var(--parch); border: 2px solid var(--edge); box-shadow: none;
+}
+.lvl .n { font-weight: 600; color: var(--dim); font-variant-numeric: tabular-nums; }
+.lvl .meta { font-size: 12px; color: var(--dim); white-space: nowrap; }
+.lvl.on { border-color: var(--plague); }
+.lvl.on .n { color: var(--plague); }
+.lvl:disabled { opacity: .45; cursor: not-allowed; }
+.lvl:active { transform: none; }
+.actions { display: flex; flex-wrap: wrap; gap: 10px; }
+button.secondary { background: var(--ink); color: var(--parch); border: 2px solid var(--edge); box-shadow: none; }
 @media (prefers-reduced-motion: reduce) { .swarm.low .count { animation: none; } #pctFill { transition: none; } }
 </style>
 </head>
@@ -135,15 +151,13 @@ button:focus-visible { outline: 3px solid var(--parch); outline-offset: 3px; }
 
 <div class="screen" id="titleScreen">
   <div class="card">
-    <div class="eyebrow" id="levelLine">Level 1 · The Market District</div>
+    <div class="eyebrow">Five districts to fall</div>
     <h1>Plague Rat</h1>
-    <p>Lead your swarm through the streets. Every townsperson a rat touches catches the plague, and every infection breeds another rat. If too long passes without an infection, a rat dies, and the bigger your swarm, the shorter that grace time. Keep spreading.</p>
-    <dl class="facts">
-      <div><dt>Win</dt><dd id="goalLine">Infect 60%</dd></div>
-      <div><dt>Lose</dt><dd>Swarm dies out</dd></div>
-    </dl>
-    <p class="controls">Move with WASD or the arrow keys, or the joystick at the bottom of the screen on touch devices. The map in the corner shows where the healthy townsfolk are.</p>
+    <p>Every townsperson a rat touches catches the plague and breeds another rat. Go too long without an infection and a rat dies.</p>
+    <p class="hunterNote"><b>Rat hunters</b> carry a number. While your swarm is smaller, he chases you on sight, and if he touches your lead rat it's over. Match his number and he runs, and your rats can eat him.</p>
+    <div class="levels" id="levelList"></div>
     <button id="startBtn">Begin the plague</button>
+    <p class="controls">WASD or arrow keys, or the joystick on touch screens. The corner map shows healthy townsfolk and hunters.</p>
   </div>
 </div>
 
@@ -154,7 +168,7 @@ button:focus-visible { outline: 3px solid var(--parch); outline-offset: 3px; }
     <p id="endText"></p>
     <dl class="facts" id="endFacts"></dl>
     <div class="bill" id="bill" hidden></div>
-    <button id="retryBtn">Play again</button>
+    <div class="actions"><button id="retryBtn">Play again</button><button id="menuBtn" class="secondary">Choose level</button></div>
   </div>
 </div>
 
@@ -171,7 +185,6 @@ button:focus-visible { outline: 3px solid var(--parch); outline-offset: 3px; }
 // CONFIG: every tunable number lives here. Mirrored in DESIGN.md §4.
 // ---------------------------------------------------------------------------
 const CONFIG = {
-  levelName: 'The Market District',
   population: 140,         // townsfolk in the level
   targetPercent: 60,       // R7: win when this % are infected
   startRats: 8,            // R2: swarm size at level start
@@ -191,15 +204,55 @@ const CONFIG = {
   stickFullAt: 0.6,        // R11: deflection that gives full speed (0-1)
   businessShare: 0.3,      // V6: share of street-facing houses that are taverns, shops, etc.
   minimapCell: 2,          // R12: map tiles per minimap pixel
+  hunterSpeed: 68,         // H4: px/s while chasing or fleeing (rats run at 80)
+  hunterWanderSpeed: 22,   // px/s while off screen
+  hunterCatchRadius: 6,    // H5: px from the lead rat that counts as caught
 };
 
-const TILE = 16, BLOCKS_X = 10, BLOCKS_Y = 8;
-const MAP_W = BLOCKS_X * 8 + 4, MAP_H = BLOCKS_Y * 8 + 4;
-const T = { STREET: 0, BUILDING: 1, PLAZA: 2, GRASS: 3, TREE: 4, WELL: 5, WALL: 6 };
-const SOLID = new Set([T.BUILDING, T.TREE, T.WELL, T.WALL]);
-const PLAZA_BLOCK = { bx: 4, by: 3 };
-const WELL = { x: (3 + PLAZA_BLOCK.bx * 8 + 2) * TILE + 16, y: (3 + PLAZA_BLOCK.by * 8 + 2) * TILE + 16 };
-const START = { x: WELL.x, y: WELL.y + 40 };
+const BASE_CONFIG = { ...CONFIG };
+
+// ---------------------------------------------------------------------------
+// Levels (L1-L5). Each level is a district with its own look and difficulty.
+// `tune` overrides CONFIG for that level; `hunters` lists each rat hunter's number (H1).
+// ---------------------------------------------------------------------------
+const LEVELS = [
+  { name: 'The Market District', theme: 'market', seed: 1347, blocksX: 7, blocksY: 5, parkChance: 0.12, alleyChance: 0.35,
+    tune: { population: 90, targetPercent: 60, startRats: 8 }, hunters: [10] },
+  { name: 'The Docks', theme: 'docks', seed: 2203, blocksX: 7, blocksY: 5, parkChance: 0.06, alleyChance: 0.3, canalBand: 3,
+    tune: { population: 95, targetPercent: 60, startRats: 8 }, hunters: [12, 16] },
+  { name: 'The Shambles', theme: 'slums', seed: 3517, blocksX: 7, blocksY: 5, parkChance: 0.08, alleyChance: 0.8,
+    tune: { population: 100, targetPercent: 65, startRats: 8 }, hunters: [14, 18, 22] },
+  { name: 'Frostgate', theme: 'winter', seed: 4441, blocksX: 7, blocksY: 5, parkChance: 0.12, alleyChance: 0.4,
+    tune: { population: 100, targetPercent: 65, startRats: 8, decayInterval: 1.4 }, hunters: [16, 20, 25, 30] },
+  { name: 'The Palace Ward', theme: 'night', seed: 5903, blocksX: 7, blocksY: 5, parkChance: 0.1, alleyChance: 0.3,
+    tune: { population: 110, targetPercent: 70, startRats: 8, decayInterval: 1.3 }, hunters: [18, 24, 30, 36, 45] },
+];
+
+// Visual themes (V7). Material indexes refer to MATERIALS below.
+const THEMES = {
+  market: { ground: 'cobble', cobble: { mortar: '#2b231b', stones: ['#4b453d', '#464038', '#514a41', '#413b34', '#48413a', '#3d3730', '#4f463b'] },
+    grime: [42, 30, 16, 1], filth: 'rgba(22,16,10,', sewer: true, stains: 300, puddles: 70, litter: 300,
+    materials: [0, 1, 2, 3, 4, 5], facades: ['timber', 'timber', 'stone', 'brick', 'shop'], holes: 0.22, boarded: 0.16, units: [24, 32, 40, 48] },
+  docks: { ground: 'cobble', cobble: { mortar: '#1f2428', stones: ['#4a5058', '#454b52', '#50565e', '#3f454c', '#4c535a'] },
+    grime: [24, 34, 38, 0.9], filth: 'rgba(14,20,22,', sewer: true, stains: 220, puddles: 120, litter: 160, fog: 'rgba(70,95,120,.10)',
+    materials: [1, 5, 4, 3], facades: ['brick', 'brick', 'stone', 'timber'], holes: 0.25, boarded: 0.25, units: [48, 96, 48] },
+  slums: { ground: 'mud', grime: [30, 22, 12, 1.2], filth: 'rgba(20,14,8,', sewer: false, stains: 380, puddles: 140, litter: 420, laundry: true,
+    materials: [2, 2, 4, 3], facades: ['timber'], holes: 0.5, boarded: 0.4, units: [24, 24, 32] },
+  winter: { ground: 'snow', grime: null, filth: 'rgba(245,248,252,', sewer: false, stains: 0, puddles: 60, litter: 60, snow: true,
+    materials: [0, 1, 2, 3, 4, 5], facades: ['timber', 'stone', 'brick', 'shop'], holes: 0.12, boarded: 0.16, units: [24, 32, 40, 48], tint: 'rgba(150,180,220,.08)' },
+  night: { ground: 'flag', flag: { joint: '#3e3a36', stones: ['#6e6a62', '#77726a', '#666259', '#716c63'] }, grime: [20, 18, 16, 0.5], filth: 'rgba(12,10,8,',
+    sewer: false, stains: 90, puddles: 40, litter: 60, night: true, lamps: true,
+    materials: [1, 5, 0, 3], facades: ['stone', 'stone', 'brick', 'shop'], holes: 0.08, boarded: 0.08, units: [32, 48] },
+};
+
+let LEVEL = LEVELS[0], THEME = THEMES.market, levelIndex = 0;
+
+const TILE = 16, BLOCK = 6, STREET_W = 3, PERIOD = BLOCK + STREET_W;
+const T = { STREET: 0, BUILDING: 1, PLAZA: 2, GRASS: 3, TREE: 4, WELL: 5, WALL: 6, WATER: 7 };
+const SOLID = new Set([T.BUILDING, T.TREE, T.WELL, T.WALL, T.WATER]);
+const blockX0 = b => 1 + STREET_W + b * PERIOD;              // first tile of block b
+const inStreetBand = v => (v - 1) % PERIOD < STREET_W;     // tile index lies in a 3-wide street
+let BLOCKS_X = 7, BLOCKS_Y = 5, MAP_W = 0, MAP_H = 0, PLAZA_BLOCK, WELL, START;
 
 function mulberry32(a) {
   return function () {
@@ -212,46 +265,63 @@ function mulberry32(a) {
 const pick = (rng, arr) => arr[Math.floor(rng() * arr.length)];
 
 // ---------------------------------------------------------------------------
-// Level: a fixed district (same layout every play). Blocks of 6x6 tiles
-// separated by 2-wide streets; some blocks are split by alleys or are parks.
+// Map: a fixed district per level (same layout every play). Blocks of 6x6
+// tiles separated by 3-wide streets; some blocks are split by alleys or are
+// churchyards. The Docks has a canal crossed by bridges.
 // ---------------------------------------------------------------------------
-const map = new Uint8Array(MAP_W * MAP_H);
+let map = new Uint8Array(0);
 const roofs = [];
 const trees = [];
-const at = (x, y) => map[y * MAP_W + x];
+const bridges = new Set();
+const at = (x, y) => (x < 0 || y < 0 || x >= MAP_W || y >= MAP_H) ? T.WALL : map[y * MAP_W + x];
 const set = (x, y, v) => { map[y * MAP_W + x] = v; };
 
-function buildMap() {
-  const rng = mulberry32(1347);
+function buildMap(lv) {
+  BLOCKS_X = lv.blocksX; BLOCKS_Y = lv.blocksY;
+  MAP_W = BLOCKS_X * PERIOD + STREET_W + 2; MAP_H = BLOCKS_Y * PERIOD + STREET_W + 2;
+  map = new Uint8Array(MAP_W * MAP_H);
+  roofs.length = 0; trees.length = 0; bridges.clear(); ambient.length = 0;
+  PLAZA_BLOCK = { bx: Math.floor(BLOCKS_X / 2), by: Math.floor(BLOCKS_Y / 2) };
+  WELL = { x: (blockX0(PLAZA_BLOCK.bx) + 2) * TILE + 16, y: (blockX0(PLAZA_BLOCK.by) + 2) * TILE + 16 };
+  START = { x: WELL.x, y: WELL.y + 40 };
+  const rng = mulberry32(lv.seed);
   for (let y = 0; y < MAP_H; y++) for (let x = 0; x < MAP_W; x++) {
     let v;
     if (x === 0 || y === 0 || x === MAP_W - 1 || y === MAP_H - 1) v = T.WALL;
-    else if ((x - 1) % 8 < 2 || (y - 1) % 8 < 2) v = T.STREET;
+    else if (inStreetBand(x) || inStreetBand(y)) v = T.STREET;
     else v = T.BUILDING;
     set(x, y, v);
   }
-  const fill = (x0, y0, v) => { for (let y = y0; y < y0 + 6; y++) for (let x = x0; x < x0 + 6; x++) set(x, y, v); };
+  const fill = (x0, y0, v) => { for (let y = y0; y < y0 + BLOCK; y++) for (let x = x0; x < x0 + BLOCK; x++) set(x, y, v); };
   for (let by = 0; by < BLOCKS_Y; by++) for (let bx = 0; bx < BLOCKS_X; bx++) {
-    const x0 = 3 + bx * 8, y0 = 3 + by * 8, roll = rng();
+    const x0 = blockX0(bx), y0 = blockX0(by), roll = rng();
     if (bx === PLAZA_BLOCK.bx && by === PLAZA_BLOCK.by) { // market plaza with a well
       fill(x0, y0, T.PLAZA);
       for (const [dx, dy] of [[2, 2], [3, 2], [2, 3], [3, 3]]) set(x0 + dx, y0 + dy, T.WELL);
-    } else if (roll < 0.1) { // park
+    } else if (roll < lv.parkChance) { // churchyard
       fill(x0, y0, T.GRASS);
       for (let i = 0; i < 4; i++) {
         const tx = x0 + 1 + Math.floor(rng() * 4), ty = y0 + 1 + Math.floor(rng() * 4);
         if (at(tx, ty) === T.GRASS) { set(tx, ty, T.TREE); trees.push([tx, ty]); }
       }
-    } else if (roll < 0.3) { // vertical alley
+    } else if (roll < lv.parkChance + lv.alleyChance / 2) { // vertical alley
       const ax = x0 + 2 + Math.floor(rng() * 2);
-      for (let y = y0; y < y0 + 6; y++) set(ax, y, T.STREET);
-      roofs.push({ x: x0, y: y0, w: ax - x0, h: 6 }, { x: ax + 1, y: y0, w: x0 + 5 - ax, h: 6 });
-    } else if (roll < 0.5) { // horizontal alley
+      for (let y = y0; y < y0 + BLOCK; y++) set(ax, y, T.STREET);
+      roofs.push({ x: x0, y: y0, w: ax - x0, h: BLOCK }, { x: ax + 1, y: y0, w: x0 + BLOCK - 1 - ax, h: BLOCK });
+    } else if (roll < lv.parkChance + lv.alleyChance) { // horizontal alley
       const ay = y0 + 2 + Math.floor(rng() * 2);
-      for (let x = x0; x < x0 + 6; x++) set(x, ay, T.STREET);
-      roofs.push({ x: x0, y: y0, w: 6, h: ay - y0 }, { x: x0, y: ay + 1, w: 6, h: y0 + 5 - ay });
+      for (let x = x0; x < x0 + BLOCK; x++) set(x, ay, T.STREET);
+      roofs.push({ x: x0, y: y0, w: BLOCK, h: ay - y0 }, { x: x0, y: ay + 1, w: BLOCK, h: y0 + BLOCK - 1 - ay });
     } else {
-      roofs.push({ x: x0, y: y0, w: 6, h: 6 });
+      roofs.push({ x: x0, y: y0, w: BLOCK, h: BLOCK });
+    }
+  }
+  if (lv.canalBand !== undefined) { // canal along one street band; every other crossing street gets a bridge
+    const y0 = 1 + lv.canalBand * PERIOD;
+    for (let y = y0; y < y0 + STREET_W; y++) for (let x = 1; x < MAP_W - 1; x++) {
+      const band = Math.floor((x - 1) / PERIOD);
+      if (inStreetBand(x) && band % 2 === 0) bridges.add(y * MAP_W + x);
+      else set(x, y, T.WATER);
     }
   }
 }
@@ -308,21 +378,23 @@ function blob(rng, cx, cy, size, fn) {
 const px1 = (g, x, y, col) => { g.fillStyle = col; g.fillRect(x, y, 1, 1); };
 
 function drawCobbleTile(g, px, py, rng) {
-  g.fillStyle = '#2b231b'; g.fillRect(px, py, TILE, TILE); // muddy joints
+  const pal = THEME.cobble;
+  g.fillStyle = pal.mortar; g.fillRect(px, py, TILE, TILE); // muddy joints
   for (let cy = 0; cy < 4; cy++) for (let cx = 0; cx < 4; cx++) {
     const x = px + cx * 4 + (cy % 2), y = py + cy * 4;
-    if (rng() < 0.05) { px1(g, x + 1, y + 1, '#1c1611'); continue; } // missing stone
-    const base = pick(rng, ['#4b453d', '#464038', '#514a41', '#413b34', '#48413a', '#3d3730', '#4f463b']);
+    if (rng() < 0.05) { px1(g, x + 1, y + 1, shade(pal.mortar, 0.7)); continue; } // missing stone
+    const base = pick(rng, pal.stones);
     const w = rng() < 0.15 ? 2 : 3;
     g.fillStyle = base; g.fillRect(x, y, w, 3);
     px1(g, x, y, shade(base, 1.2));
     g.fillStyle = shade(base, 0.78); g.fillRect(x, y + 2, w, 1);
   }
 }
-function drawFlagTile(g, px, py, rng) {
-  g.fillStyle = '#463f35'; g.fillRect(px, py, TILE, TILE);
+const PLAZA_FLAGS = { joint: '#463f35', stones: ['#7a6f5e', '#837765', '#72685a', '#6c6253', '#7e715c'] };
+function drawFlagTile(g, px, py, rng, pal = PLAZA_FLAGS) {
+  g.fillStyle = pal.joint; g.fillRect(px, py, TILE, TILE);
   for (let cy = 0; cy < 2; cy++) for (let cx = 0; cx < 2; cx++) {
-    const base = pick(rng, ['#7a6f5e', '#837765', '#72685a', '#6c6253', '#7e715c']);
+    const base = pick(rng, pal.stones);
     const x = px + cx * 8, y = py + cy * 8;
     g.fillStyle = base; g.fillRect(x, y, 7, 7);
     g.fillStyle = shade(base, 1.12); g.fillRect(x, y, 7, 1);
@@ -332,6 +404,93 @@ function drawFlagTile(g, px, py, rng) {
       g.fillStyle = shade(base, 0.6);
       for (let k = 0; k < 6; k++) { g.fillRect(cx2, cy2, 1, 1); cy2++; cx2 += Math.floor(rng() * 3) - 1; cx2 = Math.max(x, Math.min(x + 6, cx2)); }
     }
+  }
+}
+function drawMudTile(g, px, py, rng) {
+  g.fillStyle = '#4a3a28'; g.fillRect(px, py, TILE, TILE);
+  for (let i = 0; i < 10; i++) px1(g, px + (rng() * 16 | 0), py + (rng() * 16 | 0), pick(rng, ['#3e3022', '#56442f', '#5e4a33']));
+  if (rng() < 0.25) { // half-sunk stone
+    const x = px + 2 + (rng() * 11 | 0), y = py + 2 + (rng() * 11 | 0);
+    g.fillStyle = '#5f574b'; g.fillRect(x, y, 3, 2); px1(g, x, y, '#7a7262'); g.fillStyle = '#3a2e20'; g.fillRect(x, y + 2, 3, 1);
+  }
+}
+function drawSnowTile(g, px, py, rng) {
+  g.fillStyle = '#d6dee6'; g.fillRect(px, py, TILE, TILE);
+  for (let i = 0; i < 6; i++) px1(g, px + (rng() * 16 | 0), py + (rng() * 16 | 0), pick(rng, ['#c6d0da', '#e8eef4', '#cfd8e1']));
+}
+function drawGroundTile(g, px, py, rng) {
+  if (THEME.ground === 'mud') drawMudTile(g, px, py, rng);
+  else if (THEME.ground === 'snow') drawSnowTile(g, px, py, rng);
+  else if (THEME.ground === 'flag') drawFlagTile(g, px, py, rng, THEME.flag);
+  else drawCobbleTile(g, px, py, rng);
+}
+
+// The Docks: canal water with stone embankments, plank bridges and moored boats.
+function drawCanal(g, rng) {
+  for (let ty = 0; ty < MAP_H; ty++) for (let tx = 0; tx < MAP_W; tx++) {
+    const px = tx * TILE, py = ty * TILE, i = ty * MAP_W + tx;
+    if (at(tx, ty) === T.WATER) {
+      g.fillStyle = '#1e3443'; g.fillRect(px, py, TILE, TILE);
+      g.fillStyle = '#284657';
+      for (let r = 0; r < 4; r++) { const ox = (r * 5 + tx * 3) % 12; g.fillRect(px + ox, py + r * 4 + 1, 4, 1); }
+      if (rng() < 0.3) px1(g, px + (rng() * 14 | 0), py + (rng() * 14 | 0), '#5d8496');
+      const wet = (dx, dy) => at(tx + dx, ty + dy) !== T.WATER && !bridges.has((ty + dy) * MAP_W + tx + dx);
+      g.fillStyle = '#5a5650';
+      if (wet(0, -1)) { g.fillRect(px, py, TILE, 3); g.fillStyle = '#7a756c'; g.fillRect(px, py, TILE, 1); g.fillStyle = 'rgba(0,0,0,.35)'; g.fillRect(px, py + 3, TILE, 2); }
+      g.fillStyle = '#5a5650';
+      if (wet(0, 1)) { g.fillRect(px, py + TILE - 2, TILE, 2); }
+    } else if (bridges.has(i)) {
+      g.fillStyle = '#6b4f33'; g.fillRect(px, py, TILE, TILE);
+      g.fillStyle = '#4a3424'; for (let r = 2; r < TILE; r += 3) g.fillRect(px, py + r, TILE, 1);
+      g.fillStyle = '#7d5e3e'; for (let r = 0; r < TILE; r += 3) g.fillRect(px, py + r, TILE, 1);
+      const edgeL = !bridges.has(i - 1), edgeR = !bridges.has(i + 1);
+      g.fillStyle = '#2e2016';
+      if (edgeL) { g.fillRect(px, py, 2, TILE); px1(g, px, py + 7, '#5a4028'); }
+      if (edgeR) { g.fillRect(px + TILE - 2, py, 2, TILE); px1(g, px + TILE - 1, py + 7, '#5a4028'); }
+    }
+  }
+  // moored rowboats
+  for (let i = 0; i < 14; i++) {
+    const tx = 1 + (rng() * (MAP_W - 3) | 0), ty = 1 + LEVEL.canalBand * PERIOD + (rng() * 2 | 0);
+    if (at(tx, ty) !== T.WATER || at(tx + 1, ty) !== T.WATER) continue;
+    const x = tx * TILE + 2, y = ty * TILE + 4;
+    g.fillStyle = 'rgba(0,0,0,.3)'; g.fillRect(x + 2, y + 2, 22, 7);
+    g.fillStyle = '#2e2016'; g.fillRect(x, y + 1, 22, 6); g.fillRect(x + 2, y, 18, 8);
+    g.fillStyle = '#7a5b3b'; g.fillRect(x + 2, y + 1, 18, 6);
+    g.fillStyle = '#5a3d26'; g.fillRect(x + 3, y + 2, 16, 4);
+    g.fillStyle = '#7a5b3b'; g.fillRect(x + 8, y + 1, 2, 6); g.fillRect(x + 14, y + 1, 2, 6);
+    g.fillStyle = '#c9b48a'; g.fillRect(x + 20, y + 3, 6, 1); // mooring rope
+  }
+}
+
+// The Shambles: laundry strung across the streets between houses.
+function drawLaundry(g, rng) {
+  const CLOTH = ['#d8cdb0', '#a8322c', '#3d5677', '#b08a2e', '#e8e0cc', '#6b7a5a'];
+  for (let i = 0; i < 26; i++) {
+    const bx = rng() * (BLOCKS_X - 1) | 0, by = rng() * BLOCKS_Y | 0;
+    const x0 = (blockX0(bx) + BLOCK) * TILE, x1 = blockX0(bx + 1) * TILE, y = (blockX0(by) + 1) * TILE + (rng() * 48 | 0);
+    if (at(blockX0(bx) + BLOCK - 1, (y / TILE) | 0) !== T.BUILDING || at(blockX0(bx + 1), (y / TILE) | 0) !== T.BUILDING) continue;
+    for (let x = x0; x < x1; x++) { const sag = Math.round(Math.sin((x - x0) / (x1 - x0) * Math.PI) * 3); px1(g, x, y + sag, '#2a221c'); }
+    for (let x = x0 + 4; x < x1 - 6; x += 6 + (rng() * 3 | 0)) {
+      const sag = Math.round(Math.sin((x - x0) / (x1 - x0) * Math.PI) * 3), c = pick(rng, CLOTH), w = 3 + (rng() * 2 | 0), h = 4 + (rng() * 3 | 0);
+      g.fillStyle = 'rgba(0,0,0,.25)'; g.fillRect(x + 2, y + sag + 3, w, h);
+      g.fillStyle = c; g.fillRect(x, y + sag + 1, w, h);
+      g.fillStyle = shade(c, 0.8); g.fillRect(x, y + sag + h, w, 1);
+    }
+  }
+}
+
+// The Palace Ward: iron lamp posts along the streets (their light is drawn at night).
+function drawLamps(g, rng) {
+  for (let by = 0; by <= BLOCKS_Y; by++) for (let bx = 0; bx < BLOCKS_X; bx++) {
+    if (rng() < 0.35) continue;
+    const x = blockX0(bx) * TILE + 20 + (rng() * 56 | 0), y = (1 + by * PERIOD) * TILE + 6;
+    if (at((x / TILE) | 0, (y / TILE) | 0) !== T.STREET) continue;
+    g.fillStyle = 'rgba(0,0,0,.35)'; g.fillRect(x + 1, y + 2, 4, 2);
+    g.fillStyle = '#1e1e22'; g.fillRect(x + 1, y - 8, 1, 10);
+    g.fillStyle = '#2a2a2e'; g.fillRect(x - 1, y - 11, 5, 4);
+    g.fillStyle = '#f4cc6a'; g.fillRect(x, y - 10, 3, 2);
+    ambient.push({ type: 'lamp', x: x + 1, y: y - 9, r: 8, col: '#f4b84a' });
   }
 }
 
@@ -348,6 +507,7 @@ const PLASTER = ['#b2a283', '#a79878', '#9d9070', '#b4a27c', '#a09a88'];
 const SHUTTERS = ['#4a5e3a', '#5a3a2a', '#3a4a5e', '#6b5233', null];
 const AWNINGS = [['#a8322c', '#dccba4'], ['#2f5a8a', '#dccba4'], ['#b08a2e', '#5a3a1c'], ['#3f6b3a', '#dccba4']];
 const FACADE_H = 12;
+const SNOW_COVER = [0.85, 0.75, 0.55, 0.4];
 
 const rgbCache = new Map();
 function rgb(hex) {
@@ -378,15 +538,16 @@ function drawRoofUnit(g, x, y, w, h, m0, form, k) {
     else { const mn = Math.min(dT, dB, dL, dR); f = mn === dT ? 0 : mn === dL ? 1 : mn === dR ? 2 : 3; }
     const d = [dT, dL, dR, dB][f], along = f === 0 || f === 3 ? px : py;
     faces[py * w + px] = f;
-    put(py * w + px, roofTexel(m, f, d, along));
+    const tex = roofTexel(m, f, d, along);
+    put(py * w + px, THEME.snow ? mix(tex, '#e9eef3', SNOW_COVER[f]) : tex); // V7: snow lies thickest on the lit slopes
   }
   // ridges and hips where two faces meet, then the eave outline
   const ridgeW = m.kind === 'thatch' ? 2 : 1;
   for (let py = 0; py < h; py++) for (let px = 0; px < w; px++) {
     const i = py * w + px, f = faces[i];
     if ((px + 1 < w && faces[i + 1] !== f) || (py + 1 < h && faces[i + w] !== f)) {
-      put(i, m.ridge);
-      if (ridgeW > 1 && py + 1 < h) put(i + w, m.ridge);
+      put(i, THEME.snow ? '#f4f7fa' : m.ridge);
+      if (ridgeW > 1 && py + 1 < h) put(i + w, THEME.snow ? '#f4f7fa' : m.ridge);
     }
     if (px === 0 || py === 0 || px === w - 1 || py === h - 1) put(i, m.line);
   }
@@ -399,7 +560,7 @@ function drawChimney(g, cx, cy) {
   g.fillStyle = '#7a4a3a'; g.fillRect(cx, cy + 2, 6, 7);
   g.fillStyle = '#5a3428'; g.fillRect(cx, cy + 4, 6, 1); g.fillRect(cx, cy + 7, 6, 1); px1(g, cx + 3, cy + 5, '#5a3428'); px1(g, cx + 1, cy + 8, '#5a3428');
   g.fillStyle = '#94604c'; g.fillRect(cx, cy + 2, 1, 7);
-  g.fillStyle = '#5c4d44'; g.fillRect(cx - 1, cy, 8, 3);
+  g.fillStyle = THEME.snow ? '#eef3f7' : '#5c4d44'; g.fillRect(cx - 1, cy, 8, 3);
   g.fillStyle = '#120d0a'; g.fillRect(cx + 1, cy + 1, 4, 1);
 }
 function drawDormer(g, x, y, m, rng) { // a little gabled window on the street-facing slope, 9x9
@@ -452,7 +613,7 @@ function drawStainedGlass(g, x, y) { // 4x7 arched
 
 // The street-facing wall of a building: timber frame, stone, brick or shopfront.
 function drawFacade(g, x, y, w, rng, opts = {}) {
-  const H = FACADE_H, type = opts.type || pick(rng, ['timber', 'timber', 'stone', 'brick', 'shop']);
+  const H = FACADE_H, type = opts.type || pick(rng, THEME.facades);
   const plaster = pick(rng, PLASTER), beam = '#3a2a1c';
   if (type === 'stone') {
     g.fillStyle = '#837c6e'; g.fillRect(x, y, w, H);
@@ -492,6 +653,7 @@ function drawFacade(g, x, y, w, rng, opts = {}) {
   }
   // eaves shadow
   g.fillStyle = 'rgba(0,0,0,.35)'; g.fillRect(x, y, w, 2);
+  if (THEME.snow) for (let xx = x + 1; xx < x + w - 1; xx += 2 + (rng() * 3 | 0)) { g.fillStyle = '#cfe3f0'; g.fillRect(xx, y, 1, 2 + (rng() * 3 | 0)); } // icicles
   const bays = [];
   for (let i = 0; i < posts.length - 1; i++) {
     const a = (posts[i] < 0 ? null : posts[i] + 1), b = posts[i + 1];
@@ -504,7 +666,7 @@ function drawFacade(g, x, y, w, rng, opts = {}) {
     if (opts.stained) { drawStainedGlass(g, mid - 2, y + 3); return; }
     if (i === doorBay) { drawDoor(g, mid - 2, y + H - 8, !opts.noCross && rng() < 0.15); doorX = mid; return; }
     const r = rng();
-    const kind = opts.lit ? 'lit' : r < 0.2 ? 'lit' : r < 0.36 ? 'boarded' : r < 0.9 ? 'dark' : null;
+    const kind = opts.lit ? 'lit' : r < 0.2 ? 'lit' : r < 0.2 + THEME.boarded ? 'boarded' : r < 0.9 ? 'dark' : null;
     if (kind) drawWindow(g, mid - 2, y + 4, kind, kind === 'dark' ? pick(rng, SHUTTERS) : null);
     if (kind && rng() < 0.3) { g.globalAlpha = .25; g.fillStyle = '#2a2018'; g.fillRect(mid - 1, y + 8, 2, 3); g.globalAlpha = 1; } // damp streak
   });
@@ -525,7 +687,7 @@ function splitWidth(W, rng) {
   const out = [];
   let rem = W;
   while (rem > 0) {
-    const ok = [24, 32, 40, 48].filter(c => c <= rem && (rem - c === 0 || rem - c >= 24));
+    const ok = THEME.units.filter(c => c <= rem && (rem - c === 0 || rem - c >= 24));
     const c = ok.length ? pick(rng, ok) : rem;
     out.push(c); rem -= c;
   }
@@ -539,14 +701,15 @@ function roofForm(w, h, rng) {
 
 // One house: roof (with features) and, if it faces the street, a facade.
 function drawHouse(g, x, y, w, h, withFacade, rng, prevMat, biz) {
-  let mat = pick(rng, MATERIALS);
-  if (mat === prevMat) mat = MATERIALS[(MATERIALS.indexOf(mat) + 1) % MATERIALS.length];
+  const list = THEME.materials;
+  let k = Math.floor(rng() * list.length), mat = MATERIALS[list[k]];
+  for (let tries = 0; mat === prevMat && tries < list.length; tries++) { k = (k + 1) % list.length; mat = MATERIALS[list[k]]; }
   const roofH = h - (withFacade ? FACADE_H : 0);
   const form = roofForm(w, roofH, rng);
   const m = drawRoofUnit(g, x, y, w, roofH, mat, form, 0.92 + rng() * 0.14);
   const r = rng();
   if (r < 0.25) drawMoss(g, x + 3 + Math.floor(rng() * (w - 10)), y + roofH - 6);
-  if (rng() < 0.22) drawRoofHole(g, x + 4 + Math.floor(rng() * (w - 14)), y + 4 + Math.floor(rng() * Math.max(1, roofH / 2 - 8)), m, rng);
+  if (rng() < THEME.holes) drawRoofHole(g, x + 4 + Math.floor(rng() * (w - 14)), y + 4 + Math.floor(rng() * Math.max(1, roofH / 2 - 8)), m, rng);
   if (withFacade && roofH >= 22 && w >= 24 && rng() < 0.4) drawDormer(g, x + Math.floor((w - 9) / 2), y + roofH - 11, m, rng);
   if (rng() < 0.7 || (biz && biz.smoke)) {
     const cx = x + 4 + Math.floor(rng() * (w - 14)), cy = y + 3 + Math.floor(rng() * Math.max(1, roofH / 3));
@@ -678,7 +841,7 @@ let bizTurn = 0;
 function drawBuildings(g, rng) {
   const W = (r) => r.w * TILE, H = (r) => r.h * TILE;
   const parkAt = (tx, ty) => tx > 0 && ty > 0 && tx < MAP_W && ty < MAP_H && (at(tx, ty) === T.GRASS || at(tx, ty) === T.TREE);
-  const church = roofs.find(r => r.w === 6 && r.h === 6 && (parkAt(r.x + 8, r.y) || parkAt(r.x - 8, r.y) || parkAt(r.x, r.y + 8) || parkAt(r.x, r.y - 8)));
+  const P = PERIOD, church = roofs.find(r => r.w === BLOCK && r.h === BLOCK && (parkAt(r.x + P, r.y) || parkAt(r.x - P, r.y) || parkAt(r.x, r.y + P) || parkAt(r.x, r.y - P)));
   // shadows first: east side and a sliver to the south
   for (const r of roofs) {
     g.fillStyle = 'rgba(0,0,0,.38)'; g.fillRect(r.x * TILE + W(r), r.y * TILE + 4, 4, H(r) - 2);
@@ -708,23 +871,25 @@ function drawBuildings(g, rng) {
 
 const TUFT = ['.g.', 'gGg'];
 function drawChurchyard(g, x0, y0, rng) {
-  const x = x0 * TILE, y = y0 * TILE, S = 6 * TILE;
-  g.fillStyle = '#4a6a32'; g.fillRect(x, y, S, S);
+  const x = x0 * TILE, y = y0 * TILE, S = 6 * TILE, snow = THEME.snow;
+  const C = snow ? { base: '#dfe6ed', light: '#eef3f7', dark: '#cbd5de', tuft: ['#b8c4cf', '#f4f7fa'], path: ['#a9b3bc', '#98a2ac', '#bcc5ce'] }
+    : { base: '#4a6a32', light: '#557a3a', dark: '#3f5c2b', tuft: ['#365226', '#6a9046'], path: ['#6a5438', '#5a4630', '#7a6444'] };
+  g.fillStyle = C.base; g.fillRect(x, y, S, S);
   const n = valueNoise(4040 + x0 * 7 + y0, 18);
   for (let yy = 0; yy < S; yy += 2) for (let xx = 0; xx < S; xx += 2) { // soft light and dark patches
     const v = n(x + xx, y + yy);
-    if (v > 0.62) { g.fillStyle = '#557a3a'; g.fillRect(x + xx, y + yy, 2, 2); }
-    else if (v < 0.3) { g.fillStyle = '#3f5c2b'; g.fillRect(x + xx, y + yy, 2, 2); }
+    if (v > 0.62) { g.fillStyle = C.light; g.fillRect(x + xx, y + yy, 2, 2); }
+    else if (v < 0.3) { g.fillStyle = C.dark; g.fillRect(x + xx, y + yy, 2, 2); }
   }
   for (let i = 0; i < 40; i++) { // grass tufts
     const tx = x + 2 + Math.floor(rng() * (S - 5)), ty = y + 2 + Math.floor(rng() * (S - 4));
-    TUFT.forEach((row, yy) => [...row].forEach((ch, xx) => { if (ch !== '.') px1(g, tx + xx, ty + yy, ch === 'G' ? '#6a9046' : '#365226'); }));
+    TUFT.forEach((row, yy) => [...row].forEach((ch, xx) => { if (ch !== '.') px1(g, tx + xx, ty + yy, ch === 'G' ? C.tuft[1] : C.tuft[0]); }));
   }
   for (let i = 0; i < 6; i++) { px1(g, x + 3 + Math.floor(rng() * (S - 6)), y + 3 + Math.floor(rng() * (S - 6)), pick(rng, ['#d8c46a', '#d9d2c0', '#b84a3a'])); } // flowers
   // trodden dirt path cross with clean edges
-  g.fillStyle = '#6a5438'; g.fillRect(x + S / 2 - 3, y, 6, S); g.fillRect(x, y + S / 2 - 3, S, 6);
-  g.fillStyle = '#5a4630'; g.fillRect(x + S / 2 - 3, y, 1, S); g.fillRect(x, y + S / 2 - 3, S, 1);
-  g.fillStyle = '#7a6444'; g.fillRect(x + S / 2 + 2, y, 1, S); g.fillRect(x, y + S / 2 + 2, S, 1);
+  g.fillStyle = C.path[0]; g.fillRect(x + S / 2 - 3, y, 6, S); g.fillRect(x, y + S / 2 - 3, S, 6);
+  g.fillStyle = C.path[1]; g.fillRect(x + S / 2 - 3, y, 1, S); g.fillRect(x, y + S / 2 - 3, S, 1);
+  g.fillStyle = C.path[2]; g.fillRect(x + S / 2 + 2, y, 1, S); g.fillRect(x, y + S / 2 + 2, S, 1);
   // graves in neat rows: headstones and fresh mounds
   for (const qx of [0, 1]) for (const qy of [0, 1]) for (let i = 0; i < 3; i++) {
     const gx = x + 8 + qx * 50 + i * 12, gy = y + 10 + qy * 50;
@@ -741,18 +906,20 @@ function drawChurchyard(g, x0, y0, rng) {
     g.fillStyle = stone; g.fillRect(gx + (tilt ? 1 : 0), gy, 4, 1); g.fillRect(gx, gy + 1, 5, 5);
     g.fillStyle = shade(stone, 1.15); g.fillRect(gx, gy + 1, 1, 5);
     g.fillStyle = shade(stone, 0.6); g.fillRect(gx + 2, gy + 2, 1, 3); g.fillRect(gx + 1, gy + 3, 3, 1);
+    if (snow) { g.fillStyle = '#f4f7fa'; g.fillRect(gx, gy, 5, 1); }
   }
 }
 
 function drawTree(g, cx, cy, rng) {
   disc(g, cx + 3, cy + 4, 10, 'rgba(0,0,0,.35)');
-  if (rng() < 0.3) { // dead tree: bare branches
+  if (THEME.snow || rng() < (THEME.laundry ? 0.6 : 0.3)) { // dead or winter-bare tree
     g.fillStyle = '#3a2a1c';
     for (let b = 0; b < 6; b++) {
       let bx = cx, by = cy; const a = b / 6 * Math.PI * 2 + rng();
       for (let k = 0; k < 7 + rng() * 4; k++) { bx += Math.cos(a + (rng() - .5) * .6); by += Math.sin(a + (rng() - .5) * .6); g.fillRect(Math.round(bx), Math.round(by), 1, 1); }
     }
     disc(g, cx, cy, 2, '#4a3524');
+    if (THEME.snow) for (let i = 0; i < 14; i++) px1(g, cx + (rng() * 16 | 0) - 8, cy + (rng() * 16 | 0) - 8, '#eef3f7');
     return;
   }
   // layered canopy: dark rim, mid body, lit clusters top-left
@@ -767,42 +934,60 @@ function drawTree(g, cx, cy, rng) {
 function renderMap() {
   const c = makeCanvas(MAP_W * TILE, MAP_H * TILE);
   const g = c.getContext('2d');
-  const rng = mulberry32(90210);
+  const rng = mulberry32(LEVEL.seed * 7 + 1);
   const W = MAP_W * TILE, H = MAP_H * TILE;
+  bizTurn = levelIndex * 3;
 
   // 1. ground tiles
   for (let ty = 0; ty < MAP_H; ty++) for (let tx = 0; tx < MAP_W; tx++) {
     const px = tx * TILE, py = ty * TILE, v = at(tx, ty);
-    if (v === T.STREET || v === T.BUILDING) drawCobbleTile(g, px, py, rng);
-    else if (v === T.PLAZA || v === T.WELL) drawFlagTile(g, px, py, rng);
+    if (v === T.STREET || v === T.BUILDING) drawGroundTile(g, px, py, rng);
+    else if (v === T.PLAZA || v === T.WELL) THEME.snow ? drawSnowTile(g, px, py, rng) : drawFlagTile(g, px, py, rng);
     else if (v === T.WALL) {
       g.fillStyle = '#1b1814'; g.fillRect(px, py, TILE, TILE);
       for (let r = 0; r < 4; r++) for (let k = 0; k < 2; k++) {
         g.fillStyle = pick(rng, ['#2a241f', '#2f2822', '#26201b', '#332b24']);
         g.fillRect(px + k * 8 + (r % 2) * 4, py + r * 4, 7, 3);
       }
+      if (THEME.snow) { g.fillStyle = '#e8eef4'; g.fillRect(px, py, TILE, 3); }
     }
   }
-  // churchyards (the old parks)
+  if (bridges.size || LEVEL.canalBand !== undefined) drawCanal(g, rng);
   for (let by = 0; by < BLOCKS_Y; by++) for (let bx = 0; bx < BLOCKS_X; bx++) {
-    const x0 = 3 + bx * 8, y0 = 3 + by * 8;
+    const x0 = blockX0(bx), y0 = blockX0(by);
     if (at(x0, y0) === T.GRASS || at(x0, y0) === T.TREE) drawChurchyard(g, x0, y0, rng);
   }
 
-  // 2. grime: patchy mud over the streets, heavier where noise is high
-  const noise = valueNoise(777, 40), fine = valueNoise(778, 9);
-  for (let y = 0; y < H; y += 2) for (let x = 0; x < W; x += 2) {
-    if (!isGround(x, y)) continue;
-    const n = noise(x, y) * 0.7 + fine(x, y) * 0.3;
-    if (n > 0.5) { g.fillStyle = `rgba(42,30,16,${Math.min(0.55, (n - 0.5) * 1.6).toFixed(2)})`; g.fillRect(x, y, 2, 2); }
+  // 2. grime: patchy mud over the streets (trampled slush in the snow)
+  const noise = valueNoise(LEVEL.seed + 777, 40), fine = valueNoise(LEVEL.seed + 778, 9);
+  if (THEME.grime) {
+    const [r, gg, b, k] = THEME.grime;
+    for (let y = 0; y < H; y += 2) for (let x = 0; x < W; x += 2) {
+      if (!isGround(x, y)) continue;
+      const n = noise(x, y) * 0.7 + fine(x, y) * 0.3;
+      if (n > 0.5) { g.fillStyle = `rgba(${r},${gg},${b},${Math.min(0.55, (n - 0.5) * 1.6 * k).toFixed(2)})`; g.fillRect(x, y, 2, 2); }
+    }
   }
-  // filth banked up against the walls
+  if (THEME.snow) { // grey trampled tracks down the middle of each street, with footprints
+    for (let ty = 0; ty < MAP_H; ty++) for (let tx = 0; tx < MAP_W; tx++) {
+      if (at(tx, ty) !== T.STREET) continue;
+      const midRow = (ty - 1) % PERIOD === 1, midCol = (tx - 1) % PERIOD === 1;
+      if (!midRow && !midCol) continue;
+      for (let y = 0; y < TILE; y += 2) for (let x = 0; x < TILE; x += 2) {
+        const n = fine(tx * TILE + x, ty * TILE + y);
+        if (n > 0.35) { g.fillStyle = `rgba(120,130,142,${(0.18 + (n - 0.35) * 0.5).toFixed(2)})`; g.fillRect(tx * TILE + x, ty * TILE + y, 2, 2); }
+      }
+      for (let k = 0; k < 3; k++) px1(g, tx * TILE + (rng() * 15 | 0), ty * TILE + (rng() * 15 | 0), '#8e98a3');
+    }
+  }
+  // filth (or snowdrifts) banked against the walls
   for (let ty = 0; ty < MAP_H; ty++) for (let tx = 0; tx < MAP_W; tx++) {
     const v = at(tx, ty); if (v !== T.STREET && v !== T.PLAZA) continue;
+    if (bridges.has(ty * MAP_W + tx)) continue;
     const px = tx * TILE, py = ty * TILE;
     const solid = (dx, dy) => { const n = at(tx + dx, ty + dy); return n === T.BUILDING || n === T.WALL; };
     for (let k = 0; k < 4; k++) {
-      g.fillStyle = `rgba(22,16,10,${[.5, .35, .2, .1][k]})`;
+      g.fillStyle = THEME.filth + [.5, .35, .2, .1][k] + ')';
       if (solid(0, -1)) g.fillRect(px, py + k, TILE, 1);
       if (solid(0, 1)) g.fillRect(px, py + TILE - 1 - k, TILE, 1);
       if (solid(-1, 0)) g.fillRect(px + k, py, 1, TILE);
@@ -810,39 +995,37 @@ function renderMap() {
     }
   }
   // 3. open sewer channel down the middle of each main street
-  for (let ty = 1; ty < MAP_H - 2; ty++) for (let tx = 1; tx < MAP_W - 1; tx++) {
-    if ((ty - 1) % 8 === 0 && at(tx, ty) === T.STREET && at(tx, ty + 1) === T.STREET && (tx - 1) % 8 >= 2) {
-      const yy = (ty + 1) * TILE - 1;
+  if (THEME.sewer) for (let ty = 1; ty < MAP_H - 1; ty++) for (let tx = 1; tx < MAP_W - 1; tx++) {
+    if (at(tx, ty) !== T.STREET || bridges.has(ty * MAP_W + tx)) continue;
+    if ((ty - 1) % PERIOD === 1 && !inStreetBand(tx)) {
+      const yy = ty * TILE + 7;
       g.fillStyle = '#1a140f'; g.fillRect(tx * TILE, yy, TILE, 2);
       for (let k = 0; k < 4; k++) px1(g, tx * TILE + Math.floor(rng() * TILE), yy + Math.floor(rng() * 2), pick(rng, ['#3b2e18', '#4a3a1c', '#2c3438']));
     }
-    if ((tx - 1) % 8 === 0 && at(tx, ty) === T.STREET && at(tx + 1, ty) === T.STREET && (ty - 1) % 8 >= 2) {
-      const xx = (tx + 1) * TILE - 1;
+    if ((tx - 1) % PERIOD === 1 && !inStreetBand(ty)) {
+      const xx = tx * TILE + 7;
       g.fillStyle = '#1a140f'; g.fillRect(xx, ty * TILE, 2, TILE);
       for (let k = 0; k < 4; k++) px1(g, xx + Math.floor(rng() * 2), ty * TILE + Math.floor(rng() * TILE), pick(rng, ['#3b2e18', '#4a3a1c', '#2c3438']));
     }
   }
   // 4. stains: dark muck, ochre slops, old blood
-  for (let i = 0; i < 420; i++) {
+  for (let i = 0; i < THEME.stains; i++) {
     const sx = rng() * W, sy = rng() * H; if (!isGround(sx, sy)) continue;
     const col = pick(rng, ['#1a120a', '#2a1c10', '#5a4318', '#3b1a14', '#20180f']);
     g.globalAlpha = 0.18 + rng() * 0.22;
     blob(rng, sx, sy, 2 + rng() * 5, (bx, by) => { if (isGround(bx, by)) px1(g, bx, by, col); });
   }
   g.globalAlpha = 1;
-  // 5. puddles of filthy water
-  for (let i = 0; i < 110; i++) {
+  // 5. puddles of filthy water (frozen in the snow)
+  for (let i = 0; i < THEME.puddles; i++) {
     const sx = rng() * W, sy = rng() * H; if (!isGround(sx, sy)) continue;
-    const size = 4 + rng() * 6, murky = rng() < 0.4;
-    blob(rng, sx, sy, size, (bx, by, edge) => {
-      if (!isGround(bx, by)) return;
-      px1(g, bx, by, edge ? '#221b14' : murky ? '#38372b' : '#27373f');
-    });
-    g.fillStyle = murky ? '#55513e' : '#6a8592'; g.fillRect(Math.round(sx - size * .3), Math.round(sy - 1), 2, 1);
-    px1(g, Math.round(sx + size * .2), Math.round(sy + 1), murky ? '#4a4636' : '#4d6470');
+    const size = 4 + rng() * 6, murky = !THEME.snow && rng() < 0.4;
+    const body = THEME.snow ? '#b8d0e0' : murky ? '#38372b' : '#27373f', rim = THEME.snow ? '#9fb8ca' : '#221b14';
+    blob(rng, sx, sy, size, (bx, by, edge) => { if (isGround(bx, by) && !bridges.has(((by / TILE) | 0) * MAP_W + ((bx / TILE) | 0))) px1(g, bx, by, edge ? rim : body); });
+    g.fillStyle = THEME.snow ? '#eef6fc' : murky ? '#55513e' : '#6a8592'; g.fillRect(Math.round(sx - size * .3), Math.round(sy - 1), 2, 1);
   }
   // 6. litter: straw, dung, bones, broken pots, rags
-  for (let i = 0; i < 300; i++) {
+  for (let i = 0; i < THEME.litter; i++) {
     const lx = Math.floor(rng() * W), ly = Math.floor(rng() * H); if (!isGround(lx, ly)) continue;
     const r = rng();
     if (r < 0.4) { g.fillStyle = pick(rng, ['#8c7438', '#a08648', '#6e5a2c']); rng() < .5 ? g.fillRect(lx, ly, 3, 1) : g.fillRect(lx, ly, 1, 3); }
@@ -851,23 +1034,35 @@ function renderMap() {
     else if (r < 0.86) { px1(g, lx, ly, '#8a4a32'); px1(g, lx + 1, ly, '#6e3a28'); px1(g, lx + 3, ly + 1, '#8a4a32'); }
     else { g.fillStyle = pick(rng, ['#3f5a4a', '#7d3a33', '#4a4038']); g.fillRect(lx, ly, 3, 2); px1(g, lx + 2, ly + 2, '#2a221c'); }
   }
+  if (THEME.ground === 'mud') { // planks laid over the worst of the mud
+    for (let i = 0; i < 40; i++) {
+      const lx = Math.floor(rng() * W), ly = Math.floor(rng() * H); if (!isGround(lx, ly) || !isGround(lx + 14, ly + 6)) continue;
+      g.fillStyle = 'rgba(0,0,0,.3)'; g.fillRect(lx + 1, ly + 1, 14, 6);
+      g.fillStyle = '#6b4f33'; g.fillRect(lx, ly, 14, 2); g.fillRect(lx, ly + 3, 14, 2);
+      g.fillStyle = '#86653f'; g.fillRect(lx, ly, 14, 1); g.fillRect(lx, ly + 3, 14, 1);
+    }
+  }
 
   // 7. buildings: rows of individual houses, plus the church
   drawBuildings(g, rng);
+  if (THEME.laundry) drawLaundry(g, rng);
+  if (THEME.lamps) drawLamps(g, rng);
 
   // 8. the well, with a winch beam and a bucket
   disc(g, WELL.x, WELL.y + 2, 14, 'rgba(0,0,0,.35)');
   disc(g, WELL.x, WELL.y, 14, '#6b6152');
   for (let i = 0; i < 24; i++) { const a = i / 24 * Math.PI * 2; px1(g, Math.round(WELL.x + Math.cos(a) * 13), Math.round(WELL.y + Math.sin(a) * 13), i % 3 ? '#575043' : '#7d725f'); }
   disc(g, WELL.x, WELL.y, 11, '#585044');
-  disc(g, WELL.x, WELL.y, 9, '#16232b');
+  disc(g, WELL.x, WELL.y, 9, THEME.snow ? '#9fb8ca' : '#16232b');
   g.fillStyle = '#2f4a57'; g.fillRect(WELL.x - 5, WELL.y - 4, 3, 1); g.fillRect(WELL.x + 3, WELL.y + 3, 2, 1);
   g.fillStyle = '#4a3424'; g.fillRect(WELL.x - 15, WELL.y - 2, 30, 3);
-  g.fillStyle = '#6b4f33'; g.fillRect(WELL.x - 15, WELL.y - 2, 30, 1);
+  g.fillStyle = THEME.snow ? '#eef3f7' : '#6b4f33'; g.fillRect(WELL.x - 15, WELL.y - 2, 30, 1);
   g.fillStyle = '#3a2a1c'; g.fillRect(WELL.x - 16, WELL.y - 3, 3, 5); g.fillRect(WELL.x + 13, WELL.y - 3, 3, 5);
   g.fillStyle = '#5a4330'; g.fillRect(WELL.x + 3, WELL.y + 1, 4, 4); g.fillStyle = '#2e2016'; g.fillRect(WELL.x + 4, WELL.y + 2, 2, 2);
-  // 9. trees, some long dead
+  // 9. trees
   for (const [tx, ty] of trees) drawTree(g, tx * TILE + 8, ty * TILE + 8, rng);
+  // 10. whole-map colour grade for the theme (sea fog, winter chill)
+  if (THEME.fog || THEME.tint) { g.fillStyle = THEME.fog || THEME.tint; g.fillRect(0, 0, W, H); }
   return c;
 }
 
@@ -972,7 +1167,7 @@ function makePersonSprites(rng) {
 }
 
 const GLYPHS = {
-  '+': ['...', '.#.', '###', '.#.', '...'], '-': ['...', '...', '###', '...', '...'],
+  '+': ['...', '.#.', '###', '.#.', '...'], '!': ['.#.', '.#.', '.#.', '...', '.#.'], '-': ['...', '...', '###', '...', '...'],
   '0': ['###', '#.#', '#.#', '#.#', '###'], '1': ['.#.', '##.', '.#.', '.#.', '###'],
   '2': ['###', '..#', '###', '#..', '###'], '3': ['###', '..#', '###', '..#', '###'],
   '4': ['#.#', '#.#', '###', '..#', '..#'], '5': ['###', '#..', '###', '..#', '###'],
@@ -1006,6 +1201,8 @@ function tone(freq, freq2, start, dur, type, vol) {
 const sfx = {
   infect() { tone(650 + Math.random() * 250, 1500, 0, 0.07, 'square', 0.04); },
   die() { tone(240, 80, 0, 0.18, 'triangle', 0.09); },
+  alert() { tone(900, 1300, 0, 0.08, 'square', 0.05); tone(1300, 900, 0.09, 0.1, 'square', 0.05); },
+  kill() { tone(180, 60, 0, 0.25, 'sawtooth', 0.08); tone(500, 200, 0.05, 0.12, 'square', 0.05); },
   win() { [392, 494, 587, 784].forEach((f, i) => tone(f, f, i * 0.11, 0.16, 'square', 0.05)); },
   lose() { [330, 262, 196, 131].forEach((f, i) => tone(f, f * 0.97, i * 0.16, 0.22, 'triangle', 0.08)); },
 };
@@ -1085,6 +1282,139 @@ function billOfMortality(n) {
 }
 
 // ---------------------------------------------------------------------------
+// H1-H6: rat hunters. Each carries a number. While the swarm is smaller than
+// it, he chases the swarm whenever he is on screen and catches it by touching
+// the lead rat. Once the swarm matches or beats his number he flees, and any
+// rat that touches him kills him.
+// ---------------------------------------------------------------------------
+const HUNTER_FRAMES = [
+  ['..hhhh..', '.hhhhhh.', '.hhsshh.', '..hssh..', '.cccccc.', 'ccrrrrcc', 'cccccccc', '.cccccc.', '.bb..bb.', '.bb..bb.', '.ff..ff.'],
+  ['..hhhh..', '.hhhhhh.', '.hhsshh.', '..hssh..', '.cccccc.', 'ccrrrrcc', 'cccccccc', '.cccccc.', '..bbbb..', '..b..b..', '..f..f..'],
+];
+const HUNTER_PAL = { h: '#3a2a1e', s: '#c99470', c: '#5a4a32', r: '#a8322c', b: '#2c2620', f: '#1d1712' };
+const HUNTER_DANGER = '#e0482c', HUNTER_PREY = '#f2c14a';
+const hunterSprites = {
+  danger: HUNTER_FRAMES.map(f => spriteFrom(f, HUNTER_PAL, HUNTER_DANGER)),
+  prey: HUNTER_FRAMES.map(f => spriteFrom(f, HUNTER_PAL, HUNTER_PREY)),
+};
+const DIRS4 = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+
+function spawnHunters() {
+  const rng = mulberry32(LEVEL.seed + 99), out = [];
+  for (const number of LEVEL.hunters) {
+    for (let tries = 0; tries < 2000; tries++) {
+      const tx = 1 + (rng() * (MAP_W - 2) | 0), ty = 1 + (rng() * (MAP_H - 2) | 0);
+      if (at(tx, ty) !== T.STREET || bridges.has(ty * MAP_W + tx)) continue;
+      const x = tx * TILE + 8, y = ty * TILE + 8;
+      if (Math.hypot(x - START.x, y - START.y) < TILE * 16) continue;
+      if (out.some(h => Math.hypot(h.x - x, h.y - y) < TILE * 10)) continue;
+      out.push({ x, y, number, alive: true, mode: 'wander', danger: true, dx: 0, dy: 0, t: 0, frame: 0, anim: 0, flip: false });
+      break;
+    }
+  }
+  return out;
+}
+
+// Distance (in tiles, along the streets) from every tile to the lead rat.
+function buildFlow(G) {
+  const L = G.rats[0], n = MAP_W * MAP_H;
+  if (!G.flow || G.flow.length !== n) { G.flow = new Int16Array(n); G.flowQ = new Int32Array(n); }
+  const d = G.flow, q = G.flowQ; d.fill(-1);
+  const s = ((L.y / TILE) | 0) * MAP_W + ((L.x / TILE) | 0);
+  let qh = 0, qt = 0; q[qt++] = s; d[s] = 0;
+  while (qh < qt) {
+    const i = q[qh++], x = i % MAP_W, y = (i / MAP_W) | 0;
+    for (const [dx, dy] of DIRS4) {
+      const nx = x + dx, ny = y + dy;
+      if (nx < 0 || ny < 0 || nx >= MAP_W || ny >= MAP_H) continue;
+      const j = ny * MAP_W + nx;
+      if (d[j] !== -1 || SOLID.has(map[j])) continue;
+      d[j] = d[i] + 1; q[qt++] = j;
+    }
+  }
+}
+
+function updateHunters(dt) {
+  const G = game, L = G.rats[0];
+  if (!L || !G.hunters.length) return;
+  G.flowT -= dt;
+  if (G.flowT <= 0) { buildFlow(G); G.flowT = 0.15; }
+  const n = G.rats.length;
+  for (const h of G.hunters) {
+    if (!h.alive) continue;
+    const danger = n < h.number; // H3 + H6: equal or more rats makes him prey
+    const onScreen = h.x > G.cam.x - 4 && h.x < G.cam.x + view.w + 4 && h.y > G.cam.y - 4 && h.y < G.cam.y + view.h + 4;
+    const mode = !onScreen ? 'wander' : danger ? 'chase' : 'flee'; // H4: he hunts whatever he can see
+    if (mode === 'chase' && h.mode !== 'chase') { sfx.alert(); G.texts.push({ x: h.x - 1, y: h.y - 26, text: '!', col: HUNTER_DANGER, life: 0.9 }); }
+    h.mode = mode; h.danger = danger;
+    const ox = h.x, oy = h.y;
+    if (mode === 'wander') {
+      h.t -= dt;
+      const sp = CONFIG.hunterWanderSpeed * dt;
+      if (h.dx || h.dy) moveWithSlide(h, h.dx * sp, h.dy * sp, 3, 3, false);
+      if (h.t <= 0 || (ox === h.x && oy === h.y)) {
+        const opts = DIRS4.filter(([x, y]) => !blocked(h.x + x * 6, h.y + y * 6, 3, 3));
+        if (opts.length) [h.dx, h.dy] = opts[Math.floor(Math.random() * opts.length)];
+        h.t = 1.5 + Math.random() * 2.5;
+      }
+    } else {
+      const sp = CONFIG.hunterSpeed * dt;
+      let tx = h.x, ty = h.y;
+      if (mode === 'chase' && Math.hypot(L.x - h.x, L.y - h.y) < 24) { tx = L.x; ty = L.y; }
+      else {
+        const cx = (h.x / TILE) | 0, cy = (h.y / TILE) | 0, here = G.flow[cy * MAP_W + cx];
+        let best = null, bestD = here;
+        for (const [dx, dy] of DIRS4) {
+          const v = G.flow[(cy + dy) * MAP_W + cx + dx];
+          if (v < 0) continue;
+          if (mode === 'chase' ? (v < bestD || bestD < 0) : v > bestD) { bestD = v; best = [cx + dx, cy + dy]; }
+        }
+        if (best) { tx = best[0] * TILE + 8; ty = best[1] * TILE + 8; }
+      }
+      const ddx = tx - h.x, ddy = ty - h.y, dd = Math.hypot(ddx, ddy);
+      if (dd > 0.5) moveWithSlide(h, ddx / dd * Math.min(sp, dd), ddy / dd * Math.min(sp, dd), 3, 3, true);
+    }
+    const mvx = h.x - ox, mvy = h.y - oy;
+    if (Math.abs(mvx) > 0.01) h.flip = mvx < 0;
+    if (Math.hypot(mvx, mvy) > 0.01) { h.anim += dt; if (h.anim > 0.16) { h.anim = 0; h.frame ^= 1; } }
+    // H5: caught when he touches the lead rat while the swarm is smaller than his number
+    if (danger && Math.hypot(L.x - h.x, L.y - (h.y - 3)) < CONFIG.hunterCatchRadius) { G.caughtBy = h; endGame(false, 'caught'); return; }
+    // H3: when the swarm is big enough, any rat that touches him kills him
+    if (!danger) for (const r of G.rats) if (Math.hypot(r.x - h.x, r.y - (h.y - 3)) < CONFIG.infectRadius + 1) { killHunter(h); break; }
+  }
+}
+
+function killHunter(h) {
+  const G = game;
+  h.alive = false; G.huntersKilled++;
+  for (let i = 0; i < 18; i++) {
+    const a = Math.random() * Math.PI * 2, s = 12 + Math.random() * 30;
+    G.particles.push({ x: h.x, y: h.y - 5, vx: Math.cos(a) * s, vy: Math.sin(a) * s, life: 0.7, max: 0.7, col: pick(Math.random, ['#a8322c', '#5a4a32', '#e9dcbc', HUNTER_PREY]), size: 1 + (Math.random() < .4) });
+  }
+  G.texts.push({ x: h.x - 5, y: h.y - 20, text: '-' + h.number, col: HUNTER_PREY, life: 1.1 });
+  sfx.kill();
+}
+
+function drawHunter(h, ox, oy) {
+  const s = (h.danger ? hunterSprites.danger : hunterSprites.prey)[h.frame];
+  const x = Math.round(h.x - 4 + ox), y = Math.round(h.y - 10 + oy);
+  ctx.fillStyle = 'rgba(0,0,0,.35)'; ctx.fillRect(x + 1, y + 10, 6, 2);
+  // catch-pole with a net over his shoulder
+  const side = h.flip ? -1 : 1, px = x + (h.flip ? 0 : 8), py = y + 4;
+  ctx.fillStyle = '#6b4f33';
+  for (let k = 0; k < 7; k++) ctx.fillRect(px + side * k, py - k, 1, 1);
+  ctx.fillStyle = '#c9b48a';
+  const nx = px + side * 7, ny = py - 9;
+  ctx.fillRect(nx - 1, ny, 3, 1); ctx.fillRect(nx - 2, ny + 1, 1, 2); ctx.fillRect(nx + 2, ny + 1, 1, 2); ctx.fillRect(nx - 1, ny + 3, 3, 1);
+  if (h.flip) { ctx.save(); ctx.scale(-1, 1); ctx.drawImage(s, -x - 9, y - 1); ctx.restore(); }
+  else ctx.drawImage(s, x - 1, y - 1);
+}
+function drawHunterNumber(h, ox, oy) { // H1: his number floats over his head
+  const t = String(h.number), x = Math.round(h.x + ox - (t.length * 4 - 1) / 2), y = Math.round(h.y - 19 + oy);
+  pixText(ctx, t, x, y, h.danger ? HUNTER_DANGER : HUNTER_PREY);
+}
+
+// ---------------------------------------------------------------------------
 // Game state
 // ---------------------------------------------------------------------------
 const canvas = document.getElementById('game');
@@ -1097,9 +1427,10 @@ const dbg = { timeScale: 1, input: null };
 window.__plague = dbg;
 dbg.solid = (x, y) => solidAt(x, y);
 dbg.CONFIG = CONFIG;
+dbg.override = null; // test hook: CONFIG values to apply on top of a level's own
 
 function newGame() {
-  const rng = mulberry32(4242);
+  const rng = mulberry32(4242 + levelIndex * 101);
   const citizens = [];
   while (citizens.length < CONFIG.population) {
     const tx = 1 + Math.floor(rng() * (MAP_W - 2)), ty = 1 + Math.floor(rng() * (MAP_H - 2));
@@ -1115,6 +1446,7 @@ function newGame() {
     citizens, rats, trail: [{ x: START.x, y: START.y }],
     infected: 0, time: 0, decayTimer: 0, peak: rats.length,
     particles: [], texts: [], cam: { x: 0, y: 0 },
+    hunters: spawnHunters(), huntersKilled: 0, caughtBy: null, flowT: 0, flow: null,
   };
 }
 function newRat(x, y) { return { x, y, face: 'u', frame: 0, anim: Math.random(), moving: false }; }
@@ -1252,6 +1584,9 @@ function update(dt) {
     sfx.die();
   }
 
+  updateHunters(dt);
+  if (state !== 'playing') return;
+
   for (const a of ambient) { // chimney smoke from bakeries and smithies
     if (a.type === 'smoke' && Math.random() < dt * 2.5) {
       G.particles.push({ x: a.x + Math.random() * 2 - 1, y: a.y, vx: 3 + Math.random() * 3, vy: -7 - Math.random() * 3, life: 2.4, max: 2.4, col: pick(Math.random, ['#8a8478', '#6e6a62', '#a19b90']), size: 2 });
@@ -1303,8 +1638,8 @@ function render() {
   ctx.fillStyle = '#120f0c'; ctx.fillRect(0, 0, view.w, view.h);
   ctx.drawImage(mapCanvas, ox, oy);
 
-  for (const a of ambient) { // flickering lanterns and forges
-    if (a.type !== 'glow') continue;
+  for (const a of ambient) { // flickering lanterns, forges and street lamps
+    if (a.type === 'smoke') continue;
     const sx = a.x + ox, sy = a.y + oy;
     if (sx < -20 || sy < -20 || sx > view.w + 20 || sy > view.h + 20) continue;
     ctx.globalAlpha = 0.14 + 0.05 * Math.sin(G.time * 9 + a.x) + Math.random() * 0.03;
@@ -1320,9 +1655,11 @@ function render() {
   const ents = [];
   for (const r of G.rats) ents.push({ y: r.y, r });
   for (const c of G.citizens) ents.push({ y: c.y, c });
+  for (const h of G.hunters) if (h.alive) ents.push({ y: h.y, h });
   ents.sort((a, b) => a.y - b.y);
   for (const e of ents) {
-    if (e.r) {
+    if (e.h) drawHunter(e.h, ox, oy);
+    else if (e.r) {
       const r = e.r, s = ratSprites[r.face][r.frame];
       ctx.drawImage(s, Math.round(r.x - s.width / 2 + ox), Math.round(r.y - s.height / 2 + oy));
     } else {
@@ -1342,8 +1679,45 @@ function render() {
     ctx.fillStyle = p.col; ctx.fillRect(Math.round(p.x + ox), Math.round(p.y + oy), p.size, p.size);
   }
   ctx.globalAlpha = 1;
+  if (THEME.night) drawNight(G, ox, oy);
+  if (THEME.snow) drawSnowfall();
+  for (const h of G.hunters) if (h.alive) drawHunterNumber(h, ox, oy);
   for (const t of G.texts) pixText(ctx, t.text, Math.round(t.x + ox), Math.round(t.y + oy), t.col);
   if (vignette) ctx.drawImage(vignette, 0, 0);
+}
+
+// V7: night in the Palace Ward. Darkness everywhere except around light sources.
+let lightCanvas = null, lctx = null;
+function drawNight(G, ox, oy) {
+  if (!lightCanvas || lightCanvas.width !== view.w || lightCanvas.height !== view.h) { lightCanvas = makeCanvas(view.w, view.h); lctx = lightCanvas.getContext('2d'); }
+  lctx.globalCompositeOperation = 'source-over';
+  lctx.clearRect(0, 0, view.w, view.h);
+  lctx.fillStyle = 'rgba(6,8,26,.66)'; lctx.fillRect(0, 0, view.w, view.h);
+  lctx.globalCompositeOperation = 'destination-out';
+  const light = (x, y, r) => {
+    if (x < -r || y < -r || x > view.w + r || y > view.h + r) return;
+    const gr = lctx.createRadialGradient(x, y, 0, x, y, r);
+    gr.addColorStop(0, 'rgba(0,0,0,1)'); gr.addColorStop(0.6, 'rgba(0,0,0,.6)'); gr.addColorStop(1, 'rgba(0,0,0,0)');
+    lctx.fillStyle = gr; lctx.fillRect(x - r, y - r, r * 2, r * 2);
+  };
+  if (G.rats[0]) light(G.rats[0].x + ox, G.rats[0].y + oy, 70);
+  for (const a of ambient) if (a.type !== 'smoke') light(a.x + ox, a.y + oy, a.type === 'lamp' ? 44 : 30);
+  for (const h of G.hunters) if (h.alive) light(h.x + ox, h.y - 6 + oy, 34); // hunters carry lanterns
+  for (const c of G.citizens) if (c.infected) light(c.x + ox, c.y - 4 + oy, 12); // the sick glow
+  ctx.drawImage(lightCanvas, 0, 0);
+}
+
+// V7: snow falling over Frostgate (screen space, purely decorative).
+const flakes = Array.from({ length: 110 }, () => ({ x: Math.random(), y: Math.random(), s: 0.4 + Math.random() * 0.8 }));
+function drawSnowfall() {
+  ctx.fillStyle = '#f4f7fa';
+  const t = performance.now() / 1000;
+  for (const f of flakes) {
+    const x = ((f.x * view.w + Math.sin(t * f.s * 2 + f.y * 9) * 6 + t * 8 * f.s) % view.w + view.w) % view.w;
+    const y = ((f.y * view.h + t * 18 * f.s) % view.h + view.h) % view.h;
+    ctx.globalAlpha = 0.5 + f.s * 0.4; ctx.fillRect(Math.round(x), Math.round(y), f.s > 0.9 ? 2 : 1, 1);
+  }
+  ctx.globalAlpha = 1;
 }
 
 // R12: minimap shows only the player and the townsfolk who are still healthy.
@@ -1356,6 +1730,12 @@ function renderMinimap() {
   mctx.fillStyle = '#e9dcbc';
   for (const c of G.citizens) {
     if (!c.infected) mctx.fillRect(Math.floor(c.x / cell) * 2, Math.floor(c.y / cell) * 2, 2, 2);
+  }
+  for (const h of G.hunters) { // H2: hunters stand out on the minimap
+    if (!h.alive) continue;
+    const px = Math.floor(h.x / cell) * 2, py = Math.floor(h.y / cell) * 2;
+    mctx.fillStyle = '#120f0c'; mctx.fillRect(px - 3, py - 3, 8, 8);
+    mctx.fillStyle = h.danger ? HUNTER_DANGER : HUNTER_PREY; mctx.fillRect(px - 2, py - 2, 6, 6);
   }
   const L = G.rats[0];
   if (L && Math.floor(G.time * 3) % 3 !== 0) {
@@ -1402,34 +1782,85 @@ function updateHud() {
 }
 const fmtTime = s => Math.floor(s / 60) + ':' + String(Math.floor(s % 60)).padStart(2, '0');
 
-function startGame() {
-  if (!actx) { try { actx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { actx = null; } }
-  newGame(); hudCache = {};
-  state = 'playing';
-  startMusic();
-  $('titleScreen').hidden = true; $('endScreen').hidden = true; $('hud').hidden = false; mini.hidden = false;
-  stickEl.hidden = !isTouch();
-  canvas.focus?.();
+// ---------------------------------------------------------------------------
+// Levels: progress, loading and the level list (L-rules)
+// ---------------------------------------------------------------------------
+const SAVE_KEY = 'plague-rat-unlocked';
+let unlocked = 1;
+try { unlocked = Math.max(1, Math.min(LEVELS.length, parseInt(localStorage.getItem(SAVE_KEY), 10) || 1)); } catch (e) { /* storage blocked */ }
+let selected = unlocked - 1, loadedLevel = -1;
+function unlock(n) {
+  unlocked = Math.max(unlocked, Math.min(LEVELS.length, n));
+  try { localStorage.setItem(SAVE_KEY, String(unlocked)); } catch (e) { /* storage blocked */ }
 }
-function endGame(won) {
+function loadLevel(i) {
+  levelIndex = i; LEVEL = LEVELS[i]; THEME = THEMES[LEVEL.theme];
+  Object.assign(CONFIG, BASE_CONFIG, LEVEL.tune, dbg.override || {});
+  if (loadedLevel !== i) { buildMap(LEVEL); mapCanvas = renderMap(); loadedLevel = i; }
+  $('target').style.left = CONFIG.targetPercent + '%';
+}
+function renderLevelList() {
+  $('levelList').innerHTML = LEVELS.map((lv, i) => {
+    const t = lv.tune, locked = i >= unlocked;
+    const meta = locked ? 'Locked' : `${t.targetPercent}% · ${lv.hunters.length} hunter${lv.hunters.length > 1 ? 's' : ''}`;
+    return `<button class="lvl${i === selected ? ' on' : ''}" data-i="${i}" ${locked ? 'disabled' : ''}><span class="n">${i + 1}</span><span>${lv.name}</span><span class="meta">${meta}</span></button>`;
+  }).join('');
+}
+$('levelList').addEventListener('click', e => {
+  const b = e.target.closest('.lvl'); if (!b || b.disabled) return;
+  selected = +b.dataset.i; renderLevelList();
+});
+function showTitle() {
+  state = 'title'; stopMusic();
+  $('endScreen').hidden = true; $('hud').hidden = true; mini.hidden = true; stickEl.hidden = true;
+  $('titleScreen').hidden = false; renderLevelList();
+  $('startBtn').focus();
+}
+
+function startLevel(i) {
+  if (state === 'playing') return;
+  if (!actx) { try { actx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { actx = null; } }
+  const go = () => {
+    loadLevel(i); newGame(); hudCache = {};
+    state = 'playing';
+    startMusic();
+    $('titleScreen').hidden = true; $('endScreen').hidden = true; $('hud').hidden = false; mini.hidden = false;
+    $('startBtn').textContent = 'Begin the plague';
+    stickEl.hidden = !isTouch();
+    canvas.focus?.();
+  };
+  if (loadedLevel === i) go();
+  else { $('startBtn').textContent = 'Preparing the district…'; $('retryBtn').textContent = 'Preparing…'; setTimeout(go, 30); }
+}
+const startGame = () => startLevel(selected);
+let endAction = null;
+function endGame(won, reason) {
+  if (state !== 'playing') return;
   const G = game;
   state = won ? 'won' : 'lost';
   mini.hidden = true;
   stickEl.hidden = true; stick.id = null; stick.x = stick.y = 0; knobEl.style.transform = '';
   updateHud();
-  const pct = Math.floor(G.infected * 100 / CONFIG.population);
-  $('endEyebrow').textContent = 'Level 1 · ' + CONFIG.levelName;
-  $('endTitle').textContent = won ? 'The district has fallen' : 'Your swarm died out';
+  const pct = Math.floor(G.infected * 100 / CONFIG.population), last = levelIndex === LEVELS.length - 1;
+  if (won) unlock(levelIndex + 2);
+  $('endEyebrow').textContent = `Level ${levelIndex + 1} · ${LEVEL.name}`;
+  $('endTitle').textContent = won ? (last ? 'The whole city has fallen' : 'The district has fallen') : reason === 'caught' ? 'Caught by a rat hunter' : 'Your swarm died out';
   $('endTitle').style.color = won ? 'var(--plague)' : 'var(--blood)';
+  const short = Math.ceil(CONFIG.targetPercent * CONFIG.population / 100) - G.infected;
   $('endText').textContent = won
-    ? `You infected ${G.infected} of ${CONFIG.population} townsfolk with ${G.rats.length} rats still standing.`
-    : `You reached ${pct}% of the ${CONFIG.targetPercent}% needed. ${Math.ceil(CONFIG.targetPercent * CONFIG.population / 100) - G.infected} more infections would have done it.`;
-  const facts = [['Spread', pct + '%'], ['Time', fmtTime(G.time)], ['Biggest swarm', G.peak]];
+    ? `You infected ${G.infected} of ${CONFIG.population} townsfolk with ${G.rats.length} rats still standing.${last ? ' There is nowhere left to spread.' : ''}`
+    : reason === 'caught'
+      ? `His number was ${G.caughtBy.number} and your swarm was only ${G.rats.length}. Grow past a hunter's number before you let him near your lead rat.`
+      : `You reached ${pct}% of the ${CONFIG.targetPercent}% needed. ${short} more infections would have done it.`;
+  const facts = [['Spread', pct + '%'], ['Time', fmtTime(G.time)], ['Biggest swarm', G.peak], ['Hunters eaten', `${G.huntersKilled} of ${G.hunters.length}`]];
   $('endFacts').innerHTML = facts.map(([k, v]) => `<div><dt>${k}</dt><dd>${v}</dd></div>`).join('');
   const bill = billOfMortality(G.infected);
   $('bill').hidden = !bill.length;
-  $('bill').innerHTML = `<h3>Bill of Mortality</h3><div class="sub">${CONFIG.levelName}, this week</div><ol>` +
+  $('bill').innerHTML = `<h3>Bill of Mortality</h3><div class="sub">${LEVEL.name}, this week</div><ol>` +
     bill.map(([c, n]) => `<li><span>${c}</span><span class="lead"></span><b>${n}</b></li>`).join('') + '</ol>';
+  if (won && !last) { $('retryBtn').textContent = `Next: ${LEVELS[levelIndex + 1].name}`; endAction = () => { selected = levelIndex + 1; startLevel(selected); }; }
+  else if (won) { $('retryBtn').textContent = 'Back to the levels'; endAction = () => { selected = levelIndex; showTitle(); }; }
+  else { $('retryBtn').textContent = 'Try again'; endAction = () => startLevel(levelIndex); }
   stopMusic();
   (won ? sfx.win : sfx.lose)();
   setTimeout(() => { $('endScreen').hidden = false; $('retryBtn').focus(); }, 700);
@@ -1441,7 +1872,10 @@ function endGame(won) {
 window.addEventListener('keydown', e => {
   if (e.code.startsWith('Arrow') || e.code === 'Space') e.preventDefault();
   keys.add(e.code);
-  if (state !== 'playing' && (e.code === 'Enter' || e.code === 'Space') && (!$('endScreen').hidden || !$('titleScreen').hidden)) startGame();
+  if (state !== 'playing' && (e.code === 'Enter' || e.code === 'Space') && !e.repeat) {
+    if (!$('endScreen').hidden && endAction) { e.preventDefault(); endAction(); }
+    else if (!$('titleScreen').hidden) { e.preventDefault(); startGame(); }
+  }
   if (e.code === 'KeyM') toggleMute();
 });
 window.addEventListener('keyup', e => keys.delete(e.code));
@@ -1471,20 +1905,17 @@ stickEl.addEventListener('pointerup', releaseStick);
 stickEl.addEventListener('pointercancel', releaseStick);
 window.addEventListener('touchstart', () => { if (state === 'playing') stickEl.hidden = false; }, { passive: true });
 $('startBtn').addEventListener('click', startGame);
-$('retryBtn').addEventListener('click', startGame);
+$('retryBtn').addEventListener('click', () => endAction && endAction());
+$('menuBtn').addEventListener('click', () => { selected = levelIndex; showTitle(); });
 function toggleMute() {
   muted = !muted; $('mute').textContent = 'Sound: ' + (muted ? 'off' : 'on');
   if (music.gain) music.gain.gain.setValueAtTime(muted ? 0 : 1, actx.currentTime);
 }
 $('mute').addEventListener('click', e => { toggleMute(); e.currentTarget.blur(); });
 
-$('target').style.left = CONFIG.targetPercent + '%';
-$('goalLine').textContent = `Infect ${CONFIG.targetPercent}% of ${CONFIG.population}`;
-$('levelLine').textContent = 'Level 1 · ' + CONFIG.levelName;
-
-buildMap();
-mapCanvas = renderMap();
+loadLevel(selected);
 newGame();
+renderLevelList();
 resize();
 window.addEventListener('resize', resize);
 

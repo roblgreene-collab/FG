@@ -13,7 +13,8 @@ A top-down 2D pixel-art game. The player is a plague-bearing rat running through
 
 ## 2. Core Loop
 - **Seconds:** steer the swarm into townsfolk → they turn sick, the swarm grows.
-- **Level (~2 min):** race the steady die-off of your rats to reach the infection target.
+- **Level (~1–2 min):** race the die-off of your rats to reach the infection target, while dodging rat hunters until the swarm is big enough to turn on them.
+- **Campaign:** five districts in order, each harder and visually distinct. Winning one unlocks the next.
 - **Tension:** every rat lost is a timer ticking down; every infection buys time.
 
 ## 3. Rules & Mechanics
@@ -32,11 +33,23 @@ Status: **Locked** (agreed, must be honored), **Draft** (being tried out), **Ret
 | R7 | **Win:** the infected share of the population reaches `targetPercent`. | Draft |
 | R8 | Infected townsfolk stay infected and keep wandering, more slowly. They do not spread the plague themselves. | Draft |
 | R9 | Townsfolk wander the streets at random and do not react to rats. | Draft |
-| R10 | A level is a fixed hand-set district (same layout every play). There is no clock; level length comes from the die-off (R5). | Draft |
+| R10 | Each level is a fixed district (same layout every play). There is no clock; level length comes from the die-off (R5). Streets are 3 tiles wide; blocks are 6×6 tiles; the district is 7×5 blocks (68×50 tiles). | Draft |
 | R11 | Controls: WASD / arrow keys on keyboard. On touch screens, a virtual joystick sits at the bottom middle of the screen: the leader runs in the direction it is pushed, faster the further it is pushed (full speed at `stickFullAt`, nothing inside `stickDeadZone`). Touching the rest of the screen does nothing. With the joystick showing, the camera keeps the leader in the middle of the space above it. | Draft |
 | R11a | *(old R11 touch control)* Press and drag anywhere on screen; the leader runs toward the finger. Replaced because the hand covered the play area. | Retired |
-| R12 | A super-minimal minimap in the bottom-left corner shows the whole district with only two things on it: the player (blinking green marker) and each healthy townsperson (pale dot). No streets, buildings or infected people. | Draft |
+| R12 | A super-minimal minimap in the bottom-left corner shows the whole district with only two things on it: the player (blinking purple marker), each healthy townsperson (pale dot), and each living rat hunter (H2). No streets, buildings or infected people. | Draft |
 | R13 | The die-off countdown shrinks as the swarm grows: `decayInterval` (1.5 s) for 1–10 rats, then `decayStep` (0.1 s) shorter for every further `decayStepEvery` (10) rats: 11–20 → 1.4 s, 21–30 → 1.3 s, … 60 → 1.0 s. It never goes below `decayMin` (0.5 s). The countdown gets longer again when the swarm shrinks. The HUD shows the current countdown in seconds next to the bar. | Draft |
+
+| R14 | **Five levels**, played in order (see §3d). Winning a level unlocks the next; progress is remembered on this device. The title screen lists all five; locked ones can't be picked. After a win the main button goes to the next level; after a loss it retries. "Choose level" returns to the list. | Draft |
+
+### Rat hunters (built from the designer's H-rules)
+| ID | Rule | Status |
+|----|------|--------|
+| H1 | Rat hunters walk the level. Each has a **number above his head**: red while he's dangerous, gold once he's prey. Numbers are fixed per hunter (see §3d). | Draft |
+| H2 | Hunters are **highlighted on the minimap** as larger squares: red while dangerous, gold when prey. Purple stays the plague's colour (V1). | Draft |
+| H3 | When the swarm is **equal to or larger than** his number, he is **killable**: any rat in the swarm touching him kills him. No reward or cost beyond removing him. | Draft |
+| H4 | While the swarm is **smaller** than his number, he **chases the swarm as soon as he appears on screen**, pathing along the streets toward the lead rat. He runs at `hunterSpeed` (68 px/s), a little slower than the rats (80). If he drops off screen he loses track and goes back to wandering. A whistle and a "!" mark the start of a chase. | Draft |
+| H5 | **Caught = fail.** He catches the swarm only by **touching the lead rat** while the swarm is smaller than his number. Touching other rats does nothing. | Draft |
+| H6 | When the swarm is **equal to or larger than** his number he **stops chasing and flees** whenever he's on screen, running along the streets away from the lead rat. Off screen he wanders. This switches instantly whenever the swarm crosses his number, in either direction. | Draft |
 
 ## 3a. Visual Language
 | ID | Rule | Status |
@@ -47,6 +60,7 @@ Status: **Locked** (agreed, must be honored), **Draft** (being tried out), **Ret
 | V3 | **Bill of Mortality.** Every end screen (win or lose) shows a comic death report styled after the old London Bills of Mortality. It lists up to 5 gross, cartoonish causes picked at random from a pool of 20, with numbers that add up to the number of people infected that run. A new mix every play. | Draft |
 | V4 | **A filthy district.** Streets: uneven cobbles with missing stones, patchy mud, filth banked against walls, an open sewer channel down the middle of main streets, puddles (clear and murky), stains and a little litter. Parks are churchyards: green grass with tufts and flowers, a clean dirt path, headstones in rows, fresh graves, leafy and dead trees. Layout is the same every play (seeded). | Draft |
 | V5 | **Buildings are rows of individual houses.** Each block is split into 2–4 houses (24–48 px wide), and deep blocks have a back row of roofs too, so no two blocks look alike. Neighbouring houses never share a roof material. Roofs are drawn as clean shaded planes lit from the top-left: hipped (four faces) or gabled (two), in six materials (terracotta, slate, thatch, old tile, wooden shingle, lead) with tidy tile rows, ridge and hip lines. Wear comes from a few deliberate details instead of random specks: moss clumps, holes with rafters (some boarded over), chimneys, dormer windows. Each house has its own street-facing wall: timber-framed plaster (sometimes with X braces or fallen plaster), stone, brick, or a shopfront with a striped awning. Windows are dark, candle-lit, shuttered or boarded; doors are arched, and some carry a red plague cross. One landmark church per level: a long slate nave, a bell tower with a gold cross, stained-glass windows and a double door, placed beside a churchyard. | Draft |
+| V7 | **Each level has its own look** (§3d): Market District (brown cobbles, all roof types), The Docks (blue-grey wet stone, a canal with plank bridges and moored rowboats, brick warehouses with slate and lead roofs, sea fog), The Shambles (mud streets with ruts and planks, thatch and shingle shacks, many holes and boarded windows, laundry strung across streets, more dead trees), Frostgate (snow-covered streets with trampled tracks and footprints, snow on roofs and chimney caps, icicles, frozen puddles, bare snowy trees, falling snow, cold tint), The Palace Ward (grand flagstones, stone and brick fronts, iron street lamps, and night: the screen is dark except around the swarm, lamps, lit businesses, infected people and the hunters' lanterns). | Draft |
 | V6 | **Taverns, shops and trades.** About 30% of street-facing houses (`businessShare`) are businesses, cycling through: tavern (×2 in the cycle, needs a wider house), bakery, butcher, smithy, apothecary, cobbler, chandler. Each has a hanging iron sign with a pixel icon (tankard, loaf, ham, anvil, bottle, boot, candle), its own wall type and goods out front: taverns get barrels, a bench, all windows lit and a flickering lantern; bakeries flour sacks and bread; butchers a chopping block, blood and hams on the wall; smithies an anvil, iron bars and a glowing open forge; apothecaries a window of coloured bottles and drying herbs; cobblers boots on a bench; chandlers candles and a crate. Bakeries and smithies have smoking chimneys. Business doors never carry a plague cross. Purely visual: no effect on gameplay. | Draft |
 
 ## 3b. Audio
@@ -54,6 +68,7 @@ Status: **Locked** (agreed, must be honored), **Draft** (being tried out), **Ret
 |----|------|--------|
 | A1 | Short synth sound effects: a squeak on each infection, a low blip when a rat dies, a jingle on win and lose. | Draft |
 | A2 | One "Sound" button (bottom right, or the M key) mutes and unmutes everything, music included. | Draft |
+| A4 | A rising whistle when a hunter starts chasing; a crunch when the swarm eats a hunter. | Draft |
 | A3 | Background music: a looping music-box version of "Ring a Ring o' Roses" over a slow bass, about 12 s per loop. It plays during a level and stops at the end screen. | Draft |
 
 ## 4. Tunable Numbers
@@ -61,9 +76,7 @@ All live in the `CONFIG` object at the top of the script in `index.html`. Tuning
 
 | Name | Value | Notes |
 |------|-------|-------|
-| `population` | 140 | Townsfolk in Level 1 |
-| `targetPercent` | 60 | 84 infections needed |
-| `startRats` | 8 | |
+| `population` / `targetPercent` / `startRats` | per level | See §3d |
 | `ratsPerInfection` | 1 | |
 | `decayInterval` | 1.5 s | Countdown for a swarm of 1–10 rats |
 | `decayStepEvery` | 10 rats | Swarm size per countdown step (R13) |
@@ -79,6 +92,9 @@ All live in the `CONFIG` object at the top of the script in `index.html`. Tuning
 | `musicEighth` | 0.22 s | Length of one eighth note; lower = faster tune (A3) |
 | `musicVolume` | 0.03 | Melody volume (A3) |
 | `businessShare` | 0.3 | Share of street-facing houses that are businesses (V6) |
+| `hunterSpeed` | 68 px/s | Hunter speed when chasing or fleeing (H4, H6) |
+| `hunterWanderSpeed` | 22 px/s | Hunter speed while off screen |
+| `hunterCatchRadius` | 6 px | How close to the lead rat counts as caught (H5) |
 | `minimapCell` | 2 | Map tiles per minimap pixel (lower = bigger, more detailed minimap) |
 
 Balance note: a pathfinding test bot wins Level 1 in about 1:45 with ~20 rats left, but the bot always knows where everyone is. The designer found the level too hard without that knowledge, which is why R12 (minimap) was added. Numbers unchanged pending a replay.
@@ -87,31 +103,35 @@ With R5 (countdown reset), the same bot wins in ~1:55 and finishes with ~55 rats
 
 With R13 added, the bot wins in ~1:45 with ~45 rats (was ~55 without R13). Its swarm peaks around 50 rats, so it spends the late game at a 1.1 s countdown.
 
+**Five-level build (smaller map, hunters).** The bot now also steers around dangerous hunters and goes after killable ones. Two runs per level:
+
+| Level | Bot result |
+|---|---|
+| 1 Market District | won, won (~1:00–1:10, 30–40 rats left) |
+| 2 The Docks | won, won (~1:10) |
+| 3 The Shambles | won, won (~1:05–1:35) |
+| 4 Frostgate | caught at 0:17; won at ~2:00 with 14 rats |
+| 5 The Palace Ward | caught at 1:24; won at ~1:40 |
+
+## 3d. Levels
+| # | Name | Theme | Townsfolk | Target | Start rats | Countdown (`decayInterval`) | Hunters (numbers) | Layout notes |
+|---|------|-------|-----------|--------|-----------|-----------|-----------|------|
+| 1 | The Market District | market | 90 | 60% | 8 | 1.5 s | 10 | Mixed blocks, a few alleys and churchyards |
+| 2 | The Docks | docks | 95 | 60% | 8 | 1.5 s | 12, 16 | A canal cuts the district in two; only 4 bridges cross it |
+| 3 | The Shambles | slums | 100 | 65% | 8 | 1.5 s | 14, 18, 22 | Most blocks split by alleys: a maze |
+| 4 | Frostgate | winter | 100 | 65% | 8 | 1.4 s | 16, 20, 25, 30 | |
+| 5 | The Palace Ward | night | 110 | 70% | 8 | 1.3 s | 18, 24, 30, 36, 45 | Dark: you only see what's lit |
+
+Hunters start at least 16 tiles from the swarm and at least 10 tiles from each other.
+
 ## 3c. Planned Mechanics (designer's ideas, NOT in the build yet)
-Status **Planned** = the designer wants this recorded for later levels or extra difficulty. It is not built until the designer says so; then it moves to §3 as Draft.
+Status **Planned** = recorded for later; not built until the designer says so.
 
-### The Rat Hunter
-| ID | Rule (as given by the designer) | Status |
-|----|------|--------|
-| H1 | A rat hunter walks the level. He has a **number above his head**. | Planned |
-| H2 | The rat hunter is **highlighted on the minimap**. | Planned |
-| H3 | The rat hunter **cannot be killed unless the player's rat count is greater than his number**. | Planned |
-| H4 | When the player comes **near** the rat hunter, he tries to **follow the player to catch** the swarm. | Planned |
-| H5 | Being **caught while his number is higher than the player's rat count** is a **fail state** (the level is lost). | Planned |
-| H6 | When the player's rat count is **equal to or above** his number, he **does not chase** the swarm. | Planned |
-
-Points to settle before building (Claude's notes, not decisions):
-- **H3 vs H6 at a tie:** with equal numbers, he doesn't chase (H6) but can't be killed either (H3 needs strictly greater). Is that intended, a safe stalemate?
-- **Killing him:** does the swarm kill him by touching him like infecting someone? Is there a reward (bonus rats, he drops something), or a cost (rats lost in the fight)?
-- **Caught when he's lower:** if he's already chasing and the swarm grows past his number mid-chase, does he stop, flee, or become killable at once?
-- **His number:** fixed per level, or does it change (e.g. grows over time, or each hunter has a different number)? Can there be several hunters?
-- **"Near" and speed:** how close before he notices, and is he slower or faster than the rats? He probably needs to be a bit slower than the rats, so escape is possible.
-- **Minimap colour:** purple is reserved for the plague (V1), so suggest red for the hunter marker.
-- **Caught by what:** does any rat touching him count, or only the lead rat?
+*(None at the moment. The Rat Hunter, H1–H6, was built on 2026-10-06. See §3.)*
 
 ## 5. Open Questions (need the designer's call)
 - **Q1:** Should there also be a hard level timer, or is the die-off the only clock (current)?
-- **Q2:** Should the die-off speed up as the swarm grows? Currently flat, so a big swarm makes the level easier.
+- **Q2:** Should eating a hunter give a reward (e.g. bonus rats or a refilled countdown)? Currently it only removes him (H3).
 - **Q3:** Should townsfolk react to rats (flee, scream, stomp rats)? Currently no (R9).
 
 ## 6. Ideas Parking Lot (not in the game)
@@ -119,10 +139,9 @@ Points to settle before building (Claude's notes, not decisions):
 - **Chain spread** (designer likes it, parked for later): infected townsfolk pass the plague to healthy people they touch. Would change R8.
 - Indicators at the screen edge pointing to nearby healthy townsfolk.
 - Combo streak: infections in quick succession give bonus rats.
-- Hazards: cats, rat-catchers, or guards that kill rats.
+- More hazards: cats, or guards that kill rats.
 - Townsfolk types: e.g. a doctor who cures, a crowd that clusters at a market.
-- A best time and star rating saved per level, with between-level unlocks.
-- More levels (districts) with different layouts and targets.
+- A best time and star rating saved per level.
 
 ## 7. Change Log
 | Date | Change | Approved by |
@@ -135,6 +154,10 @@ Points to settle before building (Claude's notes, not decisions):
 | 2026-10-05 | R5 changed to trial: an infection restarts the die-off countdown. Old rule kept as R5a. | Designer |
 | 2026-10-05 | R5 (countdown reset on infection) locked | Designer |
 | 2026-10-05 | Recorded the Rat Hunter idea (H1–H6) as Planned, for later levels / difficulty; not built | Designer |
+| 2026-10-06 | Map 20% smaller (84×68 → 68×50 tiles) with 3-wide streets (R10) | Designer |
+| 2026-10-06 | Rat hunters built (H1–H6): killable and fleeing at equal-or-more rats, chase on sight, slower than rats, catch only by touching the lead rat | Designer |
+| 2026-10-06 | Five levels with rising difficulty and distinct looks (R14, V7, §3d); level select and unlocks | Designer |
+| 2026-10-06 | Added A4 (hunter whistle and crunch) | Designer |
 | 2026-10-05 | Added V6: taverns, shops and trades with signs, props, lantern glow and chimney smoke | Designer |
 | 2026-10-05 | Plague colour changed from green to vibrant purple (V1, V2); green now allowed anywhere (resolves former Q4) | Designer |
 | 2026-10-05 | Added V5: buildings rebuilt as individual houses with cleaner, less noisy pixel art, plus a church | Designer |
