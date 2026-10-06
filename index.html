@@ -138,6 +138,24 @@ button.linkish:active { transform: none; }
 button.secondary { background: var(--ink); color: var(--parch); border: 2px solid var(--edge); box-shadow: none; }
 .hunters { margin-top: 6px; font-size: 12px; letter-spacing: .06em; text-transform: uppercase; color: #e0482c; }
 .hunters.urgent { color: #f2c14a; animation: pulse .6s steps(2) infinite; }
+.splash { background: #000; }
+.splashBtn { justify-self: center; display: grid; gap: 8px; text-align: center; background: none; color: var(--parch); box-shadow: none; border: 0; font: 400 20px var(--font-ui); letter-spacing: .04em; animation: pulse 1.2s steps(2) infinite; }
+.splashBtn span { font-size: 12px; color: var(--dim); letter-spacing: .1em; text-transform: uppercase; }
+.splashBtn:active { transform: none; }
+#cutLayer { position: fixed; inset: 0; z-index: 6; cursor: pointer; }
+#cutCaption {
+  position: absolute; left: 16px; right: 16px; top: calc(env(safe-area-inset-top, 0px) + 9vh); margin: 0 auto; max-width: 34rem;
+  text-align: center; font: 400 clamp(16px, 4.2vw, 22px)/1.4 var(--font-ui); color: var(--parch);
+  text-shadow: 0 2px 0 #000, 0 0 12px #000; opacity: 0; transition: opacity .6s;
+}
+#cutCaption.show { opacity: 1; }
+#cutTitle {
+  position: absolute; left: 0; right: 0; top: 34%; text-align: center; font: 400 clamp(64px, 18vw, 140px)/1 var(--font-display);
+  color: var(--parch); text-shadow: 0 0 24px var(--plague), 0 0 4px var(--plague); opacity: 0; transform: scale(.94); transition: opacity 1s, transform 1.4s;
+}
+#cutTitle.show { opacity: 1; transform: none; }
+#cutLayer .skip { position: absolute; right: 16px; top: calc(env(safe-area-inset-top, 0px) + 12px); font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--dim); }
+@media (prefers-reduced-motion: reduce) { .splashBtn { animation: none; } #cutCaption, #cutTitle { transition: none; } }
 @media (prefers-reduced-motion: reduce) { .hunters.urgent { animation: none; } }
 @media (prefers-reduced-motion: reduce) { .swarm.low .count { animation: none; } #pctFill { transition: none; } }
 </style>
@@ -158,7 +176,17 @@ button.secondary { background: var(--ink); color: var(--parch); border: 2px soli
   </div>
 </div>
 
-<div class="screen" id="titleScreen">
+<div class="screen splash" id="splash">
+  <button id="splashBtn" class="splashBtn" type="button">Tap or press any key to begin<span>Sound on for the full effect</span></button>
+</div>
+
+<div id="cutLayer" hidden>
+  <div id="cutTitle">Plague Rat</div>
+  <p id="cutCaption"></p>
+  <span class="skip">Tap or press any key to skip</span>
+</div>
+
+<div class="screen" id="titleScreen" hidden>
   <div class="card">
     <div class="eyebrow">Five districts to fall</div>
     <h1>Plague Rat</h1>
@@ -167,7 +195,7 @@ button.secondary { background: var(--ink); color: var(--parch); border: 2px soli
     <p class="progress" id="progressLine"></p>
     <div class="actions"><button id="startBtn">Begin the plague</button><button id="levelsBtn" class="secondary">Choose level</button></div>
     <p class="controls">WASD or arrow keys, or the joystick on touch screens. The corner map shows healthy townsfolk and hunters.</p>
-    <button id="resetBtn" class="linkish" type="button">Reset progress</button>
+    <div class="actions"><button id="introBtn" class="linkish" type="button">Watch the intro</button><button id="resetBtn" class="linkish" type="button">Reset progress</button></div>
   </div>
 </div>
 
@@ -1468,7 +1496,7 @@ function setupMusicGraph() {
   music.dry = actx.createGain(); music.dry.connect(music.gain);
   const rev = actx.createConvolver(), len = actx.sampleRate * 1.6, ir = actx.createBuffer(2, len, actx.sampleRate);
   for (let ch = 0; ch < 2; ch++) { const d = ir.getChannelData(ch); for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 3.5); }
-  rev.buffer = ir;
+  rev.buffer = ir; music.rev = rev;
   music.wet = actx.createGain(); music.wet.gain.value = 0.22; music.wet.connect(rev); rev.connect(music.gain);
   music.noise = actx.createBuffer(1, actx.sampleRate * 1.5, actx.sampleRate);
   const nd = music.noise.getChannelData(0); for (let i = 0; i < nd.length; i++) nd[i] = Math.random() * 2 - 1;
@@ -1730,6 +1758,310 @@ function drawHunter(h, ox, oy) {
 function drawHunterNumber(h, ox, oy) { // H1: his number floats over his head
   const t = String(h.number), x = Math.round(h.x + ox - (t.length * 4 - 1) / 2), y = Math.round(h.y - 23 + oy);
   pixText(ctx, t, x, y, h.danger ? HUNTER_DANGER : HUNTER_PREY);
+}
+
+// ---------------------------------------------------------------------------
+// V10 + A6: the opening story, shown once per launch before the title screen.
+// Side-on vignettes on a 240x135 stage, scaled to fit. Any key or tap skips.
+// ---------------------------------------------------------------------------
+const STAGE_W = 240, STAGE_H = 135, CUT_END = 23;
+const CUT_CAPTIONS = [
+  [0.3, 5.6, 'The people of the city kicked us, swept us and stamped on us.'],
+  [6.3, 11.6, 'So we hid below, in the dark and the filth.'],
+  [12.3, 17.6, 'Then the sickness came down the drains. We drank it gladly.'],
+  [18.9, 22.6, 'Now the city will catch what we carry.'],
+];
+const DRIPS = [[6.8, 60], [7.9, 150], [8.6, 95], [9.7, 200], [10.4, 40], [11.1, 130]];
+const stage = makeCanvas(STAGE_W, STAGE_H), sc = stage.getContext('2d');
+sc.imageSmoothingEnabled = false;
+const cut = { t: 0, parts: [], bus: null, bg: {}, people: null, plagueRats: null };
+
+const lerp = (a, b, k) => a + (b - a) * Math.max(0, Math.min(1, k));
+const span = (t, a, b) => Math.max(0, Math.min(1, (t - a) / (b - a)));
+function linePx(g, x0, y0, x1, y1, col) {
+  x0 = Math.round(x0); y0 = Math.round(y0); x1 = Math.round(x1); y1 = Math.round(y1);
+  const dx = Math.abs(x1 - x0), dy = -Math.abs(y1 - y0), sx = x0 < x1 ? 1 : -1, sy = y0 < y1 ? 1 : -1;
+  let err = dx + dy; g.fillStyle = col;
+  for (;;) { g.fillRect(x0, y0, 1, 1); if (x0 === x1 && y0 === y1) break; const e2 = 2 * err; if (e2 >= dy) { err += dy; x0 += sx; } if (e2 <= dx) { err += dx; y0 += sy; } }
+}
+
+function cutAssets() {
+  if (cut.people) return;
+  const person = (outfit, pal) => OUTFITS[outfit].map(f => spriteFrom(f, pal, 'rgba(10,8,6,.6)'));
+  const base = { a: '#4a3a28', h: '#3a2a1c', s: '#e2b48f', S: '#b98f6e', e: '#1d1712', b: '#2c3340', B: '#222833', f: '#1d1712', w: '#e6dfcc', W: '#c4bca8' };
+  cut.people = {
+    man: person('cap', { ...base, c: '#7d3a33', C: '#5a2924', d: '#3a2a1c' }),
+    woman: person('dress', { ...base, s: '#f0c9a8', S: '#c9a284', c: '#3d5677', C: '#2c3e56', d: '#d8cdb0' }),
+  };
+  const PPAL = { ...RAT_PAL, e: '#f0b0ff' };
+  cut.plagueRats = { r: RAT_FRAMES.map(f => spriteFrom(f, PPAL, PLAGUE)), l: RAT_FRAMES.map(f => spriteFrom(flipH(f), PPAL, PLAGUE)) };
+  // street backdrop
+  const st = makeCanvas(STAGE_W, STAGE_H), g = st.getContext('2d');
+  const sky = g.createLinearGradient(0, 0, 0, 70); sky.addColorStop(0, '#141222'); sky.addColorStop(1, '#3b2a3a');
+  g.fillStyle = sky; g.fillRect(0, 0, STAGE_W, 70);
+  g.fillStyle = '#0f0d18'; for (let x = 0; x < STAGE_W; x += 18) { const h = 8 + (x * 7 % 13); g.fillRect(x, 40 - h, 14, h + 30); g.fillRect(x + 4, 40 - h - 5, 6, 5); }
+  const houses = [[0, 70, '#9d9070', '#8a4a32'], [70, 85, '#a8977a', '#4c5566'], [155, 85, '#93846a', '#76643a']];
+  for (const [x, w, plaster, roof] of houses) {
+    for (let i = 0; i < 22; i++) { g.fillStyle = shade(roof, 0.8 + (i % 2) * 0.15); g.fillRect(x + i * 2, 44 - Math.min(i, 22 - i), w - i * 4, 2); }
+    g.fillStyle = roof; g.fillRect(x - 2, 40, w + 4, 6); g.fillStyle = shade(roof, 0.7); g.fillRect(x - 2, 45, w + 4, 2);
+    g.fillStyle = plaster; g.fillRect(x, 47, w, 58);
+    g.fillStyle = '#3a2a1c'; g.fillRect(x, 47, w, 2); g.fillRect(x, 74, w, 2); g.fillRect(x, 103, w, 2);
+    for (let px = x; px <= x + w; px += 14) g.fillRect(Math.min(px, x + w - 2), 47, 2, 58);
+    for (let wx = x + 5; wx < x + w - 10; wx += 28) {
+      const lit = (wx / 28 | 0) % 2 === 0;
+      g.fillStyle = '#2e2016'; g.fillRect(wx, 54, 9, 12); g.fillStyle = lit ? '#d99a36' : '#1b242a'; g.fillRect(wx + 1, 55, 7, 10);
+      g.fillStyle = '#2e2016'; g.fillRect(wx + 4, 55, 1, 10); g.fillRect(wx + 1, 60, 7, 1); g.fillStyle = '#9a927f'; g.fillRect(wx - 1, 66, 11, 1);
+    }
+    g.fillStyle = '#4a3424'; g.fillRect(x + w - 22, 82, 12, 21); g.fillStyle = '#2e2016'; g.fillRect(x + w - 17, 82, 1, 21);
+  }
+  for (let row = 0, y = 105; y < STAGE_H; y += 4, row++) for (let x = (row % 2) * 3; x < STAGE_W; x += 7) {
+    const c = ['#4b453d', '#413b34', '#48413a', '#3d3730'][(x + row) % 4]; g.fillStyle = '#2b231b'; g.fillRect(x - 1, y, 7, 4);
+    g.fillStyle = c; g.fillRect(x, y, 6, 3); g.fillStyle = shade(c, 1.2); g.fillRect(x, y, 6, 1);
+  }
+  g.fillStyle = '#0d0b09'; g.fillRect(196, 106, 20, 6); g.fillStyle = '#3a3a40'; for (let x = 197; x < 216; x += 3) g.fillRect(x, 106, 1, 6);
+  cut.bg.street = st;
+  // sewer backdrop
+  const sw = makeCanvas(STAGE_W, STAGE_H), s = sw.getContext('2d');
+  s.fillStyle = '#1c1a1e'; s.fillRect(0, 0, STAGE_W, STAGE_H);
+  for (let y = 0; y < 100; y += 5) for (let x = (y / 5 % 2) * 5 - 5; x < STAGE_W; x += 10) {
+    s.fillStyle = ['#2a2628', '#2f2a2b', '#262225', '#2b2729'][(x + y * 3) % 4]; s.fillRect(x, y, 9, 4); s.fillStyle = '#353032'; s.fillRect(x, y, 9, 1);
+  }
+  const arch = s.createRadialGradient(120, -40, 40, 120, -40, 190); arch.addColorStop(0, 'rgba(0,0,0,0)'); arch.addColorStop(1, 'rgba(0,0,0,.75)');
+  s.fillStyle = arch; s.fillRect(0, 0, STAGE_W, STAGE_H);
+  s.fillStyle = '#3a3634'; s.fillRect(0, 96, STAGE_W, 9); s.fillStyle = '#4e4946'; s.fillRect(0, 96, STAGE_W, 1); s.fillStyle = '#242022'; s.fillRect(0, 104, STAGE_W, 1);
+  for (let x = 0; x < STAGE_W; x += 12) { s.fillStyle = '#2e2a29'; s.fillRect(x, 97, 1, 7); }
+  s.fillStyle = '#14201c'; s.fillRect(0, 105, STAGE_W, 30);
+  s.fillStyle = '#0d0b09'; s.fillRect(188, 0, 18, 5); s.fillStyle = '#4a4a50'; for (let x = 189; x < 206; x += 3) s.fillRect(x, 0, 1, 5);
+  // broken pipe (scene 3 uses it)
+  s.fillStyle = '#4a4440'; s.fillRect(0, 52, 34, 9); s.fillStyle = '#5e5852'; s.fillRect(0, 52, 34, 2); s.fillStyle = '#2a2624'; s.fillRect(30, 52, 4, 9);
+  s.fillStyle = '#0d0b0a'; s.fillRect(32, 54, 2, 5);
+  cut.bg.sewer = sw;
+}
+
+function cutRat(x, y, dir, frame, plague, hop = 0) {
+  const set = plague ? cut.plagueRats : ratSprites, spr = set[dir][frame & 1];
+  if (hop > 0.5) { sc.fillStyle = 'rgba(0,0,0,.35)'; sc.fillRect(Math.round(x - 4), Math.round(y - 1), 8, 1); }
+  sc.drawImage(spr, Math.round(x - spr.width / 2), Math.round(y - spr.height - hop));
+}
+function cutPerson(frames, x, y, faceLeft, frame, bob = 0) {
+  const s = frames[frame & 1], w = s.width * 2, h = s.height * 2, px = Math.round(x - w / 2), py = Math.round(y - h + bob);
+  sc.fillStyle = 'rgba(0,0,0,.35)'; sc.fillRect(px + 5, Math.round(y) - 1, w - 10, 2);
+  if (faceLeft) { sc.save(); sc.scale(-1, 1); sc.drawImage(s, -px - w, py, w, h); sc.restore(); }
+  else sc.drawImage(s, px, py, w, h);
+}
+function cutBurst(x, y, n, cols, sp = 20, life = 0.6, up = 10) {
+  for (let i = 0; i < n; i++) { const a = Math.random() * Math.PI * 2, v = sp * (0.4 + Math.random()); cut.parts.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v - up, life, max: life, col: pick(Math.random, cols) }); }
+}
+function cutBang(x, y) { sc.fillStyle = '#f2c14a'; sc.fillRect(Math.round(x), Math.round(y), 1, 4); sc.fillRect(Math.round(x), Math.round(y) + 5, 1, 1); }
+
+// Scene 1: a rat nibbling crumbs is stamped at and swept toward the drain.
+function sceneStreet(t) {
+  sc.drawImage(cut.bg.street, 0, 0);
+  const G = 118, P = cut.people, f = Math.floor(t * 6);
+  const manX = t < 0.6 ? -30 : lerp(-30, 72, span(t, 0.6, 1.9)), manWalk = t > 0.6 && t < 1.9;
+  const womanX = t < 2.2 ? 270 : lerp(270, 160, span(t, 2.2, 3.0)), womanWalk = t > 2.2 && t < 3.0;
+  let ratX = 100, ratHop = 0, ratDir = 'l', ratF = Math.floor(t * 4), gone = false;
+  if (t > 2.0 && t < 2.45) { const k = span(t, 2.0, 2.45); ratX = lerp(100, 132, k); ratHop = Math.sin(k * Math.PI) * 14; ratDir = 'r'; ratF = f; }
+  else if (t >= 2.45 && t < 3.15) { ratX = 132; ratDir = 'l'; }
+  else if (t >= 3.15 && t < 3.5) { const k = span(t, 3.15, 3.5); ratX = lerp(132, 120, k); ratHop = Math.sin(k * Math.PI) * 6; ratDir = 'r'; }
+  else if (t >= 3.5) { const k = span(t, 3.5, 4.5); ratX = lerp(120, 206, k); ratDir = 'r'; ratF = Math.floor(t * 14); if (t > 4.5) gone = true; }
+  if (!gone || t < 4.7) {
+    if (t < 2.0) { sc.fillStyle = '#c9a26a'; sc.fillRect(94, G - 1, 2, 1); sc.fillRect(97, G - 1, 1, 1); } // crumbs
+    if (!gone) cutRat(ratX, G, ratDir, t < 2.0 ? (Math.floor(t * 3) & 1) : ratF, false, ratHop);
+  }
+  if ((t > 2.0 && t < 2.7) || (t > 3.15 && t < 3.7)) cutBang(ratX - 1, G - 18);
+  // the man stamps at 2.0
+  const stamp = t > 1.9 && t < 2.15 ? -3 : t > 2.15 && t < 2.3 ? 1 : 0;
+  const fist = t > 4.6 ? Math.round(Math.sin(t * 30)) : 0; // he shakes his fist after the rat escapes
+  cutPerson(P.man, manX + fist, G + 2, false, manWalk ? f : 0, stamp);
+  // the woman sweeps at 3.1
+  cutPerson(P.woman, womanX, G + 2, true, womanWalk ? f : 0);
+  const sweep = t < 3.0 ? -0.9 : t < 3.15 ? lerp(-0.9, 0.6, span(t, 3.0, 3.15)) : lerp(0.6, -0.6, span(t, 3.15, 3.8));
+  const hx = womanX - 8, hy = G - 16, bx = hx + Math.sin(sweep + Math.PI) * 18, by = hy + Math.cos(sweep) * 18;
+  linePx(sc, hx, hy, bx, by, '#6b4f33');
+  sc.fillStyle = '#b8a060'; sc.fillRect(Math.round(bx) - 3, Math.round(by) - 1, 7, 3); sc.fillStyle = '#8c7438'; sc.fillRect(Math.round(bx) - 3, Math.round(by) + 1, 7, 1);
+  if (t > 2.0 && !cut.s1a) { cut.s1a = 1; cutBurst(manX + 8, G, 8, ['#8b8173', '#6e655a'], 18, 0.5, 4); }
+  if (t > 3.15 && !cut.s1b) { cut.s1b = 1; cutBurst(ratX, G - 3, 6, ['#b8a060', '#8b8173'], 16, 0.5, 6); }
+  if (t > 4.5 && !cut.s1c) { cut.s1c = 1; cutBurst(206, 108, 5, ['#4a5a60', '#2c3438'], 10, 0.4, 4); }
+}
+
+// Scenes 2 and 3 share the sewer. huddled = the frightened rats on the ledge.
+const HUDDLE = [[128, 0], [136, 1], [143, 0], [150, 1], [157, 0], [133, 3], [147, 3], [140, 5], [154, 4], [162, 2]];
+function sewerBase(t) {
+  sc.drawImage(cut.bg.sewer, 0, 0);
+  sc.fillStyle = '#22302a'; for (let r = 0; r < 6; r++) { const x = ((r * 47 + t * 12) % 260) - 20; sc.fillRect(Math.round(x), 108 + r * 4, 14, 1); } // water ripples
+  sc.fillStyle = 'rgba(255,236,190,.07)'; // light from the grate above
+  sc.beginPath(); sc.moveTo(188, 0); sc.lineTo(206, 0); sc.lineTo(176, 105); sc.lineTo(146, 105); sc.fill();
+}
+function sceneSewer(t) { // t runs 0..6 within the scene
+  sewerBase(t + 6);
+  for (const [dt, x] of DRIPS) { // drips falling from the roof, then a ring in the water
+    const k = (t + 6 - dt) / 0.5;
+    if (k > 0 && k < 1) { sc.fillStyle = '#6a8a90'; sc.fillRect(x, Math.round(lerp(4, 106, k * k)), 1, 2); }
+    else if (k >= 1 && k < 2.2) { const r = Math.round((k - 1) * 5); sc.fillStyle = 'rgba(120,150,150,.5)'; sc.fillRect(x - r, 107, r * 2 + 1, 1); }
+  }
+  for (const [x, row] of HUDDLE) { // trembling, eyes glinting
+    const j = Math.round(Math.sin(t * 40 + x) * 0.6);
+    cutRat(x + j, 97 - row, x % 2 ? 'l' : 'r', 0, false);
+  }
+  // the rat from the street drops through the grate and swims to the others
+  if (t > 0.4) {
+    if (t < 0.9) { const k = span(t, 0.4, 0.9); cutRat(lerp(196, 186, k), lerp(8, 108, k * k), 'l', 0, false); }
+    else if (t < 2.2) { if (!cut.s2a) { cut.s2a = 1; cutBurst(186, 106, 10, ['#6a8a90', '#a0c0c8'], 22, 0.5, 14); } cutRat(lerp(186, 172, span(t, 0.9, 2.2)), 110 + Math.sin(t * 8), 'l', Math.floor(t * 8), false); }
+    else { const k = span(t, 2.2, 2.6); cutRat(lerp(172, 168, k), lerp(110, 97, k), 'l', 0, false, Math.sin(k * Math.PI) * 4); }
+  }
+}
+function sceneDrink(t) { // t runs 0..6 within the scene
+  sewerBase(t + 12);
+  // purple sickness pouring from the broken pipe into a glowing pool on the ledge
+  const pulse = 0.5 + 0.5 * Math.sin(t * 5);
+  const glow = sc.createRadialGradient(56, 94, 2, 56, 94, 34);
+  glow.addColorStop(0, `rgba(192,92,255,${(0.45 + pulse * 0.2).toFixed(2)})`); glow.addColorStop(1, 'rgba(192,92,255,0)');
+  sc.fillStyle = glow; sc.fillRect(16, 56, 80, 76);
+  sc.fillStyle = PLAGUE_DARK; sc.fillRect(33, 55, 3, 41); sc.fillStyle = PLAGUE; sc.fillRect(34, 55 + Math.floor(t * 30) % 6, 1, 38);
+  sc.fillStyle = PLAGUE_DARK; sc.fillRect(30, 95, 46, 3); sc.fillStyle = PLAGUE; sc.fillRect(32, 95, 42, 1);
+  if (Math.random() < 0.3) cut.parts.push({ x: 35 + Math.random() * 38, y: 95, vx: 0, vy: -10 - Math.random() * 8, life: 0.8, max: 0.8, col: Math.random() < .5 ? PLAGUE : '#e8b0ff' });
+  // the lead rat creeps over and drinks first; then the rest rush in
+  HUDDLE.forEach(([hx, row], i) => {
+    const lead = i === 0, startMove = lead ? 0.5 : 2.6 + i * 0.12, arrive = lead ? 1.5 : startMove + 0.7;
+    const tx = 50 + (i % 5) * 9, ty = 97 - (i > 4 ? 3 : 0);
+    let x = hx, y = 97 - row, dir = 'l', frame = 0, plague = false, hop = 0;
+    if (t > startMove) { const k = span(t, startMove, arrive); x = lerp(hx, tx, k); y = lerp(97 - row, ty, k); frame = Math.floor(t * 12); }
+    const turned = lead ? 2.3 : arrive + 0.25;
+    if (t > arrive && t < turned) frame = Math.floor(t * 6); // drinking
+    if (t > turned) {
+      plague = true;
+      if (!cut['p' + i]) { cut['p' + i] = 1; cutBurst(x, y - 4, lead ? 16 : 8, [PLAGUE, PLAGUE_DARK, '#e8b0ff'], 20, 0.6, 8); sfxCut('turn'); }
+    }
+    if (t > 4.6) { dir = 'r'; hop = Math.max(0, Math.sin((t - 4.6 - i * 0.05) * 7)) * 5; frame = Math.floor(t * 10); } // they rise up
+    if (!(t > 2.6 && t < startMove)) { const j = t < 2.6 && !lead ? Math.round(Math.sin(t * 40 + hx) * 0.6) : 0; cutRat(x + j, y, dir, frame, plague, hop); }
+    else cutRat(x, y, dir, frame, plague, hop);
+  });
+  if (t > 4.6) { sc.globalAlpha = 0.18 * span(t, 4.6, 5.0) * (1 - span(t, 5.4, 6)); sc.fillStyle = PLAGUE; sc.fillRect(0, 0, STAGE_W, STAGE_H); sc.globalAlpha = 1; }
+}
+function sceneTitle(t) { // t runs 0..5 within the scene
+  sc.fillStyle = '#08060a'; sc.fillRect(0, 0, STAGE_W, STAGE_H);
+  const glow = sc.createRadialGradient(120, 62, 4, 120, 62, 90);
+  glow.addColorStop(0, `rgba(125,52,196,${(0.55 * span(t, 0.2, 1.2)).toFixed(2)})`); glow.addColorStop(1, 'rgba(125,52,196,0)');
+  sc.fillStyle = glow; sc.fillRect(0, 0, STAGE_W, STAGE_H);
+  for (let i = 0; i < 14; i++) { // the swarm streams across the bottom of the frame
+    const x = lerp(-20 - i * 13, 260 - i * 13, span(t, 1.0, 3.6)), y = 120 + (i % 3) * 4;
+    cutRat(x, y, 'r', Math.floor(t * 14 + i), true, Math.abs(Math.sin(t * 12 + i)) * 2);
+  }
+}
+
+function drawCutscene(dt) {
+  cutAssets();
+  cut.t += dt;
+  const t = cut.t;
+  sc.clearRect(0, 0, STAGE_W, STAGE_H);
+  if (t < 6) sceneStreet(t); else if (t < 12) sceneSewer(t - 6); else if (t < 18) sceneDrink(t - 12); else sceneTitle(t - 18);
+  for (const p of cut.parts) { p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 30 * dt; p.life -= dt; }
+  cut.parts = cut.parts.filter(p => p.life > 0);
+  for (const p of cut.parts) { sc.globalAlpha = Math.max(0, p.life / p.max); sc.fillStyle = p.col; sc.fillRect(Math.round(p.x), Math.round(p.y), 1, 1); }
+  sc.globalAlpha = 1;
+  // fades between scenes
+  const fade = [[5.4, 6, 6.5], [11.4, 12, 12.5], [17.6, 18, 18.4], [22.4, 23, 23]];
+  let a = t < 0.5 ? 1 - t / 0.5 : 0;
+  for (const [o, m, i] of fade) { if (t > o && t < m) a = (t - o) / (m - o); else if (t >= m && t < i) a = 1 - (t - m) / (i - m); }
+  if (a > 0) { sc.fillStyle = `rgba(0,0,0,${Math.min(1, a).toFixed(3)})`; sc.fillRect(0, 0, STAGE_W, STAGE_H); }
+  // vignette edges
+  const v = sc.createRadialGradient(120, 67, 50, 120, 67, 150); v.addColorStop(0, 'rgba(0,0,0,0)'); v.addColorStop(1, 'rgba(0,0,0,.65)');
+  sc.fillStyle = v; sc.fillRect(0, 0, STAGE_W, STAGE_H);
+  // stage onto the screen, letterboxed
+  const s = Math.max(1, Math.floor(Math.min(view.w / STAGE_W, view.h / STAGE_H) * 4) / 4);
+  const w = Math.round(STAGE_W * s), h = Math.round(STAGE_H * s);
+  ctx.fillStyle = '#000'; ctx.fillRect(0, 0, view.w, view.h);
+  ctx.drawImage(stage, Math.round((view.w - w) / 2), Math.round((view.h - h) / 2), w, h);
+  // captions and the title card
+  const cap = CUT_CAPTIONS.find(([a0, b0]) => t >= a0 && t <= b0);
+  const capEl = $('cutCaption');
+  if ((cap ? cap[2] : '') !== capEl.dataset.text) { capEl.dataset.text = cap ? cap[2] : ''; capEl.textContent = cap ? cap[2] : ''; capEl.classList.remove('show'); if (cap) requestAnimationFrame(() => capEl.classList.add('show')); }
+  $('cutTitle').classList.toggle('show', t > 18.3 && t < 22.6);
+  if (t >= CUT_END) endCutscene();
+}
+
+function sfxCut(kind) { if (kind === 'turn') tone(500 + Math.random() * 200, 1200, 0, 0.12, 'square', 0.03); }
+
+function beginCutscene() {
+  if (!actx) { try { actx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { actx = null; } }
+  actx?.resume?.();
+  hideScreens(); $('splash').hidden = true; $('hud').hidden = true; mini.hidden = true; stickEl.hidden = true;
+  Object.keys(cut).forEach(k => { if (/^(s\d[a-c]|p\d+)$/.test(k)) delete cut[k]; });
+  cut.t = 0; cut.parts = [];
+  $('cutLayer').hidden = false;
+  state = 'cutscene';
+  playIntroJingle();
+}
+function endCutscene(skipped) {
+  if (state !== 'cutscene') return;
+  if (skipped && cut.bus) { const t = actx.currentTime; cut.bus.gain.cancelScheduledValues(t); cut.bus.gain.setValueAtTime(cut.bus.gain.value, t); cut.bus.gain.linearRampToValueAtTime(0, t + 0.3); }
+  const bus = cut.bus; cut.bus = null; setTimeout(() => bus && bus.disconnect(), 400);
+  $('cutLayer').hidden = true; $('cutCaption').textContent = ''; $('cutCaption').dataset.text = ''; $('cutTitle').classList.remove('show');
+  showTitle();
+}
+
+// A6: the intro jingle, scored to the cutscene's timeline (seconds from its start).
+function playIntroJingle() {
+  if (!actx) return;
+  if (!music.gain) setupMusicGraph();
+  music.gain.gain.cancelScheduledValues(actx.currentTime);
+  music.gain.gain.setValueAtTime(muted ? 0 : 1, actx.currentTime);
+  const bus = actx.createGain(); bus.connect(music.gain); cut.bus = bus;
+  const dry = actx.createGain(), wet = actx.createGain(), rev = actx.createConvolver();
+  rev.buffer = music.rev.buffer; dry.connect(bus); wet.gain.value = 0.35; wet.connect(rev); rev.connect(bus);
+  const saved = [music.dry, music.wet]; music.dry = dry; music.wet = wet;
+  const T0 = actx.currentTime + 0.1, V = CONFIG.musicVolume, at = s => T0 + s, N = NOTE_NUM;
+  const tune = (start, E, notes, octave = 0, vol = V) => { let t = start; for (const [n, len] of notes) { if (n) INST.lead(at(t), N(n) + octave, len * E, vol); t += len * E; } return t; };
+  const sweep = (t, dur, f0, f1, vol) => { // filtered-noise whoosh or riser
+    const s = actx.createBufferSource(); s.buffer = music.noise; s.loop = true;
+    const f = filt('bandpass', f0, 1.2), g = actx.createGain();
+    f.frequency.setValueAtTime(f0, at(t)); f.frequency.exponentialRampToValueAtTime(f1, at(t + dur));
+    g.gain.setValueAtTime(0.0001, at(t)); g.gain.exponentialRampToValueAtTime(vol, at(t + dur * 0.85)); g.gain.exponentialRampToValueAtTime(0.0001, at(t + dur));
+    s.connect(f); f.connect(g); g.connect(dry); g.connect(wet); s.start(at(t)); s.stop(at(t + dur + 0.05));
+  };
+  const A = ACT_TONES;
+  // Scene 1, the street: a slow, low statement of the rhyme over a drone, punctuated by the stamping
+  INST.pad(at(0.1), [45, 52], 3.0, V * 0.3); INST.pad(at(3.0), [50, 57], 2.8, V * 0.3);
+  INST.bass(at(0.1), 33, 2.9, V * 1.6); INST.bass(at(3.0), 38, 2.6, V * 1.6);
+  tune(0.4, 0.28, [['G3', 2], ['G3', 1], ['E3', 2], ['A3', 1], ['G3', 3], ['E3', 3]], 0, V * 0.8);
+  INST.kick(at(2.0), V * 5); INST.snare(at(2.0), V * 2.5); INST.crash(at(2.0), V * 0.8);       // stamp
+  sweep(2.95, 0.35, 600, 3000, V * 2.2); INST.snare(at(3.15), V * 2.2);                          // broom
+  tune(3.6, 0.13, [['E4', 1], ['D4', 1], ['C4', 1], ['B3', 1], ['A3', 1], ['G#3', 1]], 0, V * 0.8); // scurrying away
+  INST.kick(at(4.5), V * 3); sweep(4.45, 0.3, 2000, 400, V * 1.5);                                 // down the drain
+  // Scene 2, the sewer: cold drone, a heartbeat, drips
+  INST.pad(at(6.0), [45, 52, 57], 6.0, V * 0.32); INST.bass(at(6.0), 33, 5.8, V * 1.2);
+  sweep(6.85, 0.4, 3000, 800, V * 1.6);                                                             // the splash
+  for (let b = 6.5; b < 11.8; b += 1.2) { INST.kick(at(b), V * 2.6); INST.kick(at(b + 0.28), V * 1.8); }
+  const plinks = ['A5', 'E6', 'C6', 'G5', 'D6', 'A5'];
+  DRIPS.forEach(([d], i) => INST.arp(at(d + 0.5), N(plinks[i]), V * 0.7));
+  // Scene 3, the drinking: the chords climb, the bass quickens, a riser into the transformation
+  [[12.0, 'Am'], [13.5, 'F'], [15.0, 'Am'], [15.75, 'G'], [16.0, 'E']].forEach(([s, c], i, arr) => {
+    const end = i + 1 < arr.length ? arr[i + 1][0] : 16.6;
+    INST.pad(at(s), A[c], end - s, V * (0.25 + i * 0.05));
+    const step = lerp(0.3, 0.13, (s - 12) / 4.6);
+    for (let b = s; b < end - 0.01; b += step) INST.bass(at(b), ACT_ROOT[c], step * 0.9, V * (1.4 + i * 0.2));
+  });
+  tune(14.2, 0.2, [['G4', 2], ['G4', 1], ['E4', 2], ['A4', 1], ['G4', 3], ['E4', 3]], 0, V * 0.9);
+  sweep(13.0, 3.6, 300, 6000, V * 1.8);
+  INST.kick(at(16.6), V * 5); INST.crash(at(16.6), V * 1.8); INST.pad(at(16.6), [45, 57, 60, 64, 69], 1.3, V * 0.5); INST.bass(at(16.6), 33, 1.2, V * 2.4);
+  // Scene 4, the title: the rhyme at full gallop with drums, ending on a big A-minor chord
+  INST.crash(at(18.3), V * 1.8);
+  const E = 0.15;
+  const end = tune(18.3, E, [['G4', 2], ['G4', 1], ['E4', 2], ['A4', 1], ['G4', 3], ['E4', 3], ['A4', 2], ['A4', 1], ['G4', 3], ['A4', 2], ['A4', 1], ['G4', 3], ['G4', 2], ['G4', 1], ['G4', 3]], 0, V * 1.05);
+  tune(18.3, E, [['E4', 2], ['E4', 1], ['C4', 2], ['F4', 1], ['E4', 3], ['C4', 3], ['F4', 2], ['F4', 1], ['E4', 3], ['F4', 2], ['F4', 1], ['E4', 3], ['D4', 2], ['D4', 1], ['B3', 3]], 0, V * 0.45);
+  const chords = ['Am', 'Am', 'F', 'F', 'E'];
+  for (let k = 0; k * E < end - 18.3; k++) {
+    const t = 18.3 + k * E, pos = k % 6, c = chords[Math.min(chords.length - 1, Math.floor(k / 6))];
+    if (pos === 0 || pos === 3) INST.kick(at(t), V * 4);
+    if (pos === 3) INST.snare(at(t), V * 2.2);
+    INST.hat(at(t), V * (pos % 3 === 0 ? 1.3 : 0.7));
+    INST.bass(at(t), ACT_ROOT[c] + (pos % 2 ? 12 : 0), E * 0.9, V * 2);
+  }
+  INST.kick(at(end), V * 5); INST.crash(at(end), V * 2); INST.snare(at(end), V * 2);
+  INST.lead(at(end), N('A4'), 1.6, V * 1.1); INST.lead(at(end), N('A5'), 1.6, V * 0.4);
+  INST.pad(at(end), [45, 52, 57, 60, 64], 2.2, V * 0.45); INST.bass(at(end), 33, 2.0, V * 2.4);
+  [music.dry, music.wet] = saved;
 }
 
 // ---------------------------------------------------------------------------
@@ -2156,7 +2488,7 @@ $('levelList').addEventListener('click', e => {
   const b = e.target.closest('.lvl'); if (!b || b.disabled) return;
   selected = +b.dataset.i; renderLevelList();
 });
-function hideScreens() { for (const id of ['titleScreen', 'levelScreen', 'endScreen']) $(id).hidden = true; }
+function hideScreens() { for (const id of ['titleScreen', 'levelScreen', 'endScreen', 'splash']) $(id).hidden = true; }
 function enterMenu() { state = 'title'; stopMusic(); hideScreens(); $('hud').hidden = true; mini.hidden = true; stickEl.hidden = true; }
 function showTitle() { enterMenu(); renderLevelList(); $('titleScreen').hidden = false; $('startBtn').focus(); }
 function showLevels() { enterMenu(); renderLevelList(); $('levelScreen').hidden = false; $('playBtn').focus(); }
@@ -2235,6 +2567,8 @@ function endGame(won, reason) {
 // ---------------------------------------------------------------------------
 window.addEventListener('keydown', e => {
   if (e.code.startsWith('Arrow') || e.code === 'Space') e.preventDefault();
+  if (state === 'splash' && !e.repeat) { e.preventDefault(); beginCutscene(); return; }
+  if (state === 'cutscene' && !e.repeat) { e.preventDefault(); endCutscene(true); return; }
   keys.add(e.code);
   if (state !== 'playing' && (e.code === 'Enter' || e.code === 'Space') && !e.repeat) {
     if (!$('endScreen').hidden && endAction) { e.preventDefault(); endAction(); }
@@ -2281,6 +2615,10 @@ $('mute').addEventListener('click', e => { toggleMute(); e.currentTarget.blur();
 loadLevel(selected);
 newGame();
 renderLevelList();
+state = 'splash'; // V10: the story plays first, once the player taps (browsers only allow sound after a tap)
+$('splash').addEventListener('click', beginCutscene);
+$('cutLayer').addEventListener('click', () => endCutscene(true));
+$('introBtn').addEventListener('click', beginCutscene);
 resize();
 window.addEventListener('resize', resize);
 
@@ -2293,7 +2631,9 @@ function frame(now) {
     updateHud();
     renderMinimap();
   }
-  render();
+  if (state === 'cutscene') drawCutscene(dt);
+  else if (state === 'splash') { ctx.fillStyle = '#000'; ctx.fillRect(0, 0, view.w, view.h); }
+  else render();
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
