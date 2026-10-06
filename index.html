@@ -1232,31 +1232,65 @@ const rotCW = rows => rows[0].split('').map((_, c) => rows.map(r => r[c]).revers
 const flipH = rows => rows.map(r => [...r].reverse().join(''));
 const flipV = rows => [...rows].reverse();
 
-// V8: rats with a dark back, lighter belly, ear, eye and curled tail.
-const RAT_FRAMES = [
-  ['..........p...',
-   '....ddddddgp..',
-   '..ddgggggggge.',
-   'ppdgGGGGGggggn',
-   '...dGGGGGgggd.',
-   '....dddddddd..',
-   '.....p...p....'],
-  ['..........p...',
-   '....ddddddgp..',
-   '.pddgggggggge.',
-   'p.dgGGGGGggggn',
-   '...dGGGGGgggd.',
-   '....dddddddd..',
-   '......p.p.....'],
-];
-const RAT_PAL = { g: '#6e5b4c', G: '#8a7563', d: '#4b3c31', p: '#c98d86', n: '#e3a69e', e: '#ff3b2f' };
-const ratSprites = { r: [], l: [], d: [], u: [] };
-for (const f of RAT_FRAMES) {
-  ratSprites.r.push(spriteFrom(f, RAT_PAL, 'rgba(10,8,6,.45)'));
-  ratSprites.l.push(spriteFrom(flipH(f), RAT_PAL, 'rgba(10,8,6,.45)'));
-  ratSprites.d.push(spriteFrom(rotCW(f), RAT_PAL, 'rgba(10,8,6,.45)'));
-  ratSprites.u.push(spriteFrom(flipV(rotCW(f)), RAT_PAL, 'rgba(10,8,6,.45)'));
+// V13: top-down rats are generated from shapes so every size shares one look:
+// a tapered body lit from the top-left with a dark spine, a pointed head with
+// ears and eyes, a whip tail and paws that patter as it runs.
+// Keys: d outline, D spine, h lit fur, g fur, s shaded flank, p pink skin, e eye, n nose, k/K crown.
+function ratGrid(L, H, frame, king) {
+  const g = Array.from({ length: H }, () => Array(L).fill('.'));
+  const cy = (H - 1) / 2;
+  const bx = L * 0.42, brx = L * 0.25, bry = H * 0.36;          // body
+  const hx = L * 0.74, hrx = L * 0.15, hry = H * 0.27;          // head
+  const inside = (x, y) => {
+    const b = ((x - bx) / brx) ** 2 + ((y - cy) / bry) ** 2 <= 1;
+    const hk = x <= hx ? ((x - hx) / hrx) ** 2 + ((y - cy) / hry) ** 2 <= 1
+      : Math.abs(y - cy) <= hry * Math.max(0, 1 - (x - hx) / (hrx * 1.9)) + 0.15;   // snout tapers to a point
+    return b || hk;
+  };
+  for (let y = 0; y < H; y++) for (let x = 0; x < L; x++) {
+    if (!inside(x, y)) continue;
+    const edge = !inside(x - 1, y) || !inside(x + 1, y) || !inside(x, y - 1) || !inside(x, y + 1);
+    let c = y < cy ? 'h' : 's';
+    if (Math.abs(y - cy) < 0.6 && x < hx - 1) c = 'D';
+    else if (y < cy && x > bx + brx * 0.4) c = 'g';
+    g[y][x] = edge ? 'd' : c;
+  }
+  // tail: a thin S-curve trailing behind the rump
+  for (let x = 0; x < bx - brx + 1; x++) { const y = Math.round(cy + Math.sin(x / L * 7 + frame * 1.6) * 0.9); if (g[y] && g[y][x] === '.') g[y][x] = 'p'; }
+  // ears, eyes, nose
+  const ex = Math.round(hx - hrx * 0.5), ey = Math.round(cy - hry - 0.6), ey2 = Math.round(cy + hry + 0.6);
+  for (const yy of [ey, ey2]) if (g[yy]) { g[yy][ex] = 'p'; if (g[yy][ex + 1] === '.') g[yy][ex + 1] = 'd'; }
+  const eyX = Math.round(hx + hrx * 0.25);
+  g[Math.round(cy - hry * 0.55)][eyX] = 'e'; g[Math.round(cy + hry * 0.55)][eyX] = 'e';
+  const tip = [...g[Math.round(cy)]].lastIndexOf('d'); if (tip > 0) g[Math.round(cy)][tip] = 'n';
+  if (H % 2 === 0) { const t2 = [...g[Math.round(cy) - 1]].lastIndexOf('d'); if (t2 > 0) g[Math.round(cy) - 1][t2] = 'n'; }
+  // paws pattering at the sides, alternating each frame
+  const feet = frame ? [[bx - brx * 0.5, -1], [bx + brx * 0.6, 1]] : [[bx - brx * 0.5, 1], [bx + brx * 0.6, -1]];
+  for (const [fx, side] of feet) { const yy = side < 0 ? Math.round(cy - bry - 0.5) : Math.round(cy + bry + 0.5), xx = Math.round(fx); if (g[yy] && g[yy][xx] === '.') g[yy][xx] = 'p'; }
+  if (king) { // a little gold crown sitting on the back of the head
+    const kx = Math.round(hx - hrx * 0.9), r = 1.6;
+    for (let a = 0; a < 8; a++) {
+      const xx = Math.round(kx + Math.cos(a / 8 * Math.PI * 2) * r), yy = Math.round(cy + Math.sin(a / 8 * Math.PI * 2) * r);
+      if (g[yy] && g[yy][xx] !== undefined) g[yy][xx] = a % 2 ? 'k' : 'K';
+    }
+    g[Math.round(cy)][kx] = 'D';
+  }
+  return g.map(r => r.join(''));
 }
+const RAT_PAL = { d: '#3a2e26', D: '#4b3c31', h: '#86725f', g: '#6e5b4c', s: '#5c4b3f', p: '#c98d86', n: '#e3a69e', e: '#ff3b2f' };
+const KING_PAL = { d: '#120d10', D: '#1e161b', h: '#4a3e46', g: '#382e35', s: '#2a2128', p: '#b07a8a', n: '#d89aa8', e: '#e8a0ff', k: '#b8862a', K: '#ffd75a' };
+function makeRatSet(grids, pal, outline) {
+  const set = { r: [], l: [], d: [], u: [] };
+  for (const f of grids) {
+    set.r.push(spriteFrom(f, pal, outline)); set.l.push(spriteFrom(flipH(f), pal, outline));
+    set.d.push(spriteFrom(rotCW(f), pal, outline)); set.u.push(spriteFrom(flipV(rotCW(f)), pal, outline));
+  }
+  return set;
+}
+const RAT_FRAMES = [ratGrid(16, 8, 0), ratGrid(16, 8, 1)];
+const ratSprites = makeRatSet(RAT_FRAMES, RAT_PAL, 'rgba(10,8,6,.45)');
+// V13: the lead rat is the Rat King: bigger, black-furred, purple-eyed and crowned.
+const kingSprites = makeRatSet([ratGrid(21, 11, 0, true), ratGrid(21, 11, 1, true)], KING_PAL, 'rgba(192,92,255,.55)');
 
 // V8: townsfolk come in four outfits, each with two walking frames.
 // Keys: a hat, h hair, s/S skin light/shade, e eyes, c/C clothes light/shade,
@@ -1788,7 +1822,7 @@ function linePx(g, x0, y0, x1, y1, col) {
   for (;;) { g.fillRect(x0, y0, 1, 1); if (x0 === x1 && y0 === y1) break; const e2 = 2 * err; if (e2 >= dy) { err += dy; x0 += sx; } if (e2 <= dx) { err += dx; y0 += sy; } }
 }
 
-// ---- V10 hi-res cutscene art: shared shape helpers -------------------------
+// ---- V10/V13 hi-res cutscene art: shared shape helpers ---------------------
 function ell(g, cx, cy, rx, ry, col) { // pixel-quantised filled ellipse
   g.fillStyle = col;
   const R = Math.ceil(ry);
@@ -1803,90 +1837,123 @@ function thick(g, x0, y0, x1, y1, w, col) { // a limb: a line of squares
   g.fillStyle = col;
   for (let i = 0; i <= n; i++) { const x = x0 + (x1 - x0) * i / n, y = y0 + (y1 - y0) * i / n; g.fillRect(Math.round(x - w / 2), Math.round(y - w / 2), w, w); }
 }
-
-// A rat, side on, about 44x20 px. Origin at its feet; dir 1 faces right.
-function ratHR(g, x, y, dir, t, o = {}) {
-  const run = o.run || 0, hop = o.hop || 0, plague = !!o.plague, ph = t * 22 + x * 0.3;
-  g.fillStyle = 'rgba(0,0,0,.35)'; g.fillRect(Math.round(x - 11), Math.round(y), 22, 2);
-  g.save(); g.translate(Math.round(x + (o.tremble ? Math.round(Math.sin(t * 50 + x)) : 0)), Math.round(y - hop)); g.scale(dir, 1);
-  if (plague) { g.globalAlpha = 0.3; ell(g, 2, -8, 17, 10, PLAGUE); g.globalAlpha = 1; }
-  // tail: tapering curve behind
-  for (let i = 0; i < 22; i++) {
-    const tx = -11 - i, ty = -5 - Math.sin(i / 22 * Math.PI) * 5 + Math.sin(t * 5 + i * 0.4) * (i / 22) * 2;
-    g.fillStyle = '#b07a74'; g.fillRect(Math.round(tx), Math.round(ty), 1, i < 9 ? 2 : 1);
-    if (i < 9) { g.fillStyle = '#8e5e59'; g.fillRect(Math.round(tx), Math.round(ty) + 2, 1, 1); }
+function poly(g, pts, col) { // crisp scanline polygon fill (no anti-aliasing)
+  g.fillStyle = col;
+  const ys = pts.map(p => p[1]), y0 = Math.floor(Math.min(...ys)), y1 = Math.ceil(Math.max(...ys));
+  for (let y = y0; y <= y1; y++) {
+    const yc = y + 0.5, xs = [];
+    for (let i = 0; i < pts.length; i++) {
+      const [ax, ay] = pts[i], [bx, by] = pts[(i + 1) % pts.length];
+      if ((ay <= yc && by > yc) || (by <= yc && ay > yc)) xs.push(ax + (yc - ay) / (by - ay) * (bx - ax));
+    }
+    xs.sort((a, b) => a - b);
+    for (let i = 0; i + 1 < xs.length; i += 2) { const a = Math.round(xs[i]), b = Math.round(xs[i + 1]); if (b > a) g.fillRect(a, y, b - a, 1); }
   }
-  // legs
-  const s = Math.sin(ph) * 3 * run, c = Math.cos(ph) * 2 * run;
-  g.fillStyle = '#9a6a64'; g.fillRect(Math.round(-7 - s), -3, 3, 3); g.fillRect(Math.round(7 + s), -3, 3, 3);
-  g.fillStyle = '#c98d86'; g.fillRect(Math.round(-5 + s), -2 - Math.max(0, c), 4, 2); g.fillRect(Math.round(9 - s), -2 - Math.max(0, -c), 4, 2);
-  // body: outline, fur, belly, highlight along the back
-  if (plague) { ell(g, 0, -8, 12, 7.5, PLAGUE); ell(g, 12, -9, 7, 5.5, PLAGUE); }
-  ell(g, 0, -8, 11, 6.5, '#3e3229');
-  ell(g, 0, -8, 10, 5.5, plague ? '#6a5560' : '#6e5b4c');
-  ell(g, 1, -5, 8, 2.5, plague ? '#8a7488' : '#8a7563');
-  ell(g, -2, -11, 6, 1.5, plague ? '#7e6874' : '#7f6a59');
-  g.fillStyle = '#4b3c31'; for (const [fx, fy] of [[-6, -10], [-2, -12], [3, -11], [-8, -8], [6, -10]]) g.fillRect(fx, fy, 2, 1);
-  if (plague) { g.fillStyle = '#2e0f3a'; g.fillRect(-3, -7, 2, 2); g.fillRect(4, -6, 1, 1); }
-  // head, snout, ear, eye, whiskers
-  ell(g, 12, -9, 6, 4.5, '#3e3229'); ell(g, 12, -9, 5, 3.5, plague ? '#6a5560' : '#6e5b4c');
-  ell(g, 17, -8, 3.5, 2.5, '#3e3229'); ell(g, 17, -8, 3, 2, plague ? '#6a5560' : '#6e5b4c');
-  g.fillStyle = '#e3a69e'; g.fillRect(20, -9, 2, 2);
-  ell(g, 9, -13, 3, 3, '#3e3229'); ell(g, 9, -13, 2, 2, '#c98d86');
-  g.fillStyle = plague ? '#f0b0ff' : '#ff3b2f'; g.fillRect(13, -11, 2, 2); g.fillStyle = '#fff'; g.fillRect(13, -11, 1, 1);
-  g.fillStyle = 'rgba(200,190,175,.8)'; for (const dy of [-2, 1]) for (let k = 0; k < 5; k++) g.fillRect(20 + k, -8 + Math.round(dy * k / 4), 1, 1);
+}
+function edge(g, pts, col, closed = true) { for (let i = 0; i < pts.length - (closed ? 0 : 1); i++) { const a = pts[i], b = pts[(i + 1) % pts.length]; linePx(g, a[0], a[1], b[0], b[1], col); } }
+const OUT = '#120d0c'; // ink line used on every figure
+
+// A lean, sleek rat, side on (~56x22 px). Origin at its feet; dir 1 faces right.
+// o.run animates legs, o.hop lifts it, o.plague turns it, o.crown marks the Rat King.
+function ratHR(g, x, y, dir, t, o = {}) {
+  const run = o.run || 0, plague = !!o.plague, ph = t * 22 + x * 0.3;
+  g.fillStyle = 'rgba(0,0,0,.35)'; g.fillRect(Math.round(x - 14), Math.round(y), 28, 2);
+  const k = o.crown ? 1.3 : 1; // the Rat King stands a head taller than the rest
+  g.save(); g.translate(Math.round(x + (o.tremble ? Math.round(Math.sin(t * 50 + x)) : 0)), Math.round(y - (o.hop || 0))); g.scale(dir * k, k);
+  const king = !!o.crown;
+  const fur = king ? '#2e2630' : plague ? '#5e4a5c' : '#5a4a3e', furD = king ? '#1a141c' : plague ? '#3a2a3c' : '#3a2e26', furL = king ? '#6a5a72' : plague ? '#8a6e8c' : '#8a7462', belly = king ? '#4a3e4c' : plague ? '#7a6476' : '#8f7a66';
+  if (plague) { const a = g.globalAlpha; g.globalAlpha = 0.28; ell(g, 3, -9, 22, 12, PLAGUE); g.globalAlpha = a; }
+  // whip tail: long, thin, a slow S
+  for (let i = 0; i < 30; i++) {
+    const tx = -13 - i, ty = -6 - Math.sin(i / 30 * Math.PI * 1.1) * 6 + Math.sin(t * 4 + i * 0.35) * (i / 30) * 2.5;
+    g.fillStyle = i < 8 ? '#9a6a64' : '#b88a82'; g.fillRect(Math.round(tx), Math.round(ty), 1, i < 10 ? 2 : 1);
+  }
+  // far legs (darker), then body, then near legs
+  const s = Math.sin(ph) * 4 * run, c = Math.cos(ph) * 2 * run;
+  thick(g, -7, -6, -9 - s, -1, 2, furD); thick(g, 8, -6, 10 + s, -1, 2, furD);
+  const body = [[-14, -6], [-12, -11], [-6, -15], [2, -15], [8, -13], [12, -12], [16, -12], [20, -10], [25, -7], [22, -5], [16, -4], [10, -3], [0, -3], [-9, -3]];
+  poly(g, body, OUT); poly(g, body.map(([px, py]) => [px * 0.95, py * 0.93]), fur);
+  poly(g, [[-10, -5], [-4, -4], [8, -4], [14, -5], [8, -7], [-6, -7]], belly);                 // pale belly
+  poly(g, [[-11, -10], [-6, -14], [2, -14], [8, -12], [2, -11], [-6, -11]], furD);            // dark saddle along the spine
+  edge(g, [[-11, -11], [-6, -15], [2, -15], [8, -13]], furL, false);                          // moonlight on the back
+  g.fillStyle = furD; for (const [fx, fy] of [[-4, -9], [0, -8], [4, -10], [-8, -8]]) g.fillRect(fx, fy, 2, 1); // fur strokes
+  thick(g, -5, -5, -6 + s, Math.min(0, -1 - c), 2, '#a87a72'); thick(g, 11, -5, 12 - s, Math.min(0, -1 + c), 2, '#a87a72');
+  g.fillStyle = '#d8a8a0'; g.fillRect(Math.round(-7 + s), -1, 3, 1); g.fillRect(Math.round(11 - s), -1, 3, 1); // claws
+  // head details: pointed ear, slanted eye, nose, whiskers
+  poly(g, [[11, -12], [13, -19], [16, -12]], OUT); poly(g, [[12, -12], [13, -17], [15, -12]], '#c98d86');
+  g.fillStyle = plague ? '#f0b0ff' : '#ff3b2f'; g.fillRect(17, -10, 2, 1); g.fillRect(18, -11, 1, 1);
+  if (plague) { g.globalAlpha = 0.5; ell(g, 18, -10, 2.5, 1.5, '#f0b0ff'); g.globalAlpha = 1; }
+  g.fillStyle = '#e3a69e'; g.fillRect(24, -8, 2, 2);
+  g.fillStyle = 'rgba(210,200,185,.75)'; for (const dy of [-3, 0, 2]) for (let k = 0; k < 7; k++) g.fillRect(23 + k, -7 + Math.round(dy * k / 6), 1, 1);
+  if (plague) { g.fillStyle = '#2e0f3a'; g.fillRect(-2, -9, 2, 2); g.fillRect(6, -8, 1, 1); }
+  if (o.crown) { // the Rat King's crown, catching the light
+    poly(g, [[9, -14], [9, -19], [11, -17], [12, -21], [14, -17], [16, -20], [16, -14]], '#7a5a1a');
+    poly(g, [[10, -15], [10, -18], [11, -16], [12, -19], [13, -16], [15, -18], [15, -15]], '#e0b040');
+    g.fillStyle = '#fff2b0'; g.fillRect(12, -19, 1, 1); g.fillStyle = PLAGUE; g.fillRect(12, -16, 1, 1);
+  }
   g.restore();
 }
 
-// A townsperson, side on, about 30x60 px. Origin at the feet; dir 1 faces right.
-// o.walk animates the legs, o.stamp (0-1) lifts the front boot, o.arm sets the front arm angle.
+// A townsperson in profile (~34x92 px): long-limbed and angular, with flat light
+// and shadow planes and an ink outline. Origin at the feet; dir 1 faces right.
 function personHR(g, x, y, dir, t, P, o = {}) {
-  const ph = t * 9, stride = o.walk ? Math.sin(ph) : 0, lift = o.stamp || 0, dress = P.dress;
-  const k = o.scale || 1.3; // people stand a little larger than life so they read against the houses
-  g.fillStyle = 'rgba(0,0,0,.35)'; g.fillRect(Math.round(x - 13 * k), Math.round(y), Math.round(26 * k), 2);
+  const k = o.scale || 1, ph = t * 8, stride = o.walk ? Math.sin(ph) : 0, lift = o.stamp || 0, dress = P.dress;
+  g.fillStyle = 'rgba(0,0,0,.35)'; g.fillRect(Math.round(x - 14 * k), Math.round(y), Math.round(28 * k), 2);
   g.save(); g.translate(Math.round(x), Math.round(y + (o.dip || 0))); g.scale(dir * k, k);
-  const leg = (hx, fx, fy, col) => {
-    thick(g, hx, -22, fx, fy - 4, 5, col);
-    g.fillStyle = '#24180f'; g.fillRect(Math.round(fx) - 3, Math.round(fy) - 4, 9, 4);
-    g.fillStyle = '#4a3424'; g.fillRect(Math.round(fx) - 3, Math.round(fy) - 4, 9, 1);
+  const C = P.cloth, CD = shade(P.cloth, 0.62), CL = shade(P.cloth, 1.25), S = P.skin, SD = shade(P.skin, 0.72);
+  // legs: thigh and shin with a knee, ending in a long pointed shoe
+  const leg = (ang, bend, col, raise = 0) => {
+    const hx = 0, hy = -40, kx = hx + Math.sin(ang) * 19, ky = hy + Math.cos(ang) * 19 - raise;
+    const ax = kx + Math.sin(ang - bend) * 19, ay = Math.min(-1, ky + Math.cos(ang - bend) * 19);
+    thick(g, hx, hy, kx, ky, 5, OUT); thick(g, kx, ky, ax, ay - 2, 4, OUT);
+    thick(g, hx, hy, kx, ky, 3, col); thick(g, kx, ky, ax, ay - 2, 2, col);
+    poly(g, [[ax - 3, ay - 4], [ax + 3, ay - 4], [ax + 11, ay], [ax - 3, ay]], OUT);
+    poly(g, [[ax - 2, ay - 3], [ax + 3, ay - 3], [ax + 8, ay - 1], [ax - 2, ay - 1]], '#3a2a1c');
   };
-  // back arm
+  if (!dress) { leg(-stride * 0.45, Math.max(0, stride) * 0.6, P.legsD); leg(stride * 0.45 + lift * 0.9, Math.max(0, -stride) * 0.6 + lift * 1.3, P.legs, lift * 6); }
+  // back arm (in shadow)
   const sw = o.arm !== undefined ? o.arm : stride * 0.5;
-  thick(g, -1, -40, -1 - Math.sin(-sw) * 13, -40 + Math.cos(sw) * 13, 4, shade(P.cloth, 0.6));
-  // legs
-  if (!dress) { leg(-2, -3 - stride * 5, -Math.max(0, -stride) * 3, P.legsD); leg(2, 3 + stride * 5 + lift * 4, -lift * 12 - Math.max(0, stride) * 3, P.legs); }
-  else { g.fillStyle = '#24180f'; g.fillRect(-6 + Math.round(stride * 3), -3, 7, 3); g.fillRect(1 - Math.round(stride * 3), -3, 7, 3); }
-  // torso (a dress flares to the ground)
-  const top = -44, bottom = dress ? -3 : -21;
-  for (let yy = top; yy <= bottom; yy++) {
-    const k = (yy - top) / (bottom - top), half = dress ? 7 + Math.round(k * k * 6) : 7 + (yy > -26 ? 1 : 0);
-    g.fillStyle = P.cloth; g.fillRect(-half, yy, half * 2, 1);
-    g.fillStyle = shade(P.cloth, 0.72); g.fillRect(-half, yy, Math.ceil(half * 0.7), 1);    // back is in shade
-    g.fillStyle = shade(P.cloth, 1.12); g.fillRect(half - 2, yy, 2, 1);                       // light catches the front
+  const arm = (a, col, w) => { const ex = 1 + Math.sin(a) * 14, ey = -66 + Math.cos(a) * 14, hx2 = ex + Math.sin(a + 0.5) * 13, hy2 = ey + Math.cos(a + 0.5) * 13; thick(g, 1, -66, ex, ey, w + 2, OUT); thick(g, ex, ey, hx2, hy2, w + 1, OUT); thick(g, 1, -66, ex, ey, w, col); thick(g, ex, ey, hx2, hy2, w - 1, col); return [hx2, hy2]; };
+  arm(-sw - 0.2, CD, 4);
+  // body: a stooped coat with tails, or a long gown with an apron and a shawl
+  const torso = dress
+    ? [[-7, -70], [5, -71], [8, -64], [6, -50], [9, -36], [13, -14], [15, -2], [-13, -2], [-12, -14], [-10, -36], [-8, -50], [-10, -62]]
+    : [[-8, -70], [5, -71], [9, -64], [7, -50], [6, -42], [10, -26], [-11, -27], [-8, -42], [-9, -52], [-11, -62]];
+  poly(g, torso, OUT); poly(g, torso.map(([px, py]) => [px * 0.88, py + (py < -60 ? 1 : 0)]), C);
+  poly(g, torso.filter(([px]) => px < 0).concat([[-1, dress ? -2 : -27], [-1, -70]]).map(([px, py]) => [px * 0.88, py]), CD); // back half in shadow
+  edge(g, [[6, -66], [6, -52], [5, -44]], CL, false);
+  if (dress) {
+    poly(g, [[1, -50], [6, -50], [10, -14], [12, -4], [2, -4]], P.apron); edge(g, [[1, -50], [2, -4]], shade(P.apron, 0.8), false);
+    for (const fx of [-8, -4]) edge(g, [[fx, -34], [fx - 2, -4]], CD, false);                     // skirt folds
+    poly(g, [[-9, -70], [5, -71], [7, -62], [-1, -58], [-10, -60]], shade(P.cloth, 0.45));         // shawl
+  } else {
+    g.fillStyle = OUT; g.fillRect(-8, -44, 15, 3); g.fillStyle = '#5a4028'; g.fillRect(-7, -44, 13, 2); g.fillStyle = '#c9a560'; g.fillRect(3, -44, 2, 2);
+    edge(g, [[0, -42], [-1, -27]], CD, false);                                                     // split in the coat tails
   }
-  if (dress) { for (let yy = -32; yy <= -6; yy++) { g.fillStyle = yy % 5 ? P.apron : shade(P.apron, 0.85); g.fillRect(1, yy, 6 + Math.round((yy + 32) / 9), 1); } }
-  else { g.fillStyle = '#3a2a1c'; g.fillRect(-8, -25, 16, 3); g.fillStyle = '#b89a50'; g.fillRect(3, -25, 3, 3); }
-  // neck and head
-  g.fillStyle = shade(P.skin, 0.85); g.fillRect(-2, -48, 5, 5);
-  ell(g, 1, -53, 7, 7, shade(P.skin, 0.8)); ell(g, 2, -53, 6, 6.5, P.skin);
-  g.fillStyle = P.skin; g.fillRect(8, -53, 1, 3); g.fillStyle = shade(P.skin, 0.75); g.fillRect(8, -51, 1, 1); // nose
-  g.fillStyle = '#1d1712'; g.fillRect(5, -56, 2, 2); g.fillStyle = shade(P.hair, 0.8); g.fillRect(4, -58, 4, 1);
-  g.fillStyle = '#5a2a24'; g.fillRect(4, -48, 4, 1);                                            // mouth
-  if (P.stubble) { g.fillStyle = 'rgba(60,40,30,.5)'; g.fillRect(1, -49, 7, 3); }
-  if (dress) { // headscarf
-    ell(g, -1, -55, 8, 8, '#c4bca8'); ell(g, 0, -56, 7, 7, '#e6dfcc');
-    ell(g, 3, -52, 5, 5, P.skin); g.fillStyle = '#1d1712'; g.fillRect(5, -56, 2, 2);
-    g.fillStyle = '#c4bca8'; g.fillRect(-8, -50, 5, 8);
-  } else { // cap with a brim
-    ell(g, 0, -59, 8, 4, shade(P.cap, 0.8)); ell(g, 1, -60, 7, 3.5, P.cap);
-    g.fillStyle = shade(P.cap, 0.7); g.fillRect(-6, -57, 17, 2);
-    g.fillStyle = P.hair; g.fillRect(-7, -56, 4, 6);
+  // neck and a profile head: long skull, brow, hooked nose, jaw
+  thick(g, 1, -70, 2, -74, 4, SD);
+  const head = [[-4, -76], [-4, -82], [0, -86], [5, -85], [7, -81], [7, -79], [10, -75], [7, -74], [8, -72], [6, -70], [2, -69], [-2, -71]];
+  poly(g, head, OUT); poly(g, head.map(([px, py]) => [px * 0.86 + 0.6, py * 0.99]), S);
+  poly(g, [[-3, -76], [-3, -82], [0, -84], [1, -78], [0, -71], [-2, -72]], SD);                   // shadow side of the face
+  g.fillStyle = OUT; g.fillRect(3, -80, 3, 1); g.fillRect(4, -79, 2, 1);                            // brow and sunken eye
+  g.fillStyle = '#e9dcbc'; g.fillRect(5, -79, 1, 1);
+  g.fillStyle = shade(S, 0.6); g.fillRect(5, -72, 2, 1);                                            // mouth
+  if (P.stubble) { g.fillStyle = 'rgba(40,28,20,.55)'; g.fillRect(1, -72, 6, 3); }
+  if (dress) { // a starched wimple and veil
+    const wimple = [[-7, -66], [-8, -80], [-3, -89], [5, -88], [8, -82], [6, -82], [3, -84], [0, -82], [0, -72], [3, -69], [-2, -63]];
+    poly(g, wimple, OUT); poly(g, wimple.map(([px, py]) => [px * 0.88, py * 0.99]), '#e6dfcc');
+    edge(g, [[-5, -67], [-6, -80], [-2, -86]], '#c4bca8', false); edge(g, [[-3, -66], [-3, -76]], '#c4bca8', false);
+  } else { // a tall felt hat with a wide brim
+    poly(g, [[-6, -84], [-4, -95], [5, -96], [7, -84]], OUT); poly(g, [[-5, -84], [-3, -94], [4, -95], [6, -84]], P.cap);
+    poly(g, [[-10, -85], [12, -84], [12, -82], [-10, -82]], OUT); poly(g, [[-9, -84], [11, -83], [-9, -83]], shade(P.cap, 1.2));
+    g.fillStyle = shade(P.cap, 0.6); g.fillRect(-4, -87, 10, 2);                                    // hat band
+    g.fillStyle = P.hair; g.fillRect(-6, -81, 3, 7);
   }
-  // front arm with hand
-  const ax = Math.sin(sw) * 13, ay = Math.cos(sw) * 13;
-  thick(g, 2, -40, 2 + ax, -40 + ay, 5, P.cloth);
-  ell(g, 2 + ax, -40 + ay + 1, 2.5, 2.5, P.skin);
+  // front arm with a hand
+  const [hx2, hy2] = arm(sw, C, 4);
+  ell(g, hx2, hy2, 2, 2, OUT); ell(g, hx2, hy2, 1.4, 1.4, S);
   g.restore();
+  return [x + dir * k * hx2, y + (o.dip || 0) + k * hy2]; // where the front hand is, for props
 }
 
 function cutBurst(x, y, n, cols, sp = 20, life = 0.6, up = 10) {
@@ -2072,9 +2139,9 @@ function sceneStreet(t) {
   const fist = t > 4.6 ? Math.sin(t * 22) * 0.6 - 2.4 : undefined;
   personHR(sc, manX, G + 2, 1, t, P.man, { walk: t > 0.6 && t < 1.6, stamp, dip: t > 1.98 && t < 2.15 ? 2 : 0, arm: fist });
   const sweep = t < 3.0 ? 0.6 : t < 3.15 ? lerp(0.6, -0.5, span(t, 3.0, 3.15)) : lerp(-0.5, 0.5, span(t, 3.15, 3.8));
-  personHR(sc, womanX, G + 2, -1, t, P.woman, { walk: t > 2.2 && t < 3.0, arm: 0.9 + sweep * 0.4 });
+  const [hx, hy] = personHR(sc, womanX, G + 2, -1, t, P.woman, { walk: t > 2.2 && t < 3.0, arm: 0.6 + sweep * 0.3 });
   // broom held in front of her, swinging low across the cobbles
-  const hx = womanX - 16, hy = G - 38, bx = hx - Math.sin(1.2 + sweep) * 36, by = hy + Math.cos(0.3 + sweep * 0.5) * 36;
+  const bx = hx - Math.sin(0.5 + sweep * 0.6) * 36, by = Math.min(G - 4, hy + Math.cos(0.5 + sweep * 0.6) * 36);
   thick(sc, hx, hy, bx, by, 2, '#6b4f33');
   for (let k = -5; k <= 5; k++) thick(sc, bx, by, bx + k * 1.2 - 3, by + 9, 1, k % 2 ? '#b8a060' : '#8c7438');
   sc.fillStyle = '#5a4028'; sc.fillRect(Math.round(bx) - 4, Math.round(by) - 1, 8, 3);
@@ -2129,7 +2196,8 @@ function sceneDrink(t) {
     if (plague && !cut['p' + i]) { cut['p' + i] = 1; cutBurst(x, y - 8, lead ? 26 : 14, [PLAGUE, PLAGUE_DARK, '#e8b0ff'], 36, 0.6, 14); sfxCut('turn'); }
     if (t > arrive && t < turned) hop = Math.abs(Math.sin(t * 12)) * 2; // lapping at the pool
     if (t > 4.6) { dir = 1; hop = Math.max(0, Math.sin((t - 4.6 - i * 0.05) * 7)) * 10; run = 1; }
-    ratHR(sc, x, y, dir, t, { plague, hop, run, tremble: !plague && t < startMove && !lead });
+    if (lead && plague && !cut.crown) { cut.crown = 1; cutBurst(x + 12, y - 22, 12, ['#ffd75a', '#e0b040', '#fff2b0'], 24, 0.7, 10); }
+    ratHR(sc, x, y, dir, t, { plague, hop, run, tremble: !plague && t < startMove && !lead, crown: lead && plague });
   });
   if (t > 4.6) { sc.globalAlpha = 0.2 * span(t, 4.6, 5.0) * (1 - span(t, 5.4, 6)); sc.fillStyle = PLAGUE; sc.fillRect(0, 0, STAGE_W, STAGE_H); sc.globalAlpha = 1; }
 }
@@ -2142,7 +2210,7 @@ function sceneTitle(t) {
   sc.globalAlpha = 1;
   for (let i = 0; i < 16; i++) {
     const x = lerp(-40 - i * 26, 520 - i * 26, span(t, 1.0, 3.6)), y = 236 + (i % 3) * 9;
-    ratHR(sc, x, y, 1, t + i * 0.3, { plague: true, run: 1.4, hop: Math.abs(Math.sin(t * 12 + i)) * 3 });
+    ratHR(sc, x, y, 1, t + i * 0.3, { plague: true, run: 1.4, hop: Math.abs(Math.sin(t * 12 + i)) * 3, crown: i === 0 });
   }
 }
 
@@ -2208,7 +2276,7 @@ function beginCutscene() {
   if (!actx) { try { actx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { actx = null; } }
   actx?.resume?.();
   hideScreens(); $('splash').hidden = true; $('hud').hidden = true; mini.hidden = true; stickEl.hidden = true;
-  Object.keys(cut).forEach(k => { if (/^(s\d[a-c]|p\d+)$/.test(k)) delete cut[k]; });
+  Object.keys(cut).forEach(k => { if (/^(s\d[a-c]|p\d+|crown)$/.test(k)) delete cut[k]; });
   cut.t = 0; cut.parts = [];
   $('cutLayer').hidden = false;
   state = 'cutscene';
@@ -2541,7 +2609,7 @@ function render() {
   for (const e of ents) {
     if (e.h) drawHunter(e.h, ox, oy);
     else if (e.r) {
-      const r = e.r, s = ratSprites[r.face][r.frame];
+      const r = e.r, s = (r === G.rats[0] ? kingSprites : ratSprites)[r.face][r.frame];
       if (r.hidden) continue;
       if (r.z > 0.5) { ctx.fillStyle = 'rgba(0,0,0,.3)'; ctx.fillRect(Math.round(r.x - 3 + ox), Math.round(r.y + 2 + oy), 6, 2); }
       ctx.drawImage(s, Math.round(r.x - s.width / 2 + ox), Math.round(r.y - s.height / 2 - (r.z || 0) + oy));
