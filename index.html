@@ -142,6 +142,9 @@ button.secondary { background: var(--ink); color: var(--parch); border: 2px soli
 .splashBtn { justify-self: center; display: grid; gap: 8px; text-align: center; background: none; color: var(--parch); box-shadow: none; border: 0; font: 400 20px var(--font-ui); letter-spacing: .04em; animation: pulse 1.2s steps(2) infinite; }
 .splashBtn span { font-size: 12px; color: var(--dim); letter-spacing: .1em; text-transform: uppercase; }
 .splashBtn:active { transform: none; }
+#logoLayer { position: fixed; inset: 0; z-index: 7; cursor: pointer; background: linear-gradient(#5ecbe2 0%, #5ecbe2 55%, #d679b9 100%); }
+#logoVideo { display: block; width: 100%; height: 100%; object-fit: contain; }
+#logoLayer .skip { position: absolute; right: 16px; top: calc(env(safe-area-inset-top, 0px) + 12px); font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: rgba(255,255,255,.75); }
 #cutLayer { position: fixed; inset: 0; z-index: 6; cursor: pointer; background: #000; }
 #cutCanvas { position: absolute; inset: 0; width: 100%; height: 100%; image-rendering: pixelated; image-rendering: crisp-edges; }
 #cutCaption {
@@ -180,6 +183,14 @@ button.secondary { background: var(--ink); color: var(--parch); border: 2px soli
 
 <div class="screen splash" id="splash">
   <button id="splashBtn" class="splashBtn" type="button">Tap or press any key to begin<span>Sound on for the full effect</span></button>
+</div>
+
+<div id="logoLayer" hidden>
+  <video id="logoVideo" muted playsinline preload="auto">
+    <source src="assets/pixel-mullet-intro.mp4" type="video/mp4">
+    <source src="assets/pixel-mullet-intro.webm" type="video/webm">
+  </video>
+  <span class="skip">Tap or press any key to skip</span>
 </div>
 
 <div id="cutLayer" hidden>
@@ -2272,6 +2283,29 @@ function drawCutscene(dt) {
 
 function sfxCut(kind) { if (kind === 'turn') tone(500 + Math.random() * 200, 1200, 0, 0.12, 'square', 0.03); }
 
+// V14: the Pixel Mullet studio logo plays first (silent video), then the story.
+let logoTimer = null;
+function beginLogo() {
+  if (state !== 'splash') return;
+  if (!actx) { try { actx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { actx = null; } } // unlock sound inside the tap
+  actx?.resume?.();
+  $('splash').hidden = true; $('logoLayer').hidden = false;
+  state = 'logo';
+  const v = $('logoVideo');
+  v.onended = finishLogo; v.onerror = finishLogo;
+  const srcs = v.querySelectorAll('source'); srcs[srcs.length - 1].onerror = finishLogo; // every source failed
+  try { v.currentTime = 0; } catch (e) { /* not loaded yet */ }
+  const p = v.play(); if (p && p.catch) p.catch(finishLogo);
+  logoTimer = setTimeout(finishLogo, 12000); // never get stuck if the video stalls
+}
+function finishLogo() {
+  if (state !== 'logo') return;
+  clearTimeout(logoTimer);
+  const v = $('logoVideo'); v.pause();
+  $('logoLayer').hidden = true;
+  beginCutscene();
+}
+
 function beginCutscene() {
   if (!actx) { try { actx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { actx = null; } }
   actx?.resume?.();
@@ -2856,7 +2890,8 @@ function endGame(won, reason) {
 // ---------------------------------------------------------------------------
 window.addEventListener('keydown', e => {
   if (e.code.startsWith('Arrow') || e.code === 'Space') e.preventDefault();
-  if (state === 'splash' && !e.repeat) { e.preventDefault(); beginCutscene(); return; }
+  if (state === 'splash' && !e.repeat) { e.preventDefault(); beginLogo(); return; }
+  if (state === 'logo' && !e.repeat) { e.preventDefault(); finishLogo(); return; }
   if (state === 'cutscene' && !e.repeat) { e.preventDefault(); endCutscene(true); return; }
   keys.add(e.code);
   if (state !== 'playing' && (e.code === 'Enter' || e.code === 'Space') && !e.repeat) {
@@ -2905,7 +2940,8 @@ loadLevel(selected);
 newGame();
 renderLevelList();
 state = 'splash'; // V10: the story plays first, once the player taps (browsers only allow sound after a tap)
-$('splash').addEventListener('click', beginCutscene);
+$('splash').addEventListener('click', beginLogo);
+$('logoLayer').addEventListener('click', finishLogo);
 $('cutLayer').addEventListener('click', () => endCutscene(true));
 $('introBtn').addEventListener('click', beginCutscene);
 resize();
@@ -2921,7 +2957,7 @@ function frame(now) {
     renderMinimap();
   }
   if (state === 'cutscene') drawCutscene(dt);
-  else if (state === 'splash') { ctx.fillStyle = '#000'; ctx.fillRect(0, 0, view.w, view.h); }
+  else if (state === 'splash' || state === 'logo') { ctx.fillStyle = '#000'; ctx.fillRect(0, 0, view.w, view.h); }
   else render();
   requestAnimationFrame(frame);
 }
