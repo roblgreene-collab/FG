@@ -2146,6 +2146,21 @@ function sceneTitle(t) {
   }
 }
 
+// V12: where the portrait camera looks (stage x) through the story, eased between keys.
+const CUT_CAM = [
+  [0, 185], [1.9, 195], [2.15, 232], [3.4, 232], [4.4, 362], [6, 362],      // street: follow the rat to the drain
+  [6.01, 318], [12, 318],                                                     // sewer: the huddle and the grate
+  [12.01, 290], [12.5, 290], [13.5, 145], [14.6, 145], [15.6, 165], [16.6, 150], [18, 150], // drinking
+  [18.01, 240], [23, 240],                                                    // title
+];
+function cutCamX(t) {
+  for (let i = 1; i < CUT_CAM.length; i++) {
+    const [t0, x0] = CUT_CAM[i - 1], [t1, x1] = CUT_CAM[i];
+    if (t <= t1) { const k = Math.max(0, Math.min(1, (t - t0) / (t1 - t0))); return x0 + (x1 - x0) * k * k * (3 - 2 * k); }
+  }
+  return CUT_CAM[CUT_CAM.length - 1][1];
+}
+
 function drawCutscene(dt) {
   cutAssets();
   cut.t += dt;
@@ -2169,10 +2184,16 @@ function drawCutscene(dt) {
   const cc = $('cutCanvas'), CW = window.innerWidth, CH = window.innerHeight;
   if (cc.width !== CW || cc.height !== CH) { cc.width = CW; cc.height = CH; }
   const cx = cc.getContext('2d'); cx.imageSmoothingEnabled = false;
-  const fit = Math.min(CW / STAGE_W, CH / STAGE_H), s = fit >= 1 ? Math.floor(fit * 2) / 2 : fit;
-  const w = Math.round(STAGE_W * s), h = Math.round(STAGE_H * s);
   cx.fillStyle = '#000'; cx.fillRect(0, 0, CW, CH);
-  cx.drawImage(stage, Math.round((CW - w) / 2), Math.round((CH - h) / 2), w, h);
+  if (CW / CH < 1.2) { // V12: portrait phones zoom in and pan to follow the action
+    const s = Math.min(CH * 0.68 / STAGE_H, CW / (STAGE_W * 0.3)), vw = CW / s;
+    const left = Math.max(0, Math.min(STAGE_W - vw, cutCamX(t) - vw / 2));
+    cx.drawImage(stage, left, 0, vw, STAGE_H, 0, Math.round(CH * 0.2), CW, Math.round(STAGE_H * s));
+  } else {
+    const fit = Math.min(CW / STAGE_W, CH / STAGE_H), s = fit >= 1 ? Math.floor(fit * 2) / 2 : fit;
+    const w = Math.round(STAGE_W * s), h = Math.round(STAGE_H * s);
+    cx.drawImage(stage, Math.round((CW - w) / 2), Math.round((CH - h) / 2), w, h);
+  }
   // captions and the title card
   const cap = CUT_CAPTIONS.find(([a0, b0]) => t >= a0 && t <= b0);
   const capEl = $('cutCaption');
