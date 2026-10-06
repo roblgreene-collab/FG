@@ -142,11 +142,13 @@ button.secondary { background: var(--ink); color: var(--parch); border: 2px soli
 .splashBtn { justify-self: center; display: grid; gap: 8px; text-align: center; background: none; color: var(--parch); box-shadow: none; border: 0; font: 400 20px var(--font-ui); letter-spacing: .04em; animation: pulse 1.2s steps(2) infinite; }
 .splashBtn span { font-size: 12px; color: var(--dim); letter-spacing: .1em; text-transform: uppercase; }
 .splashBtn:active { transform: none; }
-#cutLayer { position: fixed; inset: 0; z-index: 6; cursor: pointer; }
+#cutLayer { position: fixed; inset: 0; z-index: 6; cursor: pointer; background: #000; }
+#cutCanvas { position: absolute; inset: 0; width: 100%; height: 100%; image-rendering: pixelated; image-rendering: crisp-edges; }
 #cutCaption {
   position: absolute; left: 16px; right: 16px; top: calc(env(safe-area-inset-top, 0px) + 9vh); margin: 0 auto; max-width: 34rem;
   text-align: center; font: 400 clamp(16px, 4.2vw, 22px)/1.4 var(--font-ui); color: var(--parch);
   text-shadow: 0 2px 0 #000, 0 0 12px #000; opacity: 0; transition: opacity .6s;
+  background: rgba(8,6,10,.55); padding: 8px 14px; width: fit-content; box-sizing: border-box;
 }
 #cutCaption.show { opacity: 1; }
 #cutTitle {
@@ -181,6 +183,7 @@ button.secondary { background: var(--ink); color: var(--parch); border: 2px soli
 </div>
 
 <div id="cutLayer" hidden>
+  <canvas id="cutCanvas"></canvas>
   <div id="cutTitle">Plague Rat</div>
   <p id="cutCaption"></p>
   <span class="skip">Tap or press any key to skip</span>
@@ -1764,7 +1767,7 @@ function drawHunterNumber(h, ox, oy) { // H1: his number floats over his head
 // V10 + A6: the opening story, shown once per launch before the title screen.
 // Side-on vignettes on a 240x135 stage, scaled to fit. Any key or tap skips.
 // ---------------------------------------------------------------------------
-const STAGE_W = 240, STAGE_H = 135, CUT_END = 23;
+const STAGE_W = 480, STAGE_H = 270, CUT_END = 23;
 const CUT_CAPTIONS = [
   [0.3, 5.6, 'The people of the city kicked us, swept us and stamped on us.'],
   [6.3, 11.6, 'So we hid below, in the dark and the filth.'],
@@ -1774,7 +1777,7 @@ const CUT_CAPTIONS = [
 const DRIPS = [[6.8, 60], [7.9, 150], [8.6, 95], [9.7, 200], [10.4, 40], [11.1, 130]];
 const stage = makeCanvas(STAGE_W, STAGE_H), sc = stage.getContext('2d');
 sc.imageSmoothingEnabled = false;
-const cut = { t: 0, parts: [], bus: null, bg: {}, people: null, plagueRats: null };
+const cut = { t: 0, parts: [], bus: null, bg: {} };
 
 const lerp = (a, b, k) => a + (b - a) * Math.max(0, Math.min(1, k));
 const span = (t, a, b) => Math.max(0, Math.min(1, (t - a) / (b - a)));
@@ -1785,168 +1788,361 @@ function linePx(g, x0, y0, x1, y1, col) {
   for (;;) { g.fillRect(x0, y0, 1, 1); if (x0 === x1 && y0 === y1) break; const e2 = 2 * err; if (e2 >= dy) { err += dy; x0 += sx; } if (e2 <= dx) { err += dx; y0 += sy; } }
 }
 
-function cutAssets() {
-  if (cut.people) return;
-  const person = (outfit, pal) => OUTFITS[outfit].map(f => spriteFrom(f, pal, 'rgba(10,8,6,.6)'));
-  const base = { a: '#4a3a28', h: '#3a2a1c', s: '#e2b48f', S: '#b98f6e', e: '#1d1712', b: '#2c3340', B: '#222833', f: '#1d1712', w: '#e6dfcc', W: '#c4bca8' };
-  cut.people = {
-    man: person('cap', { ...base, c: '#7d3a33', C: '#5a2924', d: '#3a2a1c' }),
-    woman: person('dress', { ...base, s: '#f0c9a8', S: '#c9a284', c: '#3d5677', C: '#2c3e56', d: '#d8cdb0' }),
-  };
-  const PPAL = { ...RAT_PAL, e: '#f0b0ff' };
-  cut.plagueRats = { r: RAT_FRAMES.map(f => spriteFrom(f, PPAL, PLAGUE)), l: RAT_FRAMES.map(f => spriteFrom(flipH(f), PPAL, PLAGUE)) };
-  // street backdrop
-  const st = makeCanvas(STAGE_W, STAGE_H), g = st.getContext('2d');
-  const sky = g.createLinearGradient(0, 0, 0, 70); sky.addColorStop(0, '#141222'); sky.addColorStop(1, '#3b2a3a');
-  g.fillStyle = sky; g.fillRect(0, 0, STAGE_W, 70);
-  g.fillStyle = '#0f0d18'; for (let x = 0; x < STAGE_W; x += 18) { const h = 8 + (x * 7 % 13); g.fillRect(x, 40 - h, 14, h + 30); g.fillRect(x + 4, 40 - h - 5, 6, 5); }
-  const houses = [[0, 70, '#9d9070', '#8a4a32'], [70, 85, '#a8977a', '#4c5566'], [155, 85, '#93846a', '#76643a']];
-  for (const [x, w, plaster, roof] of houses) {
-    for (let i = 0; i < 22; i++) { g.fillStyle = shade(roof, 0.8 + (i % 2) * 0.15); g.fillRect(x + i * 2, 44 - Math.min(i, 22 - i), w - i * 4, 2); }
-    g.fillStyle = roof; g.fillRect(x - 2, 40, w + 4, 6); g.fillStyle = shade(roof, 0.7); g.fillRect(x - 2, 45, w + 4, 2);
-    g.fillStyle = plaster; g.fillRect(x, 47, w, 58);
-    g.fillStyle = '#3a2a1c'; g.fillRect(x, 47, w, 2); g.fillRect(x, 74, w, 2); g.fillRect(x, 103, w, 2);
-    for (let px = x; px <= x + w; px += 14) g.fillRect(Math.min(px, x + w - 2), 47, 2, 58);
-    for (let wx = x + 5; wx < x + w - 10; wx += 28) {
-      const lit = (wx / 28 | 0) % 2 === 0;
-      g.fillStyle = '#2e2016'; g.fillRect(wx, 54, 9, 12); g.fillStyle = lit ? '#d99a36' : '#1b242a'; g.fillRect(wx + 1, 55, 7, 10);
-      g.fillStyle = '#2e2016'; g.fillRect(wx + 4, 55, 1, 10); g.fillRect(wx + 1, 60, 7, 1); g.fillStyle = '#9a927f'; g.fillRect(wx - 1, 66, 11, 1);
-    }
-    g.fillStyle = '#4a3424'; g.fillRect(x + w - 22, 82, 12, 21); g.fillStyle = '#2e2016'; g.fillRect(x + w - 17, 82, 1, 21);
+// ---- V10 hi-res cutscene art: shared shape helpers -------------------------
+function ell(g, cx, cy, rx, ry, col) { // pixel-quantised filled ellipse
+  g.fillStyle = col;
+  const R = Math.ceil(ry);
+  for (let y = -R; y <= R; y++) {
+    const k = 1 - (y * y) / (ry * ry); if (k < 0) continue;
+    const w = Math.round(rx * Math.sqrt(k));
+    g.fillRect(Math.round(cx - w), Math.round(cy + y), w * 2 + 1, 1);
   }
-  for (let row = 0, y = 105; y < STAGE_H; y += 4, row++) for (let x = (row % 2) * 3; x < STAGE_W; x += 7) {
-    const c = ['#4b453d', '#413b34', '#48413a', '#3d3730'][(x + row) % 4]; g.fillStyle = '#2b231b'; g.fillRect(x - 1, y, 7, 4);
-    g.fillStyle = c; g.fillRect(x, y, 6, 3); g.fillStyle = shade(c, 1.2); g.fillRect(x, y, 6, 1);
-  }
-  g.fillStyle = '#0d0b09'; g.fillRect(196, 106, 20, 6); g.fillStyle = '#3a3a40'; for (let x = 197; x < 216; x += 3) g.fillRect(x, 106, 1, 6);
-  cut.bg.street = st;
-  // sewer backdrop
-  const sw = makeCanvas(STAGE_W, STAGE_H), s = sw.getContext('2d');
-  s.fillStyle = '#1c1a1e'; s.fillRect(0, 0, STAGE_W, STAGE_H);
-  for (let y = 0; y < 100; y += 5) for (let x = (y / 5 % 2) * 5 - 5; x < STAGE_W; x += 10) {
-    s.fillStyle = ['#2a2628', '#2f2a2b', '#262225', '#2b2729'][(x + y * 3) % 4]; s.fillRect(x, y, 9, 4); s.fillStyle = '#353032'; s.fillRect(x, y, 9, 1);
-  }
-  const arch = s.createRadialGradient(120, -40, 40, 120, -40, 190); arch.addColorStop(0, 'rgba(0,0,0,0)'); arch.addColorStop(1, 'rgba(0,0,0,.75)');
-  s.fillStyle = arch; s.fillRect(0, 0, STAGE_W, STAGE_H);
-  s.fillStyle = '#3a3634'; s.fillRect(0, 96, STAGE_W, 9); s.fillStyle = '#4e4946'; s.fillRect(0, 96, STAGE_W, 1); s.fillStyle = '#242022'; s.fillRect(0, 104, STAGE_W, 1);
-  for (let x = 0; x < STAGE_W; x += 12) { s.fillStyle = '#2e2a29'; s.fillRect(x, 97, 1, 7); }
-  s.fillStyle = '#14201c'; s.fillRect(0, 105, STAGE_W, 30);
-  s.fillStyle = '#0d0b09'; s.fillRect(188, 0, 18, 5); s.fillStyle = '#4a4a50'; for (let x = 189; x < 206; x += 3) s.fillRect(x, 0, 1, 5);
-  // broken pipe (scene 3 uses it)
-  s.fillStyle = '#4a4440'; s.fillRect(0, 52, 34, 9); s.fillStyle = '#5e5852'; s.fillRect(0, 52, 34, 2); s.fillStyle = '#2a2624'; s.fillRect(30, 52, 4, 9);
-  s.fillStyle = '#0d0b0a'; s.fillRect(32, 54, 2, 5);
-  cut.bg.sewer = sw;
+}
+function thick(g, x0, y0, x1, y1, w, col) { // a limb: a line of squares
+  const n = Math.max(1, Math.ceil(Math.hypot(x1 - x0, y1 - y0)));
+  g.fillStyle = col;
+  for (let i = 0; i <= n; i++) { const x = x0 + (x1 - x0) * i / n, y = y0 + (y1 - y0) * i / n; g.fillRect(Math.round(x - w / 2), Math.round(y - w / 2), w, w); }
 }
 
-function cutRat(x, y, dir, frame, plague, hop = 0) {
-  const set = plague ? cut.plagueRats : ratSprites, spr = set[dir][frame & 1];
-  if (hop > 0.5) { sc.fillStyle = 'rgba(0,0,0,.35)'; sc.fillRect(Math.round(x - 4), Math.round(y - 1), 8, 1); }
-  sc.drawImage(spr, Math.round(x - spr.width / 2), Math.round(y - spr.height - hop));
+// A rat, side on, about 44x20 px. Origin at its feet; dir 1 faces right.
+function ratHR(g, x, y, dir, t, o = {}) {
+  const run = o.run || 0, hop = o.hop || 0, plague = !!o.plague, ph = t * 22 + x * 0.3;
+  g.fillStyle = 'rgba(0,0,0,.35)'; g.fillRect(Math.round(x - 11), Math.round(y), 22, 2);
+  g.save(); g.translate(Math.round(x + (o.tremble ? Math.round(Math.sin(t * 50 + x)) : 0)), Math.round(y - hop)); g.scale(dir, 1);
+  if (plague) { g.globalAlpha = 0.3; ell(g, 2, -8, 17, 10, PLAGUE); g.globalAlpha = 1; }
+  // tail: tapering curve behind
+  for (let i = 0; i < 22; i++) {
+    const tx = -11 - i, ty = -5 - Math.sin(i / 22 * Math.PI) * 5 + Math.sin(t * 5 + i * 0.4) * (i / 22) * 2;
+    g.fillStyle = '#b07a74'; g.fillRect(Math.round(tx), Math.round(ty), 1, i < 9 ? 2 : 1);
+    if (i < 9) { g.fillStyle = '#8e5e59'; g.fillRect(Math.round(tx), Math.round(ty) + 2, 1, 1); }
+  }
+  // legs
+  const s = Math.sin(ph) * 3 * run, c = Math.cos(ph) * 2 * run;
+  g.fillStyle = '#9a6a64'; g.fillRect(Math.round(-7 - s), -3, 3, 3); g.fillRect(Math.round(7 + s), -3, 3, 3);
+  g.fillStyle = '#c98d86'; g.fillRect(Math.round(-5 + s), -2 - Math.max(0, c), 4, 2); g.fillRect(Math.round(9 - s), -2 - Math.max(0, -c), 4, 2);
+  // body: outline, fur, belly, highlight along the back
+  if (plague) { ell(g, 0, -8, 12, 7.5, PLAGUE); ell(g, 12, -9, 7, 5.5, PLAGUE); }
+  ell(g, 0, -8, 11, 6.5, '#3e3229');
+  ell(g, 0, -8, 10, 5.5, plague ? '#6a5560' : '#6e5b4c');
+  ell(g, 1, -5, 8, 2.5, plague ? '#8a7488' : '#8a7563');
+  ell(g, -2, -11, 6, 1.5, plague ? '#7e6874' : '#7f6a59');
+  g.fillStyle = '#4b3c31'; for (const [fx, fy] of [[-6, -10], [-2, -12], [3, -11], [-8, -8], [6, -10]]) g.fillRect(fx, fy, 2, 1);
+  if (plague) { g.fillStyle = '#2e0f3a'; g.fillRect(-3, -7, 2, 2); g.fillRect(4, -6, 1, 1); }
+  // head, snout, ear, eye, whiskers
+  ell(g, 12, -9, 6, 4.5, '#3e3229'); ell(g, 12, -9, 5, 3.5, plague ? '#6a5560' : '#6e5b4c');
+  ell(g, 17, -8, 3.5, 2.5, '#3e3229'); ell(g, 17, -8, 3, 2, plague ? '#6a5560' : '#6e5b4c');
+  g.fillStyle = '#e3a69e'; g.fillRect(20, -9, 2, 2);
+  ell(g, 9, -13, 3, 3, '#3e3229'); ell(g, 9, -13, 2, 2, '#c98d86');
+  g.fillStyle = plague ? '#f0b0ff' : '#ff3b2f'; g.fillRect(13, -11, 2, 2); g.fillStyle = '#fff'; g.fillRect(13, -11, 1, 1);
+  g.fillStyle = 'rgba(200,190,175,.8)'; for (const dy of [-2, 1]) for (let k = 0; k < 5; k++) g.fillRect(20 + k, -8 + Math.round(dy * k / 4), 1, 1);
+  g.restore();
 }
-function cutPerson(frames, x, y, faceLeft, frame, bob = 0) {
-  const s = frames[frame & 1], w = s.width * 2, h = s.height * 2, px = Math.round(x - w / 2), py = Math.round(y - h + bob);
-  sc.fillStyle = 'rgba(0,0,0,.35)'; sc.fillRect(px + 5, Math.round(y) - 1, w - 10, 2);
-  if (faceLeft) { sc.save(); sc.scale(-1, 1); sc.drawImage(s, -px - w, py, w, h); sc.restore(); }
-  else sc.drawImage(s, px, py, w, h);
+
+// A townsperson, side on, about 30x60 px. Origin at the feet; dir 1 faces right.
+// o.walk animates the legs, o.stamp (0-1) lifts the front boot, o.arm sets the front arm angle.
+function personHR(g, x, y, dir, t, P, o = {}) {
+  const ph = t * 9, stride = o.walk ? Math.sin(ph) : 0, lift = o.stamp || 0, dress = P.dress;
+  const k = o.scale || 1.3; // people stand a little larger than life so they read against the houses
+  g.fillStyle = 'rgba(0,0,0,.35)'; g.fillRect(Math.round(x - 13 * k), Math.round(y), Math.round(26 * k), 2);
+  g.save(); g.translate(Math.round(x), Math.round(y + (o.dip || 0))); g.scale(dir * k, k);
+  const leg = (hx, fx, fy, col) => {
+    thick(g, hx, -22, fx, fy - 4, 5, col);
+    g.fillStyle = '#24180f'; g.fillRect(Math.round(fx) - 3, Math.round(fy) - 4, 9, 4);
+    g.fillStyle = '#4a3424'; g.fillRect(Math.round(fx) - 3, Math.round(fy) - 4, 9, 1);
+  };
+  // back arm
+  const sw = o.arm !== undefined ? o.arm : stride * 0.5;
+  thick(g, -1, -40, -1 - Math.sin(-sw) * 13, -40 + Math.cos(sw) * 13, 4, shade(P.cloth, 0.6));
+  // legs
+  if (!dress) { leg(-2, -3 - stride * 5, -Math.max(0, -stride) * 3, P.legsD); leg(2, 3 + stride * 5 + lift * 4, -lift * 12 - Math.max(0, stride) * 3, P.legs); }
+  else { g.fillStyle = '#24180f'; g.fillRect(-6 + Math.round(stride * 3), -3, 7, 3); g.fillRect(1 - Math.round(stride * 3), -3, 7, 3); }
+  // torso (a dress flares to the ground)
+  const top = -44, bottom = dress ? -3 : -21;
+  for (let yy = top; yy <= bottom; yy++) {
+    const k = (yy - top) / (bottom - top), half = dress ? 7 + Math.round(k * k * 6) : 7 + (yy > -26 ? 1 : 0);
+    g.fillStyle = P.cloth; g.fillRect(-half, yy, half * 2, 1);
+    g.fillStyle = shade(P.cloth, 0.72); g.fillRect(-half, yy, Math.ceil(half * 0.7), 1);    // back is in shade
+    g.fillStyle = shade(P.cloth, 1.12); g.fillRect(half - 2, yy, 2, 1);                       // light catches the front
+  }
+  if (dress) { for (let yy = -32; yy <= -6; yy++) { g.fillStyle = yy % 5 ? P.apron : shade(P.apron, 0.85); g.fillRect(1, yy, 6 + Math.round((yy + 32) / 9), 1); } }
+  else { g.fillStyle = '#3a2a1c'; g.fillRect(-8, -25, 16, 3); g.fillStyle = '#b89a50'; g.fillRect(3, -25, 3, 3); }
+  // neck and head
+  g.fillStyle = shade(P.skin, 0.85); g.fillRect(-2, -48, 5, 5);
+  ell(g, 1, -53, 7, 7, shade(P.skin, 0.8)); ell(g, 2, -53, 6, 6.5, P.skin);
+  g.fillStyle = P.skin; g.fillRect(8, -53, 1, 3); g.fillStyle = shade(P.skin, 0.75); g.fillRect(8, -51, 1, 1); // nose
+  g.fillStyle = '#1d1712'; g.fillRect(5, -56, 2, 2); g.fillStyle = shade(P.hair, 0.8); g.fillRect(4, -58, 4, 1);
+  g.fillStyle = '#5a2a24'; g.fillRect(4, -48, 4, 1);                                            // mouth
+  if (P.stubble) { g.fillStyle = 'rgba(60,40,30,.5)'; g.fillRect(1, -49, 7, 3); }
+  if (dress) { // headscarf
+    ell(g, -1, -55, 8, 8, '#c4bca8'); ell(g, 0, -56, 7, 7, '#e6dfcc');
+    ell(g, 3, -52, 5, 5, P.skin); g.fillStyle = '#1d1712'; g.fillRect(5, -56, 2, 2);
+    g.fillStyle = '#c4bca8'; g.fillRect(-8, -50, 5, 8);
+  } else { // cap with a brim
+    ell(g, 0, -59, 8, 4, shade(P.cap, 0.8)); ell(g, 1, -60, 7, 3.5, P.cap);
+    g.fillStyle = shade(P.cap, 0.7); g.fillRect(-6, -57, 17, 2);
+    g.fillStyle = P.hair; g.fillRect(-7, -56, 4, 6);
+  }
+  // front arm with hand
+  const ax = Math.sin(sw) * 13, ay = Math.cos(sw) * 13;
+  thick(g, 2, -40, 2 + ax, -40 + ay, 5, P.cloth);
+  ell(g, 2 + ax, -40 + ay + 1, 2.5, 2.5, P.skin);
+  g.restore();
 }
+
 function cutBurst(x, y, n, cols, sp = 20, life = 0.6, up = 10) {
   for (let i = 0; i < n; i++) { const a = Math.random() * Math.PI * 2, v = sp * (0.4 + Math.random()); cut.parts.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v - up, life, max: life, col: pick(Math.random, cols) }); }
 }
-function cutBang(x, y) { sc.fillStyle = '#f2c14a'; sc.fillRect(Math.round(x), Math.round(y), 1, 4); sc.fillRect(Math.round(x), Math.round(y) + 5, 1, 1); }
+// ---- V10 hi-res backdrops ---------------------------------------------------
+function bandSky(g, w, top, bottom, cols) { // stepped gradient with a dithered seam between bands
+  const bh = (bottom - top) / cols.length;
+  cols.forEach((c, i) => { g.fillStyle = c; g.fillRect(0, Math.round(top + i * bh), w, Math.ceil(bh) + 1); });
+  cols.forEach((c, i) => { if (!i) return; g.fillStyle = c; const y = Math.round(top + i * bh) - 1; for (let x = (i % 2); x < w; x += 2) g.fillRect(x, y, 1, 1); });
+}
+function streetBackdrop() {
+  const W = STAGE_W, H = STAGE_H, c = makeCanvas(W, H), g = c.getContext('2d'), rng = mulberry32(77);
+  bandSky(g, W, 0, 150, ['#0d0c1a', '#131226', '#1b1730', '#241c36', '#2e2138', '#3a2738', '#4a2f38']);
+  for (let i = 0; i < 40; i++) px1(g, rng() * W | 0, rng() * 70 | 0, rng() < .3 ? '#e9e2c8' : '#8a87a0');
+  // moon with a halo and craters
+  g.globalAlpha = 0.12; ell(g, 400, 42, 26, 26, '#e9e2c8'); g.globalAlpha = 0.2; ell(g, 400, 42, 19, 19, '#e9e2c8'); g.globalAlpha = 1;
+  ell(g, 400, 42, 14, 14, '#d8d0b4'); ell(g, 398, 40, 12, 12, '#ece5cc');
+  ell(g, 404, 46, 3, 2, '#cfc6a8'); ell(g, 394, 37, 2, 2, '#d6ceb2'); ell(g, 402, 36, 1.5, 1.5, '#d0c8ac');
+  for (const [cx, cy, w] of [[90, 30, 70], [300, 55, 90], [190, 18, 50]]) { ell(g, cx, cy, w / 2, 3, '#2a2340'); ell(g, cx + 6, cy - 2, w / 3, 2.5, '#332a48'); }
+  // far skyline: roofs, a church spire, a tower
+  g.fillStyle = '#17131f';
+  for (let x = -10; x < W; x += 26 + (rng() * 14 | 0)) { const h = 30 + (rng() * 26 | 0); g.fillRect(x, 150 - h, 24, h); for (let k = 0; k < 10; k++) g.fillRect(x + k, 150 - h - k, 24 - k * 2, 1); }
+  g.fillRect(286, 60, 16, 90); for (let k = 0; k < 40; k++) g.fillRect(294 - k / 5, 20 + k, Math.max(1, k / 2.5), 1); g.fillRect(293, 10, 2, 12); g.fillRect(290, 14, 8, 2);
+  g.fillRect(150, 70, 22, 80); g.fillRect(146, 66, 30, 6); for (let x = 146; x < 176; x += 6) g.fillRect(x, 62, 3, 4);
+  for (let i = 0; i < 26; i++) { g.fillStyle = rng() < .5 ? '#a8702e' : '#6e4a24'; g.fillRect(rng() * W | 0, 95 + (rng() * 50 | 0), 2, 2); }
+  // four timber-framed houses with jettied upper floors
+  const houses = [
+    { x: 0, w: 116, plaster: '#a8977a', roof: '#8a4a32' }, { x: 116, w: 128, plaster: '#b2a283', roof: '#4c5566' },
+    { x: 244, w: 112, plaster: '#9d9070', roof: '#76643a' }, { x: 356, w: 124, plaster: '#a79878', roof: '#6e3d36' },
+  ];
+  const beam = '#3a2a1c', beamHi = '#5a4028';
+  for (const h of houses) {
+    const { x, w } = h, mid = x + w / 2, eaves = 92, peak = 34, up = 96, down = 150, base = 212;
+    // gable roof edge (barge boards) and gable plaster
+    for (let yy = peak; yy < eaves; yy++) {
+      const half = (yy - peak) / (eaves - peak) * (w / 2 + 6);
+      g.fillStyle = shade(h.roof, 0.75); g.fillRect(Math.round(mid - half - 4), yy, Math.round(half * 2 + 8), 1);
+      g.fillStyle = h.roof; g.fillRect(Math.round(mid - half - 2), yy, Math.round(half * 2 + 4), 1);
+      g.fillStyle = h.plaster; g.fillRect(Math.round(mid - half + 3), yy, Math.max(0, Math.round(half * 2 - 6)), 1);
+    }
+    for (let yy = peak; yy < eaves; yy += 3) { const half = (yy - peak) / (eaves - peak) * (w / 2 + 6); g.fillStyle = shade(h.roof, 1.15); g.fillRect(Math.round(mid - half - 3), yy, 2, 1); g.fillRect(Math.round(mid + half + 1), yy, 2, 1); }
+    // gable timbers: king post and braces
+    g.fillStyle = beam; g.fillRect(mid - 1, peak + 6, 3, eaves - peak - 6);
+    thick(g, mid, peak + 14, mid - w / 4, eaves - 2, 2, beam); thick(g, mid, peak + 14, mid + w / 4, eaves - 2, 2, beam);
+    // jettied upper floor, wider than the ground floor, casting a shadow below
+    g.fillStyle = h.plaster; g.fillRect(x - 2, eaves, w + 4, down - eaves);
+    g.fillStyle = shade(h.plaster, 0.9); g.fillRect(x + 2, up, w - 4, base - up);
+    g.fillStyle = h.plaster; g.fillRect(x + 4, down + 4, w - 8, base - down - 4);
+    g.fillStyle = 'rgba(0,0,0,.4)'; g.fillRect(x + 4, down + 4, w - 8, 5);
+    // timber frame: rails, posts, braces
+    g.fillStyle = beam; g.fillRect(x - 3, eaves - 1, w + 6, 4); g.fillRect(x - 3, down, w + 6, 5); g.fillRect(x + 4, base - 3, w - 8, 3);
+    g.fillStyle = beamHi; g.fillRect(x - 3, eaves - 1, w + 6, 1); g.fillRect(x - 3, down, w + 6, 1);
+    for (let px = x; px <= x + w; px += 24) { g.fillStyle = beam; g.fillRect(Math.min(px, x + w - 3), eaves, 3, down - eaves); g.fillRect(Math.min(px, x + w - 3) + 4, down + 4, 3, base - down - 4); }
+    for (let px = x + 24; px < x + w - 20; px += 48) { thick(g, px + 2, eaves + 3, px + 22, down - 2, 2, beam); thick(g, px + 46, eaves + 3, px + 26, down - 2, 2, beam); }
+    // plaster wear: a damp stain and a patch of exposed brick
+    g.globalAlpha = 0.18; ell(g, x + 14 + (rng() * (w - 30) | 0), down + 30, 8, 14, '#3a2e20'); g.globalAlpha = 1;
+    const bx = x + 10 + (rng() * (w - 40) | 0), by = down + 34;
+    for (let r = 0; r < 3; r++) for (let k = 0; k < 4; k++) { g.fillStyle = '#4a2e22'; g.fillRect(bx + k * 6 + (r % 2) * 3 - 1, by + r * 4, 7, 4); g.fillStyle = (k + r) % 2 ? '#7a4a36' : '#8a5440'; g.fillRect(bx + k * 6 + (r % 2) * 3, by + r * 4, 5, 3); }
+    // upper windows: leaded diamond panes, some lit
+    for (let wx = x + 10; wx < x + w - 24; wx += 48) {
+      const lit = rng() < 0.6, wy = eaves + 14;
+      g.fillStyle = beam; g.fillRect(wx - 2, wy - 2, 22, 28);
+      g.fillStyle = lit ? '#d99a36' : '#1b242a'; g.fillRect(wx, wy, 18, 24);
+      if (lit) { g.fillStyle = '#f4cc6a'; g.fillRect(wx + 2, wy + 2, 6, 8); }
+      g.fillStyle = lit ? '#8a5a1c' : '#0f1418';
+      for (let k = -24; k < 24; k += 5) for (let s = 0; s < 24; s++) { const a = wx + k + s, b = wx + k + 24 - s; if (a >= wx && a < wx + 18) g.fillRect(a, wy + s, 1, 1); if (b >= wx && b < wx + 18) g.fillRect(b, wy + s, 1, 1); }
+      g.fillStyle = '#9a927f'; g.fillRect(wx - 3, wy + 24, 24, 3); g.fillStyle = '#b8b0a0'; g.fillRect(wx - 3, wy + 24, 24, 1);
+      g.fillStyle = '#4a5e3a'; g.fillRect(wx - 7, wy - 2, 5, 28); g.fillRect(wx + 20, wy - 2, 5, 28);
+      g.fillStyle = '#3a4a2e'; for (let s = 0; s < 28; s += 4) { g.fillRect(wx - 7, wy - 2 + s, 5, 1); g.fillRect(wx + 20, wy - 2 + s, 5, 1); }
+    }
+    // ground floor: an arched door with iron hinges and a step, and a bullseye-glass shop window
+    const dx = x + w - 34;
+    g.fillStyle = beam; g.fillRect(dx - 3, base - 46, 24, 46); ell(g, dx + 9, base - 46, 12, 7, beam);
+    g.fillStyle = '#5a3d26'; g.fillRect(dx, base - 44, 18, 44); ell(g, dx + 9, base - 44, 9, 5, '#5a3d26');
+    g.fillStyle = '#4a3220'; for (let k = 3; k < 18; k += 4) g.fillRect(dx + k, base - 47, 1, 47);
+    g.fillStyle = '#2a2a2e'; g.fillRect(dx, base - 36, 12, 2); g.fillRect(dx, base - 14, 12, 2); g.fillStyle = '#c9a560'; g.fillRect(dx + 14, base - 24, 2, 2);
+    g.fillStyle = '#7d776b'; g.fillRect(dx - 4, base, 26, 4); g.fillStyle = '#958e7f'; g.fillRect(dx - 4, base, 26, 1);
+    const sx = x + 12;
+    g.fillStyle = beam; g.fillRect(sx - 2, down + 14, 36, 30);
+    for (let r = 0; r < 2; r++) for (let k = 0; k < 3; k++) { ell(g, sx + 5 + k * 11, down + 22 + r * 13, 5, 5, '#1b2a30'); ell(g, sx + 5 + k * 11, down + 22 + r * 13, 2, 2, '#3a5a64'); px1(g, sx + 3 + k * 11, down + 20 + r * 13, '#8aaab4'); }
+  }
+  // a tavern sign on a bracket and a wall lantern
+  g.fillStyle = '#2a2a2e'; g.fillRect(232, 108, 30, 2); g.fillRect(236, 110, 1, 6); g.fillRect(256, 110, 1, 6);
+  g.fillStyle = '#3a2a1c'; g.fillRect(232, 116, 30, 22); g.fillStyle = '#7a5b3b'; g.fillRect(234, 118, 26, 18);
+  g.drawImage(iconSprites.tankard, 241, 121, 12, 12);
+  g.fillStyle = '#2a2a2e'; g.fillRect(104, 160, 10, 2); g.fillRect(112, 156, 2, 6);
+  // street: kerb, then cobbles that grow toward the viewer, a gutter and a drain
+  g.fillStyle = '#5f594e'; g.fillRect(0, 212, W, 6); g.fillStyle = '#7d776b'; g.fillRect(0, 212, W, 2); g.fillStyle = '#2b231b'; g.fillRect(0, 218, W, 2);
+  let yy = 220;
+  for (let row = 0; yy < H; row++) {
+    const h = 6 + row, sw = 10 + row * 2;
+    for (let xx = -(row % 2) * (sw >> 1); xx < W; xx += sw) {
+      const col = pick(rng, ['#4b453d', '#464038', '#514a41', '#413b34', '#4f463b']);
+      g.fillStyle = '#251e17'; g.fillRect(xx, yy, sw, h);
+      g.fillStyle = col; g.fillRect(xx + 1, yy + 1, sw - 2, h - 2);
+      g.fillStyle = shade(col, 1.2); g.fillRect(xx + 2, yy + 1, sw - 4, 1);
+      g.fillStyle = shade(col, 0.75); g.fillRect(xx + 1, yy + h - 2, sw - 2, 1);
+    }
+    yy += h;
+  }
+  g.fillStyle = '#1d2a30'; ell(g, 170, 252, 22, 4, '#1d2a30'); ell(g, 170, 252, 18, 3, '#2a3f48'); g.fillStyle = '#6a8592'; g.fillRect(160, 251, 8, 1); // puddle
+  g.fillStyle = '#0d0b09'; g.fillRect(392, 222, 40, 9); g.fillStyle = '#4a4a50'; for (let gx = 393; gx < 432; gx += 4) g.fillRect(gx, 222, 2, 9); g.fillStyle = '#6a6a70'; g.fillRect(392, 222, 40, 1);
+  for (let i = 0; i < 30; i++) { g.fillStyle = pick(rng, ['#8c7438', '#a08648']); g.fillRect(rng() * W | 0, 224 + (rng() * 40 | 0), 3, 1); }
+  return c;
+}
+function sewerBackdrop() {
+  const W = STAGE_W, H = STAGE_H, c = makeCanvas(W, H), g = c.getContext('2d'), rng = mulberry32(91);
+  g.fillStyle = '#141215'; g.fillRect(0, 0, W, H);
+  for (let y = 0; y < 196; y += 8) for (let x = ((y / 8) % 2) * 8 - 8; x < W; x += 16) {
+    const col = pick(rng, ['#2a2628', '#2f2a2b', '#262225', '#2b2729', '#312b2a']);
+    g.fillStyle = '#18151a'; g.fillRect(x, y, 16, 8);
+    g.fillStyle = col; g.fillRect(x + 1, y + 1, 14, 6);
+    g.fillStyle = shade(col, 1.18); g.fillRect(x + 1, y + 1, 14, 1);
+    g.fillStyle = shade(col, 0.8); g.fillRect(x + 1, y + 6, 14, 1);
+  }
+  // the arch: dark outside, a ring of radiating voussoirs
+  for (let y = 0; y < 196; y++) for (let x = 0; x < W; x++) {
+    const d = Math.hypot((x - 240) / 1.35, (y - 200) * 1.0);
+    if (d > 200) { g.fillStyle = '#08070a'; g.fillRect(x, y, 1, 1); }
+    else if (d > 186) { const a = Math.atan2(y - 200, x - 240), seg = Math.floor(a * 14); g.fillStyle = (a * 14) % 1 > 0.9 ? '#141215' : seg % 2 ? '#3a3436' : '#332e30'; g.fillRect(x, y, 1, 1); }
+  }
+  const dark = g.createLinearGradient(0, 0, 0, 200); dark.addColorStop(0, 'rgba(0,0,0,.55)'); dark.addColorStop(1, 'rgba(0,0,0,0)');
+  g.fillStyle = dark; g.fillRect(0, 0, W, 200);
+  // slime streaks and moss where the damp gathers
+  for (let i = 0; i < 18; i++) { const x = rng() * W | 0, y = 80 + (rng() * 60 | 0), l = 10 + (rng() * 40 | 0); g.globalAlpha = 0.25; g.fillStyle = '#2f3a24'; g.fillRect(x, y, 2, l); g.globalAlpha = 1; }
+  for (let i = 0; i < 16; i++) { const x = rng() * W | 0; ell(g, x, 186, 6 + rng() * 6, 2.5, '#2f4424'); ell(g, x - 1, 185, 3, 1.5, '#4a6630'); }
+  // a pipe along the wall with brackets and rivets
+  g.fillStyle = '#3a3634'; g.fillRect(120, 70, W - 120, 10); g.fillStyle = '#56504a'; g.fillRect(120, 70, W - 120, 2); g.fillStyle = '#26221f'; g.fillRect(120, 79, W - 120, 1);
+  for (let x = 140; x < W; x += 60) { g.fillStyle = '#2a2a2e'; g.fillRect(x, 68, 4, 14); g.fillStyle = '#6a6a70'; g.fillRect(x + 1, 72, 1, 1); g.fillRect(x + 1, 77, 1, 1); }
+  // ladder up to the grate, and the grate itself
+  g.fillStyle = '#4a3a30'; g.fillRect(372, 0, 3, 192); g.fillRect(398, 0, 3, 192);
+  for (let y = 10; y < 190; y += 14) { g.fillStyle = '#5a4434'; g.fillRect(372, y, 29, 3); g.fillStyle = '#7a5a40'; g.fillRect(372, y, 29, 1); }
+  g.fillStyle = '#08070a'; g.fillRect(370, 0, 34, 8); g.fillStyle = '#5a5a60'; for (let x = 371; x < 404; x += 5) g.fillRect(x, 0, 2, 8);
+  // the broken pipe the plague comes from
+  g.fillStyle = '#4a4440'; g.fillRect(0, 100, 66, 16); g.fillStyle = '#6a625a'; g.fillRect(0, 100, 66, 3); g.fillStyle = '#2a2624'; g.fillRect(0, 114, 66, 2);
+  g.fillStyle = '#3a3430'; g.fillRect(56, 98, 12, 20); g.fillStyle = '#5e5852'; g.fillRect(56, 98, 12, 2);
+  g.fillStyle = '#0d0b0a'; ell(g, 66, 108, 3, 6, '#0d0b0a');
+  for (const x of [8, 30, 48]) { g.fillStyle = '#7a6a5a'; g.fillRect(x, 103, 2, 2); }
+  // the ledge: stone slabs with a lit edge, some bones
+  g.fillStyle = '#3a3634'; g.fillRect(0, 192, W, 18); g.fillStyle = '#56504a'; g.fillRect(0, 192, W, 2); g.fillStyle = '#26221f'; g.fillRect(0, 208, W, 2);
+  for (let x = 0; x < W; x += 28) { g.fillStyle = '#2a2624'; g.fillRect(x, 194, 1, 14); }
+  g.fillStyle = '#cfc6b0'; g.fillRect(300, 194, 8, 2); g.fillRect(299, 193, 2, 4); g.fillRect(307, 193, 2, 4); g.fillRect(250, 195, 5, 1);
+  // water
+  bandSky(g, W, 210, H, ['#13201c', '#111c19', '#0f1916', '#0d1513']);
+  return c;
+}
 
-// Scene 1: a rat nibbling crumbs is stamped at and swept toward the drain.
+// ---- V10 hi-res scenes (stage 480x270) --------------------------------------
+const STREET_PEOPLE = {
+  man: { cloth: '#7d3a33', legs: '#2c3340', legsD: '#22283a', skin: '#e2b48f', hair: '#3a2a1c', cap: '#4a3a28', stubble: true },
+  woman: { cloth: '#3d5677', skin: '#f0c9a8', hair: '#3a2a1c', apron: '#d8cdb0', dress: true },
+};
+function cutAssets() {
+  if (cut.bg.street) return;
+  cut.bg.street = streetBackdrop();
+  cut.bg.sewer = sewerBackdrop();
+}
+function drawSmoke(t, x, y) { // chimney smoke drifting off to the right
+  for (let i = 0; i < 6; i++) {
+    const k = ((t * 0.35 + i / 6) % 1), r = 3 + k * 7;
+    sc.globalAlpha = 0.28 * (1 - k); ell(sc, x + k * 26 + Math.sin(t + i) * 2, y - k * 40, r, r * 0.8, '#6e6a72');
+  }
+  sc.globalAlpha = 1;
+}
 function sceneStreet(t) {
   sc.drawImage(cut.bg.street, 0, 0);
-  const G = 118, P = cut.people, f = Math.floor(t * 6);
-  const manX = t < 0.6 ? -30 : lerp(-30, 72, span(t, 0.6, 1.9)), manWalk = t > 0.6 && t < 1.9;
-  const womanX = t < 2.2 ? 270 : lerp(270, 160, span(t, 2.2, 3.0)), womanWalk = t > 2.2 && t < 3.0;
-  let ratX = 100, ratHop = 0, ratDir = 'l', ratF = Math.floor(t * 4), gone = false;
-  if (t > 2.0 && t < 2.45) { const k = span(t, 2.0, 2.45); ratX = lerp(100, 132, k); ratHop = Math.sin(k * Math.PI) * 14; ratDir = 'r'; ratF = f; }
-  else if (t >= 2.45 && t < 3.15) { ratX = 132; ratDir = 'l'; }
-  else if (t >= 3.15 && t < 3.5) { const k = span(t, 3.15, 3.5); ratX = lerp(132, 120, k); ratHop = Math.sin(k * Math.PI) * 6; ratDir = 'r'; }
-  else if (t >= 3.5) { const k = span(t, 3.5, 4.5); ratX = lerp(120, 206, k); ratDir = 'r'; ratF = Math.floor(t * 14); if (t > 4.5) gone = true; }
-  if (!gone || t < 4.7) {
-    if (t < 2.0) { sc.fillStyle = '#c9a26a'; sc.fillRect(94, G - 1, 2, 1); sc.fillRect(97, G - 1, 1, 1); } // crumbs
-    if (!gone) cutRat(ratX, G, ratDir, t < 2.0 ? (Math.floor(t * 3) & 1) : ratF, false, ratHop);
-  }
-  if ((t > 2.0 && t < 2.7) || (t > 3.15 && t < 3.7)) cutBang(ratX - 1, G - 18);
-  // the man stamps at 2.0
-  const stamp = t > 1.9 && t < 2.15 ? -3 : t > 2.15 && t < 2.3 ? 1 : 0;
-  const fist = t > 4.6 ? Math.round(Math.sin(t * 30)) : 0; // he shakes his fist after the rat escapes
-  cutPerson(P.man, manX + fist, G + 2, false, manWalk ? f : 0, stamp);
-  // the woman sweeps at 3.1
-  cutPerson(P.woman, womanX, G + 2, true, womanWalk ? f : 0);
-  const sweep = t < 3.0 ? -0.9 : t < 3.15 ? lerp(-0.9, 0.6, span(t, 3.0, 3.15)) : lerp(0.6, -0.6, span(t, 3.15, 3.8));
-  const hx = womanX - 8, hy = G - 16, bx = hx + Math.sin(sweep + Math.PI) * 18, by = hy + Math.cos(sweep) * 18;
-  linePx(sc, hx, hy, bx, by, '#6b4f33');
-  sc.fillStyle = '#b8a060'; sc.fillRect(Math.round(bx) - 3, Math.round(by) - 1, 7, 3); sc.fillStyle = '#8c7438'; sc.fillRect(Math.round(bx) - 3, Math.round(by) + 1, 7, 1);
-  if (t > 2.0 && !cut.s1a) { cut.s1a = 1; cutBurst(manX + 8, G, 8, ['#8b8173', '#6e655a'], 18, 0.5, 4); }
-  if (t > 3.15 && !cut.s1b) { cut.s1b = 1; cutBurst(ratX, G - 3, 6, ['#b8a060', '#8b8173'], 16, 0.5, 6); }
-  if (t > 4.5 && !cut.s1c) { cut.s1c = 1; cutBurst(206, 108, 5, ['#4a5a60', '#2c3438'], 10, 0.4, 4); }
+  drawSmoke(t, 60, 26); drawSmoke(t + 1.3, 300, 22);
+  const fl = 0.75 + Math.random() * 0.25; // lantern flicker
+  sc.globalAlpha = 0.18 * fl; ell(sc, 107, 168, 22, 22, '#f4b84a'); sc.globalAlpha = 1;
+  sc.fillStyle = '#2a2a2e'; sc.fillRect(103, 162, 9, 11); sc.fillStyle = '#f4cc6a'; sc.fillRect(105, 164, 5, 7); sc.fillStyle = '#fff2c0'; sc.fillRect(106, 166, 2, 3);
+  const G = 236, P = STREET_PEOPLE;
+  const manX = lerp(-60, 144, span(t, 0.6, 1.9)), womanX = lerp(540, 320, span(t, 2.2, 3.0));
+  let ratX = 200, hop = 0, dir = -1, run = 0, gone = false;
+  if (t > 2.0 && t < 2.45) { const k = span(t, 2.0, 2.45); ratX = lerp(200, 264, k); hop = Math.sin(k * Math.PI) * 26; dir = 1; run = 1; }
+  else if (t >= 2.45 && t < 3.15) { ratX = 264; }
+  else if (t >= 3.15 && t < 3.5) { const k = span(t, 3.15, 3.5); ratX = lerp(264, 240, k); hop = Math.sin(k * Math.PI) * 12; dir = 1; }
+  else if (t >= 3.5) { ratX = lerp(240, 412, span(t, 3.5, 4.5)); dir = 1; run = 1.4; gone = t > 4.5; }
+  if (t < 2.0) { sc.fillStyle = '#c9a26a'; sc.fillRect(186, G - 2, 3, 2); sc.fillRect(191, G - 1, 2, 1); sc.fillRect(181, G - 1, 2, 1); }
+  if (!gone) ratHR(sc, ratX, G, dir, t, { run, hop, nibble: t < 2.0 });
+  if ((t > 2.0 && t < 2.7) || (t > 3.15 && t < 3.7)) { sc.fillStyle = '#f2c14a'; sc.fillRect(Math.round(ratX) - 1, G - 44, 3, 9); sc.fillRect(Math.round(ratX) - 1, G - 32, 3, 3); }
+  const stamp = t > 1.6 && t < 1.95 ? span(t, 1.6, 1.95) : t >= 1.95 && t < 2.05 ? 1 - span(t, 1.95, 2.05) : 0;
+  const fist = t > 4.6 ? Math.sin(t * 22) * 0.6 - 2.4 : undefined;
+  personHR(sc, manX, G + 2, 1, t, P.man, { walk: t > 0.6 && t < 1.6, stamp, dip: t > 1.98 && t < 2.15 ? 2 : 0, arm: fist });
+  const sweep = t < 3.0 ? 0.6 : t < 3.15 ? lerp(0.6, -0.5, span(t, 3.0, 3.15)) : lerp(-0.5, 0.5, span(t, 3.15, 3.8));
+  personHR(sc, womanX, G + 2, -1, t, P.woman, { walk: t > 2.2 && t < 3.0, arm: 0.9 + sweep * 0.4 });
+  // broom held in front of her, swinging low across the cobbles
+  const hx = womanX - 16, hy = G - 38, bx = hx - Math.sin(1.2 + sweep) * 36, by = hy + Math.cos(0.3 + sweep * 0.5) * 36;
+  thick(sc, hx, hy, bx, by, 2, '#6b4f33');
+  for (let k = -5; k <= 5; k++) thick(sc, bx, by, bx + k * 1.2 - 3, by + 9, 1, k % 2 ? '#b8a060' : '#8c7438');
+  sc.fillStyle = '#5a4028'; sc.fillRect(Math.round(bx) - 4, Math.round(by) - 1, 8, 3);
+  if (t > 2.0 && !cut.s1a) { cut.s1a = 1; cutBurst(manX + 16, G, 14, ['#8b8173', '#6e655a'], 36, 0.5, 8); }
+  if (t > 3.15 && !cut.s1b) { cut.s1b = 1; cutBurst(ratX, G - 6, 10, ['#b8a060', '#8b8173'], 32, 0.5, 12); }
+  if (t > 4.5 && !cut.s1c) { cut.s1c = 1; cutBurst(412, 224, 8, ['#4a5a60', '#2c3438'], 20, 0.4, 8); }
 }
 
-// Scenes 2 and 3 share the sewer. huddled = the frightened rats on the ledge.
-const HUDDLE = [[128, 0], [136, 1], [143, 0], [150, 1], [157, 0], [133, 3], [147, 3], [140, 5], [154, 4], [162, 2]];
+const HUDDLE = [[256, 0], [272, 2], [286, 0], [300, 2], [314, 0], [266, 6], [294, 6], [280, 10], [308, 8], [324, 4]];
 function sewerBase(t) {
   sc.drawImage(cut.bg.sewer, 0, 0);
-  sc.fillStyle = '#22302a'; for (let r = 0; r < 6; r++) { const x = ((r * 47 + t * 12) % 260) - 20; sc.fillRect(Math.round(x), 108 + r * 4, 14, 1); } // water ripples
-  sc.fillStyle = 'rgba(255,236,190,.07)'; // light from the grate above
-  sc.beginPath(); sc.moveTo(188, 0); sc.lineTo(206, 0); sc.lineTo(176, 105); sc.lineTo(146, 105); sc.fill();
+  // light shaft from the grate, with dust drifting in it
+  sc.fillStyle = 'rgba(255,236,190,.07)'; sc.beginPath(); sc.moveTo(372, 0); sc.lineTo(404, 0); sc.lineTo(352, 210); sc.lineTo(292, 210); sc.fill();
+  sc.fillStyle = 'rgba(255,236,190,.05)'; sc.beginPath(); sc.moveTo(380, 0); sc.lineTo(398, 0); sc.lineTo(340, 210); sc.lineTo(306, 210); sc.fill();
+  for (let i = 0; i < 14; i++) { const k = (t * 0.06 + i / 14) % 1; sc.fillStyle = 'rgba(255,240,210,.5)'; sc.fillRect(Math.round(390 - k * 70 + Math.sin(t + i) * 6), Math.round(k * 200), 1, 1); }
+  // water: drifting ripples and the shaft's reflection
+  for (let r = 0; r < 28; r += 2) { sc.fillStyle = `rgba(255,236,190,${(0.07 * (1 - r / 28)).toFixed(3)})`; sc.fillRect(296 + Math.round(Math.sin(t * 2 + r) * 3) - r, 212 + r * 2, 60 + r, 1); } // shaft's broken reflection
+  for (let r = 0; r < 10; r++) { const x = ((r * 61 + t * (10 + r)) % 540) - 30; sc.fillStyle = r % 2 ? '#1e2e28' : '#22342e'; sc.fillRect(Math.round(x), 216 + r * 5, 18 + r * 2, 1); }
 }
-function sceneSewer(t) { // t runs 0..6 within the scene
+function sceneSewer(t) {
   sewerBase(t + 6);
-  for (const [dt, x] of DRIPS) { // drips falling from the roof, then a ring in the water
-    const k = (t + 6 - dt) / 0.5;
-    if (k > 0 && k < 1) { sc.fillStyle = '#6a8a90'; sc.fillRect(x, Math.round(lerp(4, 106, k * k)), 1, 2); }
-    else if (k >= 1 && k < 2.2) { const r = Math.round((k - 1) * 5); sc.fillStyle = 'rgba(120,150,150,.5)'; sc.fillRect(x - r, 107, r * 2 + 1, 1); }
+  for (const [dt, x0] of DRIPS) {
+    const x = x0 * 2, k = (t + 6 - dt) / 0.5;
+    if (k > 0 && k < 1) { sc.fillStyle = '#7a9aa0'; sc.fillRect(x, Math.round(lerp(10, 212, k * k)), 1, 3); }
+    else if (k >= 1 && k < 2.4) { const r = Math.round((k - 1) * 9); sc.fillStyle = 'rgba(140,170,170,.5)'; sc.fillRect(x - r, 214, r * 2 + 1, 1); sc.fillRect(x - (r >> 1), 216, r + 1, 1); }
   }
-  for (const [x, row] of HUDDLE) { // trembling, eyes glinting
-    const j = Math.round(Math.sin(t * 40 + x) * 0.6);
-    cutRat(x + j, 97 - row, x % 2 ? 'l' : 'r', 0, false);
-  }
-  // the rat from the street drops through the grate and swims to the others
+  for (const [x, row] of HUDDLE) ratHR(sc, x, 192 - row, x % 4 ? -1 : 1, t, { tremble: true });
   if (t > 0.4) {
-    if (t < 0.9) { const k = span(t, 0.4, 0.9); cutRat(lerp(196, 186, k), lerp(8, 108, k * k), 'l', 0, false); }
-    else if (t < 2.2) { if (!cut.s2a) { cut.s2a = 1; cutBurst(186, 106, 10, ['#6a8a90', '#a0c0c8'], 22, 0.5, 14); } cutRat(lerp(186, 172, span(t, 0.9, 2.2)), 110 + Math.sin(t * 8), 'l', Math.floor(t * 8), false); }
-    else { const k = span(t, 2.2, 2.6); cutRat(lerp(172, 168, k), lerp(110, 97, k), 'l', 0, false, Math.sin(k * Math.PI) * 4); }
+    if (t < 0.9) { const k = span(t, 0.4, 0.9); ratHR(sc, lerp(390, 372, k), lerp(16, 216, k * k), -1, t, {}); }
+    else if (t < 2.2) { if (!cut.s2a) { cut.s2a = 1; cutBurst(372, 212, 16, ['#7a9aa0', '#a0c0c8'], 40, 0.5, 26); } ratHR(sc, lerp(372, 344, span(t, 0.9, 2.2)), 218 + Math.sin(t * 8), -1, t, { run: 0.6 }); }
+    else { const k = span(t, 2.2, 2.6); ratHR(sc, lerp(344, 336, k), lerp(218, 192, k), -1, t, { hop: Math.sin(k * Math.PI) * 6 }); }
   }
 }
-function sceneDrink(t) { // t runs 0..6 within the scene
+function sceneDrink(t) {
   sewerBase(t + 12);
-  // purple sickness pouring from the broken pipe into a glowing pool on the ledge
   const pulse = 0.5 + 0.5 * Math.sin(t * 5);
-  const glow = sc.createRadialGradient(56, 94, 2, 56, 94, 34);
+  const glow = sc.createRadialGradient(110, 190, 4, 110, 190, 70);
   glow.addColorStop(0, `rgba(192,92,255,${(0.45 + pulse * 0.2).toFixed(2)})`); glow.addColorStop(1, 'rgba(192,92,255,0)');
-  sc.fillStyle = glow; sc.fillRect(16, 56, 80, 76);
-  sc.fillStyle = PLAGUE_DARK; sc.fillRect(33, 55, 3, 41); sc.fillStyle = PLAGUE; sc.fillRect(34, 55 + Math.floor(t * 30) % 6, 1, 38);
-  sc.fillStyle = PLAGUE_DARK; sc.fillRect(30, 95, 46, 3); sc.fillStyle = PLAGUE; sc.fillRect(32, 95, 42, 1);
-  if (Math.random() < 0.3) cut.parts.push({ x: 35 + Math.random() * 38, y: 95, vx: 0, vy: -10 - Math.random() * 8, life: 0.8, max: 0.8, col: Math.random() < .5 ? PLAGUE : '#e8b0ff' });
-  // the lead rat creeps over and drinks first; then the rest rush in
+  sc.fillStyle = glow; sc.fillRect(30, 110, 160, 110);
+  // the ooze pours from the pipe into a pool on the ledge
+  const flow = Math.floor(t * 40) % 8;
+  sc.fillStyle = PLAGUE_DARK; sc.fillRect(66, 108, 6, 84); sc.fillStyle = PLAGUE; sc.fillRect(68, 108, 2, 84);
+  sc.fillStyle = '#e8b0ff'; for (let y = 108 + flow; y < 190; y += 8) sc.fillRect(68, y, 1, 3);
+  ell(sc, 110, 194, 52, 5, PLAGUE_DARK); ell(sc, 110, 193, 48, 3.5, PLAGUE); ell(sc, 96, 192, 18, 1.5, '#e8b0ff');
+  if (Math.random() < 0.4) cut.parts.push({ x: 66 + Math.random() * 90, y: 190, vx: 0, vy: -16 - Math.random() * 14, life: 0.9, max: 0.9, col: Math.random() < .5 ? PLAGUE : '#e8b0ff' });
   HUDDLE.forEach(([hx, row], i) => {
     const lead = i === 0, startMove = lead ? 0.5 : 2.6 + i * 0.12, arrive = lead ? 1.5 : startMove + 0.7;
-    const tx = 50 + (i % 5) * 9, ty = 97 - (i > 4 ? 3 : 0);
-    let x = hx, y = 97 - row, dir = 'l', frame = 0, plague = false, hop = 0;
-    if (t > startMove) { const k = span(t, startMove, arrive); x = lerp(hx, tx, k); y = lerp(97 - row, ty, k); frame = Math.floor(t * 12); }
-    const turned = lead ? 2.3 : arrive + 0.25;
-    if (t > arrive && t < turned) frame = Math.floor(t * 6); // drinking
-    if (t > turned) {
-      plague = true;
-      if (!cut['p' + i]) { cut['p' + i] = 1; cutBurst(x, y - 4, lead ? 16 : 8, [PLAGUE, PLAGUE_DARK, '#e8b0ff'], 20, 0.6, 8); sfxCut('turn'); }
-    }
-    if (t > 4.6) { dir = 'r'; hop = Math.max(0, Math.sin((t - 4.6 - i * 0.05) * 7)) * 5; frame = Math.floor(t * 10); } // they rise up
-    if (!(t > 2.6 && t < startMove)) { const j = t < 2.6 && !lead ? Math.round(Math.sin(t * 40 + hx) * 0.6) : 0; cutRat(x + j, y, dir, frame, plague, hop); }
-    else cutRat(x, y, dir, frame, plague, hop);
+    const tx = 96 + (i % 5) * 18, ty = 192 - (i > 4 ? 6 : 0);
+    let x = hx, y = 192 - row, dir = -1, run = 0, hop = 0;
+    if (t > startMove) { const k = span(t, startMove, arrive); x = lerp(hx, tx, k); y = lerp(192 - row, ty, k); run = k < 1 ? 1.2 : 0; }
+    const turned = lead ? 2.3 : arrive + 0.25, plague = t > turned;
+    if (plague && !cut['p' + i]) { cut['p' + i] = 1; cutBurst(x, y - 8, lead ? 26 : 14, [PLAGUE, PLAGUE_DARK, '#e8b0ff'], 36, 0.6, 14); sfxCut('turn'); }
+    if (t > arrive && t < turned) hop = Math.abs(Math.sin(t * 12)) * 2; // lapping at the pool
+    if (t > 4.6) { dir = 1; hop = Math.max(0, Math.sin((t - 4.6 - i * 0.05) * 7)) * 10; run = 1; }
+    ratHR(sc, x, y, dir, t, { plague, hop, run, tremble: !plague && t < startMove && !lead });
   });
-  if (t > 4.6) { sc.globalAlpha = 0.18 * span(t, 4.6, 5.0) * (1 - span(t, 5.4, 6)); sc.fillStyle = PLAGUE; sc.fillRect(0, 0, STAGE_W, STAGE_H); sc.globalAlpha = 1; }
+  if (t > 4.6) { sc.globalAlpha = 0.2 * span(t, 4.6, 5.0) * (1 - span(t, 5.4, 6)); sc.fillStyle = PLAGUE; sc.fillRect(0, 0, STAGE_W, STAGE_H); sc.globalAlpha = 1; }
 }
-function sceneTitle(t) { // t runs 0..5 within the scene
-  sc.fillStyle = '#08060a'; sc.fillRect(0, 0, STAGE_W, STAGE_H);
-  const glow = sc.createRadialGradient(120, 62, 4, 120, 62, 90);
+function sceneTitle(t) {
+  bandSky(sc, STAGE_W, 0, STAGE_H, ['#07050a', '#0b0710', '#100916', '#160b1e', '#1c0c26']);
+  const glow = sc.createRadialGradient(240, 120, 6, 240, 120, 190);
   glow.addColorStop(0, `rgba(125,52,196,${(0.55 * span(t, 0.2, 1.2)).toFixed(2)})`); glow.addColorStop(1, 'rgba(125,52,196,0)');
   sc.fillStyle = glow; sc.fillRect(0, 0, STAGE_W, STAGE_H);
-  for (let i = 0; i < 14; i++) { // the swarm streams across the bottom of the frame
-    const x = lerp(-20 - i * 13, 260 - i * 13, span(t, 1.0, 3.6)), y = 120 + (i % 3) * 4;
-    cutRat(x, y, 'r', Math.floor(t * 14 + i), true, Math.abs(Math.sin(t * 12 + i)) * 2);
+  for (let i = 0; i < 5; i++) { sc.globalAlpha = 0.12; ell(sc, ((t * (14 + i * 5) + i * 120) % 640) - 80, 200 + i * 12, 90, 4, PLAGUE_DARK); } // fog
+  sc.globalAlpha = 1;
+  for (let i = 0; i < 16; i++) {
+    const x = lerp(-40 - i * 26, 520 - i * 26, span(t, 1.0, 3.6)), y = 236 + (i % 3) * 9;
+    ratHR(sc, x, y, 1, t + i * 0.3, { plague: true, run: 1.4, hop: Math.abs(Math.sin(t * 12 + i)) * 3 });
   }
 }
 
@@ -1956,9 +2152,9 @@ function drawCutscene(dt) {
   const t = cut.t;
   sc.clearRect(0, 0, STAGE_W, STAGE_H);
   if (t < 6) sceneStreet(t); else if (t < 12) sceneSewer(t - 6); else if (t < 18) sceneDrink(t - 12); else sceneTitle(t - 18);
-  for (const p of cut.parts) { p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 30 * dt; p.life -= dt; }
+  for (const p of cut.parts) { p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 60 * dt; p.life -= dt; }
   cut.parts = cut.parts.filter(p => p.life > 0);
-  for (const p of cut.parts) { sc.globalAlpha = Math.max(0, p.life / p.max); sc.fillStyle = p.col; sc.fillRect(Math.round(p.x), Math.round(p.y), 1, 1); }
+  for (const p of cut.parts) { sc.globalAlpha = Math.max(0, p.life / p.max); sc.fillStyle = p.col; sc.fillRect(Math.round(p.x), Math.round(p.y), 2, 2); }
   sc.globalAlpha = 1;
   // fades between scenes
   const fade = [[5.4, 6, 6.5], [11.4, 12, 12.5], [17.6, 18, 18.4], [22.4, 23, 23]];
@@ -1966,13 +2162,17 @@ function drawCutscene(dt) {
   for (const [o, m, i] of fade) { if (t > o && t < m) a = (t - o) / (m - o); else if (t >= m && t < i) a = 1 - (t - m) / (i - m); }
   if (a > 0) { sc.fillStyle = `rgba(0,0,0,${Math.min(1, a).toFixed(3)})`; sc.fillRect(0, 0, STAGE_W, STAGE_H); }
   // vignette edges
-  const v = sc.createRadialGradient(120, 67, 50, 120, 67, 150); v.addColorStop(0, 'rgba(0,0,0,0)'); v.addColorStop(1, 'rgba(0,0,0,.65)');
+  const v = sc.createRadialGradient(STAGE_W / 2, STAGE_H / 2, STAGE_W * 0.22, STAGE_W / 2, STAGE_H / 2, STAGE_W * 0.62); v.addColorStop(0, 'rgba(0,0,0,0)'); v.addColorStop(1, 'rgba(0,0,0,.65)');
   sc.fillStyle = v; sc.fillRect(0, 0, STAGE_W, STAGE_H);
   // stage onto the screen, letterboxed
-  const s = Math.max(1, Math.floor(Math.min(view.w / STAGE_W, view.h / STAGE_H) * 4) / 4);
+  // the cutscene gets its own full-resolution canvas so the hi-res art survives
+  const cc = $('cutCanvas'), CW = window.innerWidth, CH = window.innerHeight;
+  if (cc.width !== CW || cc.height !== CH) { cc.width = CW; cc.height = CH; }
+  const cx = cc.getContext('2d'); cx.imageSmoothingEnabled = false;
+  const fit = Math.min(CW / STAGE_W, CH / STAGE_H), s = fit >= 1 ? Math.floor(fit * 2) / 2 : fit;
   const w = Math.round(STAGE_W * s), h = Math.round(STAGE_H * s);
-  ctx.fillStyle = '#000'; ctx.fillRect(0, 0, view.w, view.h);
-  ctx.drawImage(stage, Math.round((view.w - w) / 2), Math.round((view.h - h) / 2), w, h);
+  cx.fillStyle = '#000'; cx.fillRect(0, 0, CW, CH);
+  cx.drawImage(stage, Math.round((CW - w) / 2), Math.round((CH - h) / 2), w, h);
   // captions and the title card
   const cap = CUT_CAPTIONS.find(([a0, b0]) => t >= a0 && t <= b0);
   const capEl = $('cutCaption');
