@@ -131,6 +131,9 @@ button:focus-visible { outline: 3px solid var(--parch); outline-offset: 3px; }
 .lvl:active { transform: none; }
 .actions { display: flex; flex-wrap: wrap; gap: 10px; }
 button.secondary { background: var(--ink); color: var(--parch); border: 2px solid var(--edge); box-shadow: none; }
+.hunters { margin-top: 6px; font-size: 12px; letter-spacing: .06em; text-transform: uppercase; color: #e0482c; }
+.hunters.urgent { color: #f2c14a; animation: pulse .6s steps(2) infinite; }
+@media (prefers-reduced-motion: reduce) { .hunters.urgent { animation: none; } }
 @media (prefers-reduced-motion: reduce) { .swarm.low .count { animation: none; } #pctFill { transition: none; } }
 </style>
 </head>
@@ -141,6 +144,7 @@ button.secondary { background: var(--ink); color: var(--parch); border: 2px soli
   <div class="meter">
     <div class="label"><span>Plague spread</span><b id="pct">0%</b></div>
     <div class="bar"><div id="pctFill"></div><div id="target"></div></div>
+    <div class="hunters" id="huntersLeft" hidden></div>
   </div>
   <div class="swarm" id="swarmBox">
     <div class="label" style="justify-content:flex-end">Swarm</div>
@@ -154,7 +158,7 @@ button.secondary { background: var(--ink); color: var(--parch); border: 2px soli
     <div class="eyebrow">Five districts to fall</div>
     <h1>Plague Rat</h1>
     <p>Every townsperson a rat touches catches the plague and breeds another rat. Go too long without an infection and a rat dies.</p>
-    <p class="hunterNote"><b>Rat hunters</b> carry a number. While your swarm is smaller, he chases you on sight, and if he touches your lead rat it's over. Match his number and he runs, and your rats can eat him.</p>
+    <p class="hunterNote"><b>Rat hunters</b> carry a number. While your swarm is smaller, he chases you on sight, and if he touches your lead rat it's over. Match his number and he runs, and your rats can eat him for 5 more rats. Eat every hunter to take the district.</p>
     <div class="levels" id="levelList"></div>
     <button id="startBtn">Begin the plague</button>
     <p class="controls">WASD or arrow keys, or the joystick on touch screens. The corner map shows healthy townsfolk and hunters.</p>
@@ -205,8 +209,11 @@ const CONFIG = {
   businessShare: 0.3,      // V6: share of street-facing houses that are taverns, shops, etc.
   minimapCell: 2,          // R12: map tiles per minimap pixel
   hunterSpeed: 68,         // H4: px/s while chasing or fleeing (rats run at 80)
+  hunterFleeSpeed: 56,     // H6: px/s while fleeing, so a big enough swarm can run him down
   hunterWanderSpeed: 22,   // px/s while off screen
   hunterCatchRadius: 6,    // H5: px from the lead rat that counts as caught
+  hunterBounty: 5,         // H3: rats gained for eating a hunter
+  feastTime: 2.6,          // H7: seconds the devouring animation lasts (everything else is paused)
 };
 
 const BASE_CONFIG = { ...CONFIG };
@@ -217,15 +224,15 @@ const BASE_CONFIG = { ...CONFIG };
 // ---------------------------------------------------------------------------
 const LEVELS = [
   { name: 'The Market District', theme: 'market', seed: 1347, blocksX: 7, blocksY: 5, parkChance: 0.12, alleyChance: 0.35,
-    tune: { population: 90, targetPercent: 60, startRats: 8 }, hunters: [10] },
+    tune: { population: 90, targetPercent: 60, startRats: 8 }, hunters: [] },
   { name: 'The Docks', theme: 'docks', seed: 2203, blocksX: 7, blocksY: 5, parkChance: 0.06, alleyChance: 0.3, canalBand: 3,
     tune: { population: 95, targetPercent: 60, startRats: 8 }, hunters: [12, 16] },
   { name: 'The Shambles', theme: 'slums', seed: 3517, blocksX: 7, blocksY: 5, parkChance: 0.08, alleyChance: 0.8,
     tune: { population: 100, targetPercent: 65, startRats: 8 }, hunters: [14, 18, 22] },
   { name: 'Frostgate', theme: 'winter', seed: 4441, blocksX: 7, blocksY: 5, parkChance: 0.12, alleyChance: 0.4,
-    tune: { population: 100, targetPercent: 65, startRats: 8, decayInterval: 1.4 }, hunters: [16, 20, 25, 30] },
+    tune: { population: 100, targetPercent: 65, startRats: 12, decayInterval: 1.4 }, hunters: [14, 18, 22, 26] },
   { name: 'The Palace Ward', theme: 'night', seed: 5903, blocksX: 7, blocksY: 5, parkChance: 0.1, alleyChance: 0.3,
-    tune: { population: 110, targetPercent: 70, startRats: 8, decayInterval: 1.3 }, hunters: [18, 24, 30, 36, 45] },
+    tune: { population: 120, targetPercent: 70, startRats: 12, decayInterval: 1.3 }, hunters: [16, 20, 24, 28, 32] },
 ];
 
 // Visual themes (V7). Material indexes refer to MATERIALS below.
@@ -1341,7 +1348,7 @@ function updateHunters(dt) {
   if (G.flowT <= 0) { buildFlow(G); G.flowT = 0.15; }
   const n = G.rats.length;
   for (const h of G.hunters) {
-    if (!h.alive) continue;
+    if (!h.alive || h.dying) continue;
     const danger = n < h.number; // H3 + H6: equal or more rats makes him prey
     const onScreen = h.x > G.cam.x - 4 && h.x < G.cam.x + view.w + 4 && h.y > G.cam.y - 4 && h.y < G.cam.y + view.h + 4;
     const mode = !onScreen ? 'wander' : danger ? 'chase' : 'flee'; // H4: he hunts whatever he can see
@@ -1358,7 +1365,7 @@ function updateHunters(dt) {
         h.t = 1.5 + Math.random() * 2.5;
       }
     } else {
-      const sp = CONFIG.hunterSpeed * dt;
+      const sp = (mode === 'flee' ? CONFIG.hunterFleeSpeed : CONFIG.hunterSpeed) * dt;
       let tx = h.x, ty = h.y;
       if (mode === 'chase' && Math.hypot(L.x - h.x, L.y - h.y) < 24) { tx = L.x; ty = L.y; }
       else {
@@ -1380,24 +1387,85 @@ function updateHunters(dt) {
     // H5: caught when he touches the lead rat while the swarm is smaller than his number
     if (danger && Math.hypot(L.x - h.x, L.y - (h.y - 3)) < CONFIG.hunterCatchRadius) { G.caughtBy = h; endGame(false, 'caught'); return; }
     // H3: when the swarm is big enough, any rat that touches him kills him
-    if (!danger) for (const r of G.rats) if (Math.hypot(r.x - h.x, r.y - (h.y - 3)) < CONFIG.infectRadius + 1) { killHunter(h); break; }
+    if (!danger && G.rats.some(r => Math.hypot(r.x - h.x, r.y - (h.y - 3)) < CONFIG.infectRadius + 1)) { killHunter(h); return; }
   }
 }
 
+// H7: eating a hunter plays a short feast. Everything else (input, countdown,
+// townsfolk, other hunters, the clock) is paused until it finishes.
 function killHunter(h) {
   const G = game;
-  h.alive = false; G.huntersKilled++;
-  for (let i = 0; i < 18; i++) {
-    const a = Math.random() * Math.PI * 2, s = 12 + Math.random() * 30;
-    G.particles.push({ x: h.x, y: h.y - 5, vx: Math.cos(a) * s, vy: Math.sin(a) * s, life: 0.7, max: 0.7, col: pick(Math.random, ['#a8322c', '#5a4a32', '#e9dcbc', HUNTER_PREY]), size: 1 + (Math.random() < .4) });
+  h.dying = true;
+  G.feast = {
+    h, t: 0, crunch: 0,
+    from: G.rats.map(r => ({ x: r.x, y: r.y })),
+    slot: G.rats.map((r, i) => ({ a: i * 2.39996, d: 6 + (i % 4) * 3 })), // golden-angle ring around him
+  };
+  sfx.alert();
+}
+const FEAST = { gather: 0.25, devour: 0.6, retreat: 0.78 }; // phase ends, as fractions of feastTime
+function updateFeast(dt) {
+  const G = game, F = G.feast, h = F.h, T = CONFIG.feastTime;
+  F.t += dt;
+  const k = F.t / T;
+  G.rats.forEach((r, i) => {
+    if (i === 0) return; // the lead rat holds its ground
+    const s = F.slot[i] || { a: i, d: 8 };
+    let d = s.d, a = s.a + F.t * 3;
+    if (k > FEAST.gather && k < FEAST.devour) { d = 2 + Math.random() * 4; a += Math.random() * 6; }   // pile on
+    else if (k >= FEAST.devour) d = s.d + 6;                                                            // pull back
+    const tx = h.x + Math.cos(a) * d, ty = h.y - 3 + Math.sin(a) * d * 0.7;
+    const m = Math.min(1, dt * (k < FEAST.gather ? 9 : 14));
+    const mx = (tx - r.x) * m, my = (ty - r.y) * m;
+    r.x += mx; r.y += my; r.moving = true; r.face = faceOf(mx, my, r.face);
+    r.anim += dt; if (r.anim > 0.06) { r.anim = 0; r.frame ^= 1; }
+  });
+  if (k > FEAST.gather && k < FEAST.devour) { // gore and crunching while they eat
+    F.crunch -= dt;
+    if (F.crunch <= 0) { F.crunch = 0.18; sfx.kill(); }
+    if (Math.random() < dt * 30) {
+      const a = Math.random() * Math.PI * 2, sp = 10 + Math.random() * 25;
+      G.particles.push({ x: h.x, y: h.y - 5, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 6, life: 0.5, max: 0.5, col: pick(Math.random, ['#a8322c', '#7a1e1a', '#5a4a32', '#e9dcbc']), size: 1 + (Math.random() < .4) });
+    }
   }
-  G.texts.push({ x: h.x - 5, y: h.y - 20, text: '-' + h.number, col: HUNTER_PREY, life: 1.1 });
-  sfx.kill();
+  stepFx(dt);
+  if (F.t >= T) { // the skeleton is gone: back to the game, with the bounty
+    h.alive = false; h.dying = false; G.huntersKilled++;
+    for (let i = 0; i < CONFIG.hunterBounty; i++) G.rats.push(newRat(h.x + (Math.random() - .5) * 8, h.y + (Math.random() - .5) * 8));
+    G.peak = Math.max(G.peak, G.rats.length);
+    G.texts.push({ x: h.x - 3, y: h.y - 18, text: '+' + CONFIG.hunterBounty, col: PLAGUE, life: 1.1 });
+    G.trail = [{ x: G.rats[0].x, y: G.rats[0].y }];
+    G.feast = null;
+    sfx.infect();
+  }
+}
+const SKELETON = [ // a picked-clean hunter lying in the street: skull, ribs, spine, legs
+  '.ww..........',
+  'wkkw.b.b.b...',
+  'wwwwwbbbbbbww',
+  '.ww..b.b.b...',
+  '..........w.w',
+];
+const skeletonSprite = spriteFrom(SKELETON, { w: '#e8e0cc', k: '#2a2420', b: '#d6ccb4' }, 'rgba(20,14,10,.6)');
+function drawFeast(ox, oy) {
+  const F = game.feast, h = F.h, k = F.t / CONFIG.feastTime;
+  if (k >= FEAST.gather * 0.6) { // skeleton revealed under the pile, then fading away
+    ctx.globalAlpha = k < FEAST.retreat ? 1 : Math.max(0, 1 - (k - FEAST.retreat) / (1 - FEAST.retreat));
+    ctx.fillStyle = 'rgba(122,30,26,.5)'; ctx.fillRect(Math.round(h.x - 7 + ox), Math.round(h.y - 2 + oy), 15, 4);
+    ctx.drawImage(skeletonSprite, Math.round(h.x - 6 + ox), Math.round(h.y - 4 + oy));
+    ctx.globalAlpha = 1;
+  }
 }
 
 function drawHunter(h, ox, oy) {
+  let shake = 0;
+  if (h.dying) {
+    const k = game.feast.t / CONFIG.feastTime;
+    if (k >= FEAST.gather * 0.6) return; // devoured: only the skeleton remains
+    shake = Math.round(Math.sin(game.feast.t * 60) * 1.5);
+  }
   const s = (h.danger ? hunterSprites.danger : hunterSprites.prey)[h.frame];
-  const x = Math.round(h.x - 4 + ox), y = Math.round(h.y - 10 + oy);
+  const x = Math.round(h.x - 4 + ox) + shake, y = Math.round(h.y - 10 + oy);
   ctx.fillStyle = 'rgba(0,0,0,.35)'; ctx.fillRect(x + 1, y + 10, 6, 2);
   // catch-pole with a net over his shoulder
   const side = h.flip ? -1 : 1, px = x + (h.flip ? 0 : 8), py = y + 4;
@@ -1446,7 +1514,7 @@ function newGame() {
     citizens, rats, trail: [{ x: START.x, y: START.y }],
     infected: 0, time: 0, decayTimer: 0, peak: rats.length,
     particles: [], texts: [], cam: { x: 0, y: 0 },
-    hunters: spawnHunters(), huntersKilled: 0, caughtBy: null, flowT: 0, flow: null,
+    hunters: spawnHunters(), huntersKilled: 0, caughtBy: null, flowT: 0, flow: null, feast: null,
   };
 }
 function newRat(x, y) { return { x, y, face: 'u', frame: 0, anim: Math.random(), moving: false }; }
@@ -1509,6 +1577,7 @@ function trailPoint(dist) {
 const LANES = [0, -1, 1];
 function update(dt) {
   const G = game;
+  if (G.feast) { updateFeast(dt); return; } // H7: the world waits while the swarm eats
   G.time += dt;
 
   // R1: lead rat follows the player's input
@@ -1592,14 +1661,20 @@ function update(dt) {
       G.particles.push({ x: a.x + Math.random() * 2 - 1, y: a.y, vx: 3 + Math.random() * 3, vy: -7 - Math.random() * 3, life: 2.4, max: 2.4, col: pick(Math.random, ['#8a8478', '#6e6a62', '#a19b90']), size: 2 });
     }
   }
+  stepFx(dt);
+
+  // R6 / R7: win needs the infection target AND every hunter eaten
+  if (targetMet(G) && huntersLeft(G) === 0) endGame(true);
+  else if (G.rats.length === 0) endGame(false);
+}
+const targetMet = G => G.infected * 100 >= CONFIG.targetPercent * CONFIG.population;
+const huntersLeft = G => G.hunters.filter(h => h.alive).length;
+function stepFx(dt) {
+  const G = game;
   for (const p of G.particles) { p.x += p.vx * dt; p.y += p.vy * dt; p.life -= dt; }
   G.particles = G.particles.filter(p => p.life > 0);
   for (const t of G.texts) { t.y -= 14 * dt; t.life -= dt; }
   G.texts = G.texts.filter(t => t.life > 0);
-
-  // R6 / R7
-  if (G.infected * 100 >= CONFIG.targetPercent * CONFIG.population) endGame(true);
-  else if (G.rats.length === 0) endGame(false);
 }
 
 // R13: the bigger the swarm, the shorter the die-off countdown
@@ -1656,6 +1731,7 @@ function render() {
   for (const r of G.rats) ents.push({ y: r.y, r });
   for (const c of G.citizens) ents.push({ y: c.y, c });
   for (const h of G.hunters) if (h.alive) ents.push({ y: h.y, h });
+  if (G.feast) drawFeast(ox, oy);
   ents.sort((a, b) => a.y - b.y);
   for (const e of ents) {
     if (e.h) drawHunter(e.h, ox, oy);
@@ -1681,7 +1757,7 @@ function render() {
   ctx.globalAlpha = 1;
   if (THEME.night) drawNight(G, ox, oy);
   if (THEME.snow) drawSnowfall();
-  for (const h of G.hunters) if (h.alive) drawHunterNumber(h, ox, oy);
+  for (const h of G.hunters) if (h.alive && !h.dying) drawHunterNumber(h, ox, oy);
   for (const t of G.texts) pixText(ctx, t.text, Math.round(t.x + ox), Math.round(t.y + oy), t.col);
   if (vignette) ctx.drawImage(vignette, 0, 0);
 }
@@ -1732,7 +1808,7 @@ function renderMinimap() {
     if (!c.infected) mctx.fillRect(Math.floor(c.x / cell) * 2, Math.floor(c.y / cell) * 2, 2, 2);
   }
   for (const h of G.hunters) { // H2: hunters stand out on the minimap
-    if (!h.alive) continue;
+    if (!h.alive || h.dying) continue;
     const px = Math.floor(h.x / cell) * 2, py = Math.floor(h.y / cell) * 2;
     mctx.fillStyle = '#120f0c'; mctx.fillRect(px - 3, py - 3, 8, 8);
     mctx.fillStyle = h.danger ? HUNTER_DANGER : HUNTER_PREY; mctx.fillRect(px - 2, py - 2, 6, 6);
@@ -1776,6 +1852,14 @@ function updateHud() {
     $('rats').textContent = G.rats.length; hudCache.rats = G.rats.length;
     $('swarmBox').classList.toggle('low', G.rats.length <= 3);
   }
+  const left = huntersLeft(G), met = targetMet(G), hk = left + '/' + met;
+  if (hudCache.hk !== hk) {
+    hudCache.hk = hk;
+    const el = $('huntersLeft');
+    el.hidden = !G.hunters.length;
+    el.textContent = !left ? 'All hunters eaten' : met ? `Target reached · eat ${left} more hunter${left > 1 ? 's' : ''}` : `${left} hunter${left > 1 ? 's' : ''} left to eat`;
+    el.classList.toggle('urgent', met && left > 0);
+  }
   const di = decayIntervalFor(G.rats.length);
   $('decayFill').style.width = Math.max(0, 100 - G.decayTimer / di * 100) + '%';
   if (hudCache.di !== di) { $('decaySecs').textContent = di.toFixed(1) + 's'; hudCache.di = di; }
@@ -1802,7 +1886,7 @@ function loadLevel(i) {
 function renderLevelList() {
   $('levelList').innerHTML = LEVELS.map((lv, i) => {
     const t = lv.tune, locked = i >= unlocked;
-    const meta = locked ? 'Locked' : `${t.targetPercent}% · ${lv.hunters.length} hunter${lv.hunters.length > 1 ? 's' : ''}`;
+    const nh = lv.hunters.length, meta = locked ? 'Locked' : `${t.targetPercent}% · ${nh ? nh + ' hunter' + (nh > 1 ? 's' : '') : 'no hunters'}`;
     return `<button class="lvl${i === selected ? ' on' : ''}" data-i="${i}" ${locked ? 'disabled' : ''}><span class="n">${i + 1}</span><span>${lv.name}</span><span class="meta">${meta}</span></button>`;
   }).join('');
 }
@@ -1851,6 +1935,7 @@ function endGame(won, reason) {
     ? `You infected ${G.infected} of ${CONFIG.population} townsfolk with ${G.rats.length} rats still standing.${last ? ' There is nowhere left to spread.' : ''}`
     : reason === 'caught'
       ? `His number was ${G.caughtBy.number} and your swarm was only ${G.rats.length}. Grow past a hunter's number before you let him near your lead rat.`
+      : short <= 0 ? `You hit the ${CONFIG.targetPercent}% target, but ${huntersLeft(G)} hunter${huntersLeft(G) > 1 ? 's' : ''} still walked the streets.`
       : `You reached ${pct}% of the ${CONFIG.targetPercent}% needed. ${short} more infections would have done it.`;
   const facts = [['Spread', pct + '%'], ['Time', fmtTime(G.time)], ['Biggest swarm', G.peak], ['Hunters eaten', `${G.huntersKilled} of ${G.hunters.length}`]];
   $('endFacts').innerHTML = facts.map(([k, v]) => `<div><dt>${k}</dt><dd>${v}</dd></div>`).join('');

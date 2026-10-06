@@ -30,7 +30,8 @@ Status: **Locked** (agreed, must be honored), **Draft** (being tried out), **Ret
 | R5 | Die-off countdown: if `decayInterval` seconds pass without an infection, the swarm loses one rat from the tail and the countdown starts again. Every infection restarts the countdown, so as long as the player keeps infecting within the window, no rats die. The countdown length is set by R13. | Locked |
 | R5a | *(old R5)* The swarm loses one rat every `decayInterval` seconds, from the tail, at all times, whatever the player does. Still available via `decayResetOnInfect: false`. | Retired (kept for comparison) |
 | R6 | **Lose:** the swarm reaches 0 rats. | Draft |
-| R7 | **Win:** the infected share of the population reaches `targetPercent`. | Draft |
+| R7 | **Win:** the infected share of the population reaches `targetPercent` **and** every rat hunter in the level has been eaten. Both must be true; the order doesn't matter. The HUD shows how many hunters are left, and once the target is reached it flashes "Target reached · eat N more hunters". | Draft |
+| R7a | *(old R7)* Win as soon as the infected share reaches `targetPercent`, whatever hunters remain. | Retired |
 | R8 | Infected townsfolk stay infected and keep wandering, more slowly. They do not spread the plague themselves. | Draft |
 | R9 | Townsfolk wander the streets at random and do not react to rats. | Draft |
 | R10 | Each level is a fixed district (same layout every play). There is no clock; level length comes from the die-off (R5). Streets are 3 tiles wide; blocks are 6×6 tiles; the district is 7×5 blocks (68×50 tiles). | Draft |
@@ -46,10 +47,11 @@ Status: **Locked** (agreed, must be honored), **Draft** (being tried out), **Ret
 |----|------|--------|
 | H1 | Rat hunters walk the level. Each has a **number above his head**: red while he's dangerous, gold once he's prey. Numbers are fixed per hunter (see §3d). | Draft |
 | H2 | Hunters are **highlighted on the minimap** as larger squares: red while dangerous, gold when prey. Purple stays the plague's colour (V1). | Draft |
-| H3 | When the swarm is **equal to or larger than** his number, he is **killable**: any rat in the swarm touching him kills him. No reward or cost beyond removing him. | Draft |
+| H3 | When the swarm is **equal to or larger than** his number, he is **killable**: any rat in the swarm touching him kills him, and the swarm gains `hunterBounty` (**5**) rats when the feast ends (H7). | Draft |
 | H4 | While the swarm is **smaller** than his number, he **chases the swarm as soon as he appears on screen**, pathing along the streets toward the lead rat. He runs at `hunterSpeed` (68 px/s), a little slower than the rats (80). If he drops off screen he loses track and goes back to wandering. A whistle and a "!" mark the start of a chase. | Draft |
 | H5 | **Caught = fail.** He catches the swarm only by **touching the lead rat** while the swarm is smaller than his number. Touching other rats does nothing. | Draft |
-| H6 | When the swarm is **equal to or larger than** his number he **stops chasing and flees** whenever he's on screen, running along the streets away from the lead rat. Off screen he wanders. This switches instantly whenever the swarm crosses his number, in either direction. | Draft |
+| H6 | When the swarm is **equal to or larger than** his number he **stops chasing and flees** whenever he's on screen, running along the streets away from the lead rat at `hunterFleeSpeed` (56 px/s, slower than his chase so a big swarm can run him down). Off screen he wanders. This switches instantly whenever the swarm crosses his number, in either direction. | Draft |
+| H7 | **The feast.** Eating a hunter plays a 2.6 s animation (`feastTime`): the rats swarm in and circle him while he shakes, pile on until he disappears (crunching, gore), then pull back to reveal his skeleton, which fades away. During the feast **everything else is paused**: player control, the die-off countdown, the level clock, townsfolk and other hunters. When it ends the 5 bonus rats appear ("+5") and play resumes. | Draft |
 
 ## 3a. Visual Language
 | ID | Rule | Status |
@@ -93,6 +95,9 @@ All live in the `CONFIG` object at the top of the script in `index.html`. Tuning
 | `musicVolume` | 0.03 | Melody volume (A3) |
 | `businessShare` | 0.3 | Share of street-facing houses that are businesses (V6) |
 | `hunterSpeed` | 68 px/s | Hunter speed when chasing or fleeing (H4, H6) |
+| `hunterFleeSpeed` | 56 px/s | Hunter speed when fleeing (H6) |
+| `hunterBounty` | 5 | Rats gained for eating a hunter (H3) |
+| `feastTime` | 2.6 s | Length of the feast animation (H7) |
 | `hunterWanderSpeed` | 22 px/s | Hunter speed while off screen |
 | `hunterCatchRadius` | 6 px | How close to the lead rat counts as caught (H5) |
 | `minimapCell` | 2 | Map tiles per minimap pixel (lower = bigger, more detailed minimap) |
@@ -116,13 +121,23 @@ With R13 added, the bot wins in ~1:45 with ~45 rats (was ~55 without R13). Its s
 ## 3d. Levels
 | # | Name | Theme | Townsfolk | Target | Start rats | Countdown (`decayInterval`) | Hunters (numbers) | Layout notes |
 |---|------|-------|-----------|--------|-----------|-----------|-----------|------|
-| 1 | The Market District | market | 90 | 60% | 8 | 1.5 s | 10 | Mixed blocks, a few alleys and churchyards |
+| 1 | The Market District | market | 90 | 60% | 8 | 1.5 s | none | Mixed blocks, a few alleys and churchyards |
 | 2 | The Docks | docks | 95 | 60% | 8 | 1.5 s | 12, 16 | A canal cuts the district in two; only 4 bridges cross it |
 | 3 | The Shambles | slums | 100 | 65% | 8 | 1.5 s | 14, 18, 22 | Most blocks split by alleys: a maze |
-| 4 | Frostgate | winter | 100 | 65% | 8 | 1.4 s | 16, 20, 25, 30 | |
-| 5 | The Palace Ward | night | 110 | 70% | 8 | 1.3 s | 18, 24, 30, 36, 45 | Dark: you only see what's lit |
+| 4 | Frostgate | winter | 100 | 65% | 12 | 1.4 s | 14, 18, 22, 26 | |
+| 5 | The Palace Ward | night | 120 | 70% | 12 | 1.3 s | 16, 20, 24, 28, 32 | Dark: you only see what's lit |
 
 Hunters start at least 16 tiles from the swarm and at least 10 tiles from each other.
+
+**Balance after R7 (hunters must be eaten) and H3 bounty.** At first, levels 3–5 became nearly unwinnable for the bot: it ate everyone in town and then starved chasing a fleeing hunter, and Level 5's 45 was above the largest swarm it could build (~40–50, because R13 shortens the countdown as the swarm grows). Fixes, all tunables: flee speed 56 instead of 68; Level 4 numbers 14/18/22/26 and 12 starting rats; Level 5 numbers 16/20/24/28/32, 12 starting rats, 120 townsfolk. Bot results after the fixes:
+
+| Level | Bot result |
+|---|---|
+| 1 | 3/3 won, ~1:00 |
+| 2 | 3/3 won, ~2:10–2:40 |
+| 3 | 3/3 won, ~2:20–2:30 |
+| 4 | 3/4 won, ~2:05–2:55 (the loss starved with one hunter left) |
+| 5 | 4/4 won, ~2:30–3:05, infecting nearly all 120 townsfolk (the bot isn't affected by the darkness) |
 
 ## 3c. Planned Mechanics (designer's ideas, NOT in the build yet)
 Status **Planned** = recorded for later; not built until the designer says so.
@@ -131,7 +146,6 @@ Status **Planned** = recorded for later; not built until the designer says so.
 
 ## 5. Open Questions (need the designer's call)
 - **Q1:** Should there also be a hard level timer, or is the die-off the only clock (current)?
-- **Q2:** Should eating a hunter give a reward (e.g. bonus rats or a refilled countdown)? Currently it only removes him (H3).
 - **Q3:** Should townsfolk react to rats (flee, scream, stomp rats)? Currently no (R9).
 
 ## 6. Ideas Parking Lot (not in the game)
@@ -154,6 +168,8 @@ Status **Planned** = recorded for later; not built until the designer says so.
 | 2026-10-05 | R5 changed to trial: an infection restarts the die-off countdown. Old rule kept as R5a. | Designer |
 | 2026-10-05 | R5 (countdown reset on infection) locked | Designer |
 | 2026-10-05 | Recorded the Rat Hunter idea (H1–H6) as Planned, for later levels / difficulty; not built | Designer |
+| 2026-10-06 | Eating a hunter gives 5 bonus rats (H3); Level 1 has no hunters; win now also needs every hunter eaten (R7, old rule R7a retired); feast animation that pauses play (H7) | Designer |
+| 2026-10-06 | Balance tunables after the new win rule: hunter flee speed 56; Level 4 and 5 hunter numbers lowered and start rats raised to 12; Level 5 townsfolk 120 | Claude (tuning), pending designer review |
 | 2026-10-06 | Map 20% smaller (84×68 → 68×50 tiles) with 3-wide streets (R10) | Designer |
 | 2026-10-06 | Rat hunters built (H1–H6): killable and fleeing at equal-or-more rats, chase on sight, slower than rats, catch only by touching the lead rat | Designer |
 | 2026-10-06 | Five levels with rising difficulty and distinct looks (R14, V7, §3d); level select and unlocks | Designer |
