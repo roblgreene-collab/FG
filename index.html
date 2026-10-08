@@ -2737,16 +2737,23 @@ function recolourRat(src, fn) {
   for (let i = 0; i < p.length; i += 4) { if (!p[i + 3]) continue; const l = (0.3 * p[i] + 0.59 * p[i + 1] + 0.11 * p[i + 2]) / 140; const [r, gg, b] = fn(Math.min(1.2, l)); p[i] = r; p[i + 1] = gg; p[i + 2] = b; }
   g.putImageData(d, 0, 0); return c;
 }
+// The Rat King's picture: the near-black rat with a gold crown on his head, in the painting's chunky pixels.
+const RAT_FOOT = 57, KING_TOP = 26; // rows in the rat picture: where its feet are, and the headroom added for the crown
+function crownedKing(rat) {
+  const c = makeCanvas(rat.width, rat.height + KING_TOP), g = c.getContext('2d');
+  g.drawImage(rat, 0, KING_TOP);
+  const rows = ['g..g..g', 'gg.g.gg', 'ggggggg', 'gpgggpg', 'ddddddd'], col = { g: '#e0b040', p: '#c05cff', d: '#9a6a1a' }, U = 4, X0 = 16, Y0 = KING_TOP + 12 - rows.length * U;
+  for (const [ox, oy, ink] of [[-2, 0, 1], [2, 0, 1], [0, -2, 1], [0, 2, 1], [0, 0, 0]]) rows.forEach((row, ry) => [...row].forEach((ch, rx) => {
+    if (ch === '.') return; g.fillStyle = ink ? '#2a1a08' : col[ch]; g.fillRect(X0 + rx * U + ox, Y0 + ry * U + oy, U, U);
+  }));
+  g.fillStyle = '#fff2b0'; g.fillRect(X0, Y0, U, U); g.fillRect(X0 + 12, Y0, U, U); g.fillRect(X0 + 4, Y0 + 8, U, 2); // glints
+  return c;
+}
 function ratSprite(x, y, dir, t, o = {}) { // queue a painted rat (the drawn rat stands in if the painting can't be read)
   const S = STREET_IMG, kind = o.crown ? 'king' : o.plague ? 'plague' : 'rat';
   if (!S.rat) { ratHR(sc, x, y, dir, t, o); return; }
   cut.sprites.push({ x: x + (o.tremble ? Math.round(Math.sin(t * 50 + x)) : 0), y, dir, t, hop: o.hop || 0, rot: o.rot || 0, run: o.run || 0, kind, k: o.crown ? 1.2 : 1 });
-  if (o.crown) { // the Rat King's gold crown, drawn crisp on top
-    const cx0 = Math.round(x + dir * 12), cy0 = Math.round(y - (o.hop || 0) - 24);
-    poly(sc, [[cx0 - 5, cy0 + 6], [cx0 - 5, cy0], [cx0 - 3, cy0 + 2], [cx0, cy0 - 3], [cx0 + 3, cy0 + 2], [cx0 + 5, cy0], [cx0 + 5, cy0 + 6]], INK);
-    poly(sc, [[cx0 - 4, cy0 + 5], [cx0 - 4, cy0 + 1], [cx0 - 2, cy0 + 3], [cx0, cy0 - 1], [cx0 + 2, cy0 + 3], [cx0 + 4, cy0 + 1], [cx0 + 4, cy0 + 5]], '#e0b040');
-    sc.fillStyle = '#fff2b0'; sc.fillRect(cx0, cy0, 1, 2); sc.fillStyle = PLAGUE; sc.fillRect(cx0 - 1, cy0 + 3, 2, 1);
-  }
+
 }
 const HUDDLE = [[256, 0], [272, 2], [286, 0], [300, 2], [314, 0], [266, 6], [294, 6], [280, 10], [308, 8], [324, 4]];
 function sewerBase(t) {
@@ -2785,7 +2792,7 @@ function sceneDrink(t) {
   if (Math.random() < 0.4) cut.parts.push({ x: 66 + Math.random() * 90, y: 190, vx: 0, vy: -16 - Math.random() * 14, life: 0.9, max: 0.9, col: Math.random() < .5 ? PLAGUE : '#e8b0ff' });
   HUDDLE.forEach(([hx, row], i) => {
     const lead = i === 0, startMove = lead ? 0.5 : 2.6 + i * 0.12, arrive = lead ? 1.5 : startMove + 0.7;
-    const tx = 96 + (i % 5) * 18, ty = 192 - (i > 4 ? 6 : 0);
+    const tx = 96 + (i % 5) * 18, ty = 192 - (i > 4 ? 6 : lead ? 3 : 0);
     let x = hx, y = 192 - row, dir = -1, run = 0, hop = 0;
     if (t > startMove) { const k = span(t, startMove, arrive); x = lerp(hx, tx, k); y = lerp(192 - row, ty, k); run = k < 1 ? 1.2 : 0; }
     const turned = lead ? 2.3 : arrive + 0.25, plague = t > turned;
@@ -2829,18 +2836,20 @@ function drawPaintedLayer(cx, toScreen, t) { // V19/V20: the painted backdrop an
   }
   if (S.rat) {
     if (!S.ratPlague) S.ratPlague = recolourRat(S.rat, l => [Math.round(60 + 150 * l), Math.round(24 + 70 * l), Math.round(96 + 150 * l)]);
-    if (!S.ratKing) S.ratKing = recolourRat(S.rat, l => [Math.round(14 + 44 * l), Math.round(10 + 32 * l), Math.round(20 + 56 * l)]);
+    if (!S.ratKing) S.ratKing = crownedKing(recolourRat(S.rat, l => [Math.round(14 + 44 * l), Math.round(10 + 32 * l), Math.round(20 + 56 * l)]));
     for (const R of cut.sprites) if (R.kind !== 'rat') { // plague glow under the infected
       const [gx, gy] = toScreen(R.x, R.y - R.hop - 6), rr = 18 * sc0;
       const gg = cx.createRadialGradient(gx, gy, 0, gx, gy, rr); gg.addColorStop(0, 'rgba(192,92,255,.35)'); gg.addColorStop(1, 'rgba(192,92,255,0)');
       cx.fillStyle = gg; cx.fillRect(gx - rr, gy - rr, rr * 2, rr * 2);
     }
-    for (const R of cut.sprites) {
-      const img = R.kind === 'king' ? S.ratKing : R.kind === 'plague' ? S.ratPlague : S.rat;
-      const [rx, ry] = toScreen(R.x, R.y - R.hop), w = 116 * S.k * sc0 * R.k, h = 62 * S.k * sc0 * R.k;
+    // back to front, so nearer rats cover farther ones (the King's crown is part of his own picture)
+    const order = cut.sprites.slice().sort((a, b) => a.y - b.y || (a.kind === 'king') - (b.kind === 'king'));
+    for (const R of order) {
+      const img = R.kind === 'king' ? S.ratKing : R.kind === 'plague' ? S.ratPlague : S.rat, foot = R.kind === 'king' ? KING_TOP + RAT_FOOT : RAT_FOOT;
+      const u = S.k * sc0 * R.k, w = img.width * u, h = img.height * u, [rx, ry] = toScreen(R.x, R.y - R.hop);
       const bobY = R.run ? Math.abs(Math.sin(R.t * 26)) * 1.2 * sc0 : 0, tilt = R.rot || (R.run ? Math.sin(R.t * 26) * 0.05 : 0);
-      cx.save(); cx.translate(rx, ry - bobY - h * 0.45); cx.scale(R.dir > 0 ? -1 : 1, 1); cx.rotate(tilt);
-      if (!R.hop) { cx.fillStyle = 'rgba(20,14,10,.25)'; cx.fillRect(-w * 0.4, h * 0.42, w * 0.8, 2 * sc0); }
+      cx.save(); cx.translate(rx, ry - bobY - (foot - img.height / 2) * u); cx.scale(R.dir > 0 ? -1 : 1, 1); cx.rotate(tilt);
+      if (!R.hop) { cx.fillStyle = 'rgba(20,14,10,.25)'; cx.fillRect(-w * 0.4, (foot - img.height / 2) * u - sc0, w * 0.8, 2 * sc0); }
       cx.drawImage(img, -w / 2, -h / 2, w, h); cx.restore();
     }
   }
