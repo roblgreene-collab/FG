@@ -2555,55 +2555,7 @@ function bandSky(g, w, top, bottom, cols) { // stepped gradient with a dithered 
   cols.forEach((c, i) => { g.fillStyle = c; g.fillRect(0, Math.round(top + i * bh), w, Math.ceil(bh) + 1); });
   cols.forEach((c, i) => { if (!i) return; g.fillStyle = c; const y = Math.round(top + i * bh) - 1; for (let x = (i % 2); x < w; x += 2) g.fillRect(x, y, 1, 1); });
 }
-function sewerBackdrop() {
-  const W = STAGE_W, H = STAGE_H, c = makeCanvas(W, H), g = c.getContext('2d'), rng = mulberry32(91), LEDGE = 192;
-  // back wall: tidy brickwork, warm in the middle and cooler toward the edges
-  g.fillStyle = '#2a2024'; g.fillRect(0, 0, W, H);
-  for (let y = 0; y < LEDGE; y += 10) for (let x = ((y / 10) % 2) * 10 - 10; x < W; x += 20) {
-    const base = rng() < 0.12 ? '#4a3a38' : rng() < 0.5 ? '#5e4844' : '#564240';
-    g.fillStyle = base; g.fillRect(x + 1, y + 1, 18, 8);
-    g.fillStyle = shade(base, 1.18); g.fillRect(x + 1, y + 1, 18, 1);
-    g.fillStyle = shade(base, 0.82); g.fillRect(x + 1, y + 8, 18, 1);
-  }
-  // a darker tunnel mouth going back into the gloom
-  ell(g, 200, 196, 70, 92, '#1e1820'); ell(g, 200, 196, 56, 80, '#161216'); ell(g, 200, 196, 40, 66, '#100c10');
-  for (let a = 0; a < 18; a++) { const t = Math.PI + a / 17 * Math.PI, x = 200 + Math.cos(t) * 74, y = 196 + Math.sin(t) * 96; g.fillStyle = a % 2 ? '#6a5650' : '#76605a'; g.fillRect(Math.round(x) - 5, Math.round(y) - 4, 10, 8); g.fillStyle = '#2a2024'; g.fillRect(Math.round(x) - 5, Math.round(y) + 4, 10, 1); }
-  // the great arch over everything, in pale dressed stone
-  for (let y = 0; y < LEDGE; y++) for (let x = 0; x < W; x++) {
-    const d = Math.hypot((x - 240) / 1.35, y - 200);
-    if (d > 204) { g.fillStyle = '#140f12'; g.fillRect(x, y, 1, 1); }
-    else if (d > 190) { const a = Math.atan2(y - 200, x - 240), seam = (a * 16) % 1; g.fillStyle = seam > 0.92 || d > 202.5 || d < 191.5 ? '#2a2024' : Math.floor(a * 16) % 2 ? '#8a7468' : '#7a665c'; g.fillRect(x, y, 1, 1); }
-  }
-  // moss and damp, as clean shapes
-  for (let i = 0; i < 14; i++) { const x = 20 + rng() * (W - 40); ell(g, x, LEDGE - 2, 8 + rng() * 6, 3, '#3e5a2e'); ell(g, x - 2, LEDGE - 4, 5, 2, '#5a7a3a'); }
-  for (let i = 0; i < 8; i++) { const x = 30 + rng() * (W - 60) | 0, y = 60 + rng() * 70 | 0, l = 16 + rng() * 30 | 0; g.fillStyle = 'rgba(30,40,24,.35)'; g.fillRect(x, y, 3, l); g.fillRect(x + 1, y + l, 1, 3); }
-  // a pipe along the wall on brackets
-  g.fillStyle = INK; g.fillRect(118, 68, W - 118, 14);
-  g.fillStyle = '#5a6a62'; g.fillRect(118, 69, W - 118, 12); g.fillStyle = '#7a8c82'; g.fillRect(118, 70, W - 118, 3); g.fillStyle = '#44524a'; g.fillRect(118, 78, W - 118, 3);
-  for (let x = 140; x < W; x += 60) { g.fillStyle = INK; g.fillRect(x - 1, 65, 8, 20); g.fillStyle = '#3a3a40'; g.fillRect(x, 66, 6, 18); g.fillStyle = '#8a8a90'; g.fillRect(x + 2, 69, 2, 2); g.fillRect(x + 2, 78, 2, 2); }
-  // the ladder up to the street grate
-  for (const lx of [370, 398]) { g.fillStyle = INK; g.fillRect(lx - 1, 0, 6, LEDGE); g.fillStyle = '#7a5434'; g.fillRect(lx, 0, 4, LEDGE); g.fillStyle = '#9a6e44'; g.fillRect(lx, 0, 1, LEDGE); }
-  for (let y = 10; y < LEDGE - 4; y += 15) { g.fillStyle = INK; g.fillRect(372, y - 1, 28, 5); g.fillStyle = '#8a6040'; g.fillRect(373, y, 26, 3); g.fillStyle = '#a87a50'; g.fillRect(373, y, 26, 1); }
-  g.fillStyle = INK; g.fillRect(364, 0, 46, 10); g.fillStyle = '#e8e0c8'; g.fillRect(366, 0, 42, 7); g.fillStyle = '#4a4a50'; for (let x = 366; x < 408; x += 6) g.fillRect(x, 0, 3, 8);
-  // the broken pipe the plague comes from
-  g.fillStyle = INK; g.fillRect(0, 98, 70, 20); g.fillStyle = '#6a5a4a'; g.fillRect(0, 100, 68, 16); g.fillStyle = '#8a7660'; g.fillRect(0, 101, 68, 4); g.fillStyle = '#4e4236'; g.fillRect(0, 112, 68, 4);
-  g.fillStyle = INK; g.fillRect(54, 94, 18, 28); g.fillStyle = '#5a4a3c'; g.fillRect(56, 96, 14, 24); g.fillStyle = '#7a6650'; g.fillRect(56, 96, 14, 3);
-  ell(g, 70, 108, 3, 7, '#0e0a0c'); for (const x of [10, 30, 46]) { g.fillStyle = '#a89070'; g.fillRect(x, 103, 2, 2); }
-  // the ledge: stone slabs
-  g.fillStyle = INK; g.fillRect(0, LEDGE, W, 20);
-  for (let x = 0; x < W; x += 32) { g.fillStyle = (x / 32) % 2 ? '#7a6e66' : '#84776e'; g.fillRect(x + 1, LEDGE + 1, 30, 17); g.fillStyle = '#9a8c82'; g.fillRect(x + 1, LEDGE + 1, 30, 2); g.fillStyle = '#5e544e'; g.fillRect(x + 1, LEDGE + 15, 30, 3); }
-  g.fillStyle = '#e8e0cc'; g.fillRect(300, LEDGE - 2, 9, 2); g.fillRect(299, LEDGE - 3, 2, 4); g.fillRect(308, LEDGE - 3, 2, 4); // an old bone
-  // the water: teal bands with pale ripple lines
-  bandSky(g, W, LEDGE + 20, H, ['#2a4a48', '#264442', '#223e3c', '#1e3836', '#1a3230']);
-  for (let i = 0; i < 26; i++) { g.fillStyle = 'rgba(150,200,190,.25)'; g.fillRect(rng() * W | 0, LEDGE + 24 + (rng() * 50 | 0), 8 + (rng() * 16 | 0), 1); }
-  return c;
-}
-
-// ---- V18 scenes (stage 480x270) ------------------------------------------------
-function cutAssets() {
-  if (cut.bg.sewer) return;
-  cut.bg.sewer = sewerBackdrop();
-}
+function cutAssets() { if (!cut.bg.sewerP) cut.bg.sewerP = paintSewer(); } // painted once, on first use
 function drawSmoke(t, x, y) { // chimney smoke drifting off to the right
   for (let i = 0; i < 6; i++) {
     const k = ((t * 0.35 + i / 6) % 1), r = 3 + k * 7;
@@ -2629,7 +2581,10 @@ function prepStreetImage() {
     const r = makeCanvas(116, 62), rg = r.getContext('2d');
     rg.drawImage(im, 872, 684, 116, 62, 0, 0, 116, 62);
     const d = rg.getImageData(0, 0, 116, 62), p = d.data;
-    for (let i = 0; i < p.length; i += 4) if (0.3 * p[i] + 0.59 * p[i + 1] + 0.11 * p[i + 2] > 138) p[i + 3] = 0;
+    for (let i = 0; i < p.length; i += 4) { // keep the brown fur and dark outline; drop pale or grey-blue pavement
+      const l = 0.3 * p[i] + 0.59 * p[i + 1] + 0.11 * p[i + 2];
+      if (l > 125 || (p[i + 2] >= p[i] - 4 && l > 66)) p[i + 3] = 0;
+    }
     rg.putImageData(d, 0, 0);
     STREET_IMG.rat = r;
   } catch (e) { STREET_IMG.rat = null; } // pixels unreadable (e.g. opened from a file): the drawn rat stands in
@@ -2679,8 +2634,7 @@ function sceneStreet(t) {
   else if (t < 4.45) { x = 96 + Math.round(Math.sin(t * 60)); }                                    // dazed
   else if (t < 4.95) { x = lerp(96, DRAIN.x, span(t, 4.45, 4.95)); run = 1.4; }
   else show = false;
-  cut.rat = show ? { x, y: G + 2, hop, rot, run, t } : null;
-  if (!STREET_IMG.rat && show) ratHR(sc, x, G + 2, -1, t, { run, hop });                           // fallback rat
+  if (show) ratSprite(x, G + 2, -1, t, { run, hop, rot });
   // the townsfolk react
   if (t > 1.85 && t < 2.6) { bang(345, 100); swoosh(368, 236, 16, -0.4, 1.2, 1 - span(t, 2.1, 2.6)); }
   if (t > 3.5 && t < 4.4) { bang(180, 92); swoosh(162, 240, 18, 2.6, 1.0, 1 - span(t, 3.8, 4.3)); }
@@ -2690,60 +2644,144 @@ function sceneStreet(t) {
   if (t > 4.25 && !cut.s1c) { cut.s1c = 1; cutBurst(96, G, 10, ['#b8b0a0', '#d8d0b8'], 30, 0.5, 8); }
   if (t > 4.95 && !cut.s1d) { cut.s1d = 1; cutBurst(DRAIN.x, G, 10, ['#4a5a60', '#8aa0a8'], 22, 0.4, 14); }
 }
-function drawStreetLayer(cx, toScreen) { // the painted street and its rat, drawn at full screen resolution under the stage
-  const S = STREET_IMG, src = S.bg || (S.img.complete && S.img.naturalWidth ? S.img : null);
-  if (!src) return;
-  if (!S.bg) prepStreetImage();
-  const [x0, y0, sc0] = toScreen(0, S.y0);
-  cx.imageSmoothingEnabled = true; cx.imageSmoothingQuality = 'high';
-  cx.drawImage(S.bg || src, x0, y0, 1408 * S.k * sc0, 768 * S.k * sc0);
-  const R = cut.rat;
-  if (R && S.rat) {
-    const [rx, ry] = toScreen(R.x, R.y - R.hop), w = 116 * S.k * sc0, h = 62 * S.k * sc0;
-    const bobY = R.run ? Math.abs(Math.sin(R.t * 26)) * 1.2 * sc0 : 0, tilt = R.rot || (R.run ? Math.sin(R.t * 26) * 0.05 : 0);
-    cx.save(); cx.translate(rx, ry - bobY - h * 0.45); cx.rotate(tilt);
-    cx.fillStyle = 'rgba(40,30,20,.2)'; if (!R.hop) cx.fillRect(-w * 0.4, h * 0.42, w * 0.8, 2 * sc0);
-    cx.drawImage(S.rat, -w / 2, -h / 2, w, h); cx.restore();
+// V20: the sewer is painted to match the street painting: drawn on a coarse 352x192 grid (one cell =
+// four of the painting's pixels), lit by the street grate with stepped light bands, then scaled up.
+function paintSewer() {
+  const W = 352, H = 192, c = makeCanvas(W, H), g = c.getContext('2d'), rng = mulberry32(4207);
+  const r = (x, y, w, h, col) => { g.fillStyle = col; g.fillRect(x, y, w, h); };
+  r(0, 0, W, H, '#1c1418');
+  // brick wall, each brick bevelled
+  const BR = ['#7a5446', '#70503f', '#83594a', '#6a4a3e', '#7d5a48', '#74523f'];
+  for (let y = 0; y < 138; y += 6) for (let x = ((y / 6) % 2) * 6 - 6; x < W; x += 12) {
+    const col = rng() < 0.08 ? '#5e5a44' : pick(rng, BR);
+    r(x, y, 12, 6, '#3a2a28'); r(x + 1, y + 1, 10, 4, col); r(x + 1, y + 1, 10, 1, shade(col, 1.15)); r(x + 1, y + 4, 10, 1, shade(col, 0.85));
+    if (rng() < 0.15) r(x + 2 + (rng() * 7 | 0), y + 2, 2, 1, shade(col, 0.7)); // chips
   }
-  cx.imageSmoothingEnabled = false;
+  g.fillStyle = 'rgba(40,60,30,.28)'; g.fillRect(0, 112, W, 26);                       // damp near the water
+  for (let i = 0; i < 16; i++) { const x = rng() * W | 0, y = 40 + (rng() * 60 | 0), l = 12 + (rng() * 30 | 0); g.fillStyle = 'rgba(30,44,24,.4)'; g.fillRect(x, y, 2, l); g.fillRect(x, y + l, 1, 3); }
+  // the tunnel mouth: rings stepping back into the dark, a faint glow at the far end
+  const TX = 144, TY = 141;
+  ell(g, TX, TY, 58, 74, '#2a2024');
+  for (let i = 0; i < 6; i++) {
+    const rx = 52 - i * 8, ry = 68 - i * 10, cy = TY - i * 1.5, d = 0.55 - i * 0.07;
+    ell(g, TX, cy, rx, ry, shade('#5a4a46', d + 0.25)); ell(g, TX, cy + 1, rx - 2, ry - 2, shade('#3a2e30', d + 0.3));
+  }
+  ell(g, TX, TY - 9, 10, 14, '#3a4a40'); ell(g, TX, TY - 8, 6, 9, '#4e6252');            // distant light
+  ell(g, TX, TY + 2, 40, 6, '#14201e');                                                     // water going in
+  for (let a = 0; a < 22; a++) { const t = Math.PI + a / 21 * Math.PI, x = TX + Math.cos(t) * 60, y = TY + Math.sin(t) * 76; r(Math.round(x) - 4, Math.round(y) - 3, 8, 6, '#2a2024'); r(Math.round(x) - 3, Math.round(y) - 2, 6, 4, a % 2 ? '#94806e' : '#8a7462'); r(Math.round(x) - 3, Math.round(y) - 2, 6, 1, '#a8927e'); }
+  // the great vault over everything
+  for (let y = 0; y < 138; y++) for (let x = 0; x < W; x++) {
+    const d = Math.hypot((x - 176) / 202, (y - 146) / 150);
+    if (d > 1.04) r(x, y, 1, 1, '#120c10');
+    else if (d > 0.985) { const a = Math.atan2(y - 146, x - 176), seam = (a * 18) % 1; r(x, y, 1, 1, seam > 0.9 || d > 1.03 || d < 0.99 ? '#2a2024' : Math.floor(a * 18) % 2 ? '#8c7666' : '#7e6a5c'); }
+  }
+  // a long copper pipe on iron brackets, green streaks running from its joints
+  r(87, 46, W - 87, 12, '#1a1416'); r(87, 47, W - 87, 10, '#5a7a6a'); r(87, 48, W - 87, 2, '#86a894'); r(87, 54, W - 87, 3, '#3e5a4c');
+  for (let x = 100; x < W; x += 44) { r(x - 1, 43, 6, 17, '#1a1416'); r(x, 44, 4, 15, '#3a3a40'); r(x + 1, 46, 1, 1, '#9a9aa0'); r(x + 1, 55, 1, 1, '#9a9aa0'); for (let k = 0; k < 3; k++) { g.fillStyle = 'rgba(70,110,80,.35)'; g.fillRect(x + 6 + k * 3, 58, 1, 8 + k * 6); } }
+  // the broken iron pipe the plague will come from, rust bleeding down the wall
+  r(0, 69, 47, 15, '#1a1416'); r(0, 70, 46, 13, '#7a5a44'); r(0, 71, 46, 3, '#9a7656'); r(0, 79, 46, 3, '#5a4030');
+  r(40, 65, 13, 23, '#1a1416'); r(41, 66, 11, 21, '#6a4a38'); r(41, 66, 11, 2, '#8a6a4e');
+  ell(g, 52, 76, 2.5, 6, '#0c080a');
+  for (let k = 0; k < 6; k++) { g.fillStyle = 'rgba(120,60,30,.3)'; g.fillRect(42 + k * 2, 88, 1, 20 + k * 6); }
+  // ladder up to the grate
+  for (const lx of [268, 288]) { r(lx - 1, 0, 5, 138, '#1a1416'); r(lx, 0, 3, 138, '#7a5434'); r(lx, 0, 1, 138, '#9a6e44'); }
+  for (let y = 8; y < 134; y += 11) { r(268, y - 1, 23, 4, '#1a1416'); r(269, y, 21, 2, '#8a6040'); r(269, y, 21, 1, '#a87a50'); }
+  // ledge: a lit top edge, stone blocks, moss and slime
+  r(0, 137, W, 15, '#1a1416'); r(0, 138, W, 3, '#9a8a7c'); r(0, 138, W, 1, '#b4a494');
+  for (let x = 0; x < W; x += 24) { r(x, 141, 23, 10, (x / 24) % 2 ? '#7a6c62' : '#84766a'); r(x, 141, 23, 1, '#94867a'); r(x, 149, 23, 2, '#5a4e46'); }
+  for (let i = 0; i < 22; i++) { const x = rng() * W | 0; ell(g, x, 137, 4 + rng() * 4, 1.6, '#3e5a2e'); ell(g, x - 1, 136, 2.5, 1, '#6a8a42'); if (rng() < 0.5) r(x, 141, 1, 3 + (rng() * 6 | 0), '#4a6a34'); }
+  r(214, 134, 7, 2, '#e8e0cc'); r(213, 133, 2, 4, '#e8e0cc'); r(220, 133, 2, 4, '#e8e0cc');                        // an old bone
+  ell(g, 230, 134, 3.5, 3, '#ddd4c0'); r(229, 133, 1, 1, '#2a2020'); r(231, 133, 1, 1, '#2a2020');                 // a little skull
+  r(318, 124, 18, 14, '#1a1416'); r(319, 125, 16, 12, '#7a5a3a'); r(319, 125, 16, 1, '#9a7650'); thick(g, 320, 126, 333, 135, 1, '#5a3e26'); // broken crate
+  // water: dark teal bands with a reflection of the ledge and ripples
+  const bands = ['#24423f', '#203c39', '#1c3634', '#18302e', '#152a28'];
+  bands.forEach((col, i) => r(0, 151 + i * 8, W, 9, col));
+  r(0, 151, W, 3, '#14201e');
+  for (let i = 0; i < 40; i++) r(rng() * W | 0, 156 + (rng() * 34 | 0), 4 + (rng() * 10 | 0), 1, 'rgba(120,180,170,.25)');
+  // light: brightest under the grate, a shaft falling to the water, stepped into bands like the street painting
+  const img = g.getImageData(0, 0, W, H), d = img.data;
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const i = (y * W + x) * 4;
+    const sy = Math.min(1, y / 151), cxs = 281 - 48 * sy, wd = 14 + 18 * sy, shaft = Math.max(0, 1 - Math.abs(x - cxs) / wd) * (y < 151 ? 1 : 0.5);
+    const diff = 0.32 + 0.95 * Math.exp(-Math.hypot((x - 280) * 0.9, y - 26) / 120);
+    let f = Math.min(1.35, diff + shaft * 0.35); f = Math.round(f / 0.09) * 0.09;
+    d[i] = Math.min(255, d[i] * f + (f > 0.8 ? 10 : 0)); d[i + 1] = Math.min(255, d[i + 1] * f + (f > 0.8 ? 4 : 0)); d[i + 2] = Math.min(255, d[i + 2] * f * (f < 0.6 ? 1.12 : 1));
+  }
+  g.putImageData(img, 0, 0);
+  // daylight through the grate bars
+  r(262, 0, 34, 7, '#1a1416'); r(264, 0, 30, 5, '#fff4d8'); for (let x = 264; x < 294; x += 5) r(x, 0, 2, 6, '#3a3a40');
+  // scale up so each cell is four of the painting's pixels
+  const out = makeCanvas(1408, 768), og = out.getContext('2d'); og.imageSmoothingEnabled = false; og.drawImage(c, 0, 0, 1408, 768);
+  return out;
 }
+// The street at night for the title, its windows about to glow plague-purple.
+function paintNightStreet(bg) {
+  const c = makeCanvas(1408, 768), g = c.getContext('2d');
+  g.drawImage(bg, 0, 0);
+  g.globalCompositeOperation = 'multiply';
+  g.fillStyle = '#3c3266'; g.fillRect(0, 0, 1408, 768);
+  const sky = g.createLinearGradient(0, 0, 0, 768); sky.addColorStop(0, '#7a6aa0'); sky.addColorStop(1, '#c8c0e0');
+  g.fillStyle = sky; g.fillRect(0, 0, 1408, 768);
+  g.globalCompositeOperation = 'source-over';
+  return c;
+}
+const NIGHT_GLOWS = [ // windows, the tavern door and the lantern, in the painting's pixels
+  [40, 300, 60], [290, 60, 50], [520, 60, 50], [245, 380, 70], [480, 340, 70], [700, 230, 40], [785, 215, 40], [870, 200, 40],
+  [1020, 280, 35], [1075, 260, 30], [1160, 160, 45], [1300, 120, 50], [1290, 330, 50],
+];
 
+// Rats in every scene use the rat from the painting: brown, plague-purple, or the near-black Rat King.
+function recolourRat(src, fn) {
+  const c = makeCanvas(src.width, src.height), g = c.getContext('2d'); g.drawImage(src, 0, 0);
+  const d = g.getImageData(0, 0, c.width, c.height), p = d.data;
+  for (let i = 0; i < p.length; i += 4) { if (!p[i + 3]) continue; const l = (0.3 * p[i] + 0.59 * p[i + 1] + 0.11 * p[i + 2]) / 140; const [r, gg, b] = fn(Math.min(1.2, l)); p[i] = r; p[i + 1] = gg; p[i + 2] = b; }
+  g.putImageData(d, 0, 0); return c;
+}
+function ratSprite(x, y, dir, t, o = {}) { // queue a painted rat (the drawn rat stands in if the painting can't be read)
+  const S = STREET_IMG, kind = o.crown ? 'king' : o.plague ? 'plague' : 'rat';
+  if (!S.rat) { ratHR(sc, x, y, dir, t, o); return; }
+  cut.sprites.push({ x: x + (o.tremble ? Math.round(Math.sin(t * 50 + x)) : 0), y, dir, t, hop: o.hop || 0, rot: o.rot || 0, run: o.run || 0, kind, k: o.crown ? 1.2 : 1 });
+  if (o.crown) { // the Rat King's gold crown, drawn crisp on top
+    const cx0 = Math.round(x + dir * 12), cy0 = Math.round(y - (o.hop || 0) - 24);
+    poly(sc, [[cx0 - 5, cy0 + 6], [cx0 - 5, cy0], [cx0 - 3, cy0 + 2], [cx0, cy0 - 3], [cx0 + 3, cy0 + 2], [cx0 + 5, cy0], [cx0 + 5, cy0 + 6]], INK);
+    poly(sc, [[cx0 - 4, cy0 + 5], [cx0 - 4, cy0 + 1], [cx0 - 2, cy0 + 3], [cx0, cy0 - 1], [cx0 + 2, cy0 + 3], [cx0 + 4, cy0 + 1], [cx0 + 4, cy0 + 5]], '#e0b040');
+    sc.fillStyle = '#fff2b0'; sc.fillRect(cx0, cy0, 1, 2); sc.fillStyle = PLAGUE; sc.fillRect(cx0 - 1, cy0 + 3, 2, 1);
+  }
+}
 const HUDDLE = [[256, 0], [272, 2], [286, 0], [300, 2], [314, 0], [266, 6], [294, 6], [280, 10], [308, 8], [324, 4]];
 function sewerBase(t) {
-  sc.drawImage(cut.bg.sewer, 0, 0);
   // light shaft from the grate, with dust drifting in it
-  sc.fillStyle = 'rgba(255,236,190,.07)'; sc.beginPath(); sc.moveTo(372, 0); sc.lineTo(404, 0); sc.lineTo(352, 210); sc.lineTo(292, 210); sc.fill();
-  sc.fillStyle = 'rgba(255,236,190,.05)'; sc.beginPath(); sc.moveTo(380, 0); sc.lineTo(398, 0); sc.lineTo(340, 210); sc.lineTo(306, 210); sc.fill();
-  for (let i = 0; i < 14; i++) { const k = (t * 0.06 + i / 14) % 1; sc.fillStyle = 'rgba(255,240,210,.5)'; sc.fillRect(Math.round(390 - k * 70 + Math.sin(t + i) * 6), Math.round(k * 200), 1, 1); }
-  // water: drifting ripples and the shaft's reflection
-  for (let r = 0; r < 28; r += 2) { sc.fillStyle = `rgba(255,236,190,${(0.07 * (1 - r / 28)).toFixed(3)})`; sc.fillRect(296 + Math.round(Math.sin(t * 2 + r) * 3) - r, 212 + r * 2, 60 + r, 1); } // shaft's broken reflection
-  for (let r = 0; r < 10; r++) { const x = ((r * 61 + t * (10 + r)) % 540) - 30; sc.fillStyle = r % 2 ? '#1e2e28' : '#22342e'; sc.fillRect(Math.round(x), 216 + r * 5, 18 + r * 2, 1); }
+  sc.fillStyle = 'rgba(255,236,190,.06)'; sc.beginPath(); sc.moveTo(372, 0); sc.lineTo(404, 0); sc.lineTo(352, 210); sc.lineTo(292, 210); sc.fill();
+  for (let i = 0; i < 14; i++) { const k = (t * 0.06 + i / 14) % 1; sc.fillStyle = 'rgba(255,240,210,.55)'; sc.fillRect(Math.round(390 - k * 70 + Math.sin(t + i) * 6), Math.round(k * 200), 1, 1); }
+  // the shaft's broken reflection and drifting ripples
+  for (let r = 0; r < 28; r += 2) { sc.fillStyle = `rgba(255,236,190,${(0.08 * (1 - r / 28)).toFixed(3)})`; sc.fillRect(296 + Math.round(Math.sin(t * 2 + r) * 3) - r, 214 + r * 2, 60 + r, 1); }
+  for (let r = 0; r < 8; r++) { const x = ((r * 61 + t * (10 + r)) % 540) - 30; sc.fillStyle = 'rgba(140,190,180,.25)'; sc.fillRect(Math.round(x), 218 + r * 6, 18 + r * 2, 1); }
 }
 function sceneSewer(t) {
   sewerBase(t + 6);
   for (const [dt, x0] of DRIPS) {
     const x = x0 * 2, k = (t + 6 - dt) / 0.5;
-    if (k > 0 && k < 1) { sc.fillStyle = '#7a9aa0'; sc.fillRect(x, Math.round(lerp(10, 212, k * k)), 1, 3); }
-    else if (k >= 1 && k < 2.4) { const r = Math.round((k - 1) * 9); sc.fillStyle = 'rgba(140,170,170,.5)'; sc.fillRect(x - r, 214, r * 2 + 1, 1); sc.fillRect(x - (r >> 1), 216, r + 1, 1); }
+    if (k > 0 && k < 1) { sc.fillStyle = '#9abcc0'; sc.fillRect(x, Math.round(lerp(10, 212, k * k)), 1, 3); }
+    else if (k >= 1 && k < 2.4) { const r = Math.round((k - 1) * 9); sc.fillStyle = 'rgba(160,190,190,.5)'; sc.fillRect(x - r, 214, r * 2 + 1, 1); sc.fillRect(x - (r >> 1), 216, r + 1, 1); }
   }
-  for (const [x, row] of HUDDLE) ratHR(sc, x, 192 - row, x % 4 ? -1 : 1, t, { tremble: true });
+  for (const [x, row] of HUDDLE) ratSprite(x, 192 - row, x % 4 ? -1 : 1, t, { tremble: true });
   if (t > 0.4) {
-    if (t < 0.9) { const k = span(t, 0.4, 0.9); ratHR(sc, lerp(390, 372, k), lerp(16, 216, k * k), -1, t, {}); }
-    else if (t < 2.2) { if (!cut.s2a) { cut.s2a = 1; cutBurst(372, 212, 16, ['#7a9aa0', '#a0c0c8'], 40, 0.5, 26); } ratHR(sc, lerp(372, 344, span(t, 0.9, 2.2)), 218 + Math.sin(t * 8), -1, t, { run: 0.6 }); }
-    else { const k = span(t, 2.2, 2.6); ratHR(sc, lerp(344, 336, k), lerp(218, 192, k), -1, t, { hop: Math.sin(k * Math.PI) * 6 }); }
+    if (t < 0.9) { const k = span(t, 0.4, 0.9); ratSprite(lerp(390, 372, k), lerp(16, 216, k * k), -1, t, { rot: k * 1.2 }); }
+    else if (t < 2.2) { if (!cut.s2a) { cut.s2a = 1; cutBurst(372, 212, 16, ['#9abcc0', '#c0dce0'], 40, 0.5, 26); } ratSprite(lerp(372, 344, span(t, 0.9, 2.2)), 220 + Math.sin(t * 8), -1, t, { run: 0.6 }); }
+    else { const k = span(t, 2.2, 2.6); ratSprite(lerp(344, 336, k), lerp(220, 192, k), -1, t, { hop: Math.sin(k * Math.PI) * 6 }); }
   }
 }
 function sceneDrink(t) {
   sewerBase(t + 12);
   const pulse = 0.5 + 0.5 * Math.sin(t * 5);
-  const glow = sc.createRadialGradient(110, 190, 4, 110, 190, 70);
-  glow.addColorStop(0, `rgba(192,92,255,${(0.45 + pulse * 0.2).toFixed(2)})`); glow.addColorStop(1, 'rgba(192,92,255,0)');
-  sc.fillStyle = glow; sc.fillRect(30, 110, 160, 110);
-  // the ooze pours from the pipe into a pool on the ledge
+  const glow = sc.createRadialGradient(110, 190, 4, 110, 190, 80);
+  glow.addColorStop(0, `rgba(192,92,255,${(0.5 + pulse * 0.2).toFixed(2)})`); glow.addColorStop(1, 'rgba(192,92,255,0)');
+  sc.fillStyle = glow; sc.fillRect(20, 100, 180, 120);
+  // the ooze pours from the broken pipe into a pool on the ledge
   const flow = Math.floor(t * 40) % 8;
-  sc.fillStyle = PLAGUE_DARK; sc.fillRect(66, 108, 6, 84); sc.fillStyle = PLAGUE; sc.fillRect(68, 108, 2, 84);
-  sc.fillStyle = '#e8b0ff'; for (let y = 108 + flow; y < 190; y += 8) sc.fillRect(68, y, 1, 3);
-  ell(sc, 110, 194, 52, 5, PLAGUE_DARK); ell(sc, 110, 193, 48, 3.5, PLAGUE); ell(sc, 96, 192, 18, 1.5, '#e8b0ff');
+  sc.fillStyle = INK; sc.fillRect(67, 108, 7, 84); sc.fillStyle = PLAGUE_DARK; sc.fillRect(68, 108, 5, 84); sc.fillStyle = PLAGUE; sc.fillRect(69, 108, 2, 84);
+  sc.fillStyle = '#e8b0ff'; for (let y = 108 + flow; y < 190; y += 8) sc.fillRect(69, y, 1, 3);
+  ell(sc, 110, 194, 54, 6, INK); ell(sc, 110, 194, 52, 5, PLAGUE_DARK); ell(sc, 110, 193, 48, 3.5, PLAGUE); ell(sc, 96, 192, 18, 1.5, '#e8b0ff');
   if (Math.random() < 0.4) cut.parts.push({ x: 66 + Math.random() * 90, y: 190, vx: 0, vy: -16 - Math.random() * 14, life: 0.9, max: 0.9, col: Math.random() < .5 ? PLAGUE : '#e8b0ff' });
   HUDDLE.forEach(([hx, row], i) => {
     const lead = i === 0, startMove = lead ? 0.5 : 2.6 + i * 0.12, arrive = lead ? 1.5 : startMove + 0.7;
@@ -2754,32 +2792,59 @@ function sceneDrink(t) {
     if (plague && !cut['p' + i]) { cut['p' + i] = 1; cutBurst(x, y - 8, lead ? 26 : 14, [PLAGUE, PLAGUE_DARK, '#e8b0ff'], 36, 0.6, 14); sfxCut('turn'); }
     if (t > arrive && t < turned) hop = Math.abs(Math.sin(t * 12)) * 2; // lapping at the pool
     if (t > 4.6) { dir = 1; hop = Math.max(0, Math.sin((t - 4.6 - i * 0.05) * 7)) * 10; run = 1; }
-    if (lead && plague && !cut.crown) { cut.crown = 1; cutBurst(x + 12, y - 22, 12, ['#ffd75a', '#e0b040', '#fff2b0'], 24, 0.7, 10); }
-    ratHR(sc, x, y, dir, t, { plague, hop, run, tremble: !plague && t < startMove && !lead, crown: lead && plague });
+    if (lead && plague && !cut.crown) { cut.crown = 1; cutBurst(x - 12, y - 22, 12, ['#ffd75a', '#e0b040', '#fff2b0'], 24, 0.7, 10); }
+    ratSprite(x, y, dir, t, { plague, hop, run, tremble: !plague && t < startMove && !lead, crown: lead && plague });
   });
   if (t > 4.6) { sc.globalAlpha = 0.2 * span(t, 4.6, 5.0) * (1 - span(t, 5.4, 6)); sc.fillStyle = PLAGUE; sc.fillRect(0, 0, STAGE_W, STAGE_H); sc.globalAlpha = 1; }
 }
 function sceneTitle(t) {
-  bandSky(sc, STAGE_W, 0, STAGE_H, ['#07050a', '#0b0710', '#100916', '#160b1e', '#1c0c26']);
-  const glow = sc.createRadialGradient(240, 120, 6, 240, 120, 190);
-  glow.addColorStop(0, `rgba(125,52,196,${(0.55 * span(t, 0.2, 1.2)).toFixed(2)})`); glow.addColorStop(1, 'rgba(125,52,196,0)');
-  sc.fillStyle = glow; sc.fillRect(0, 0, STAGE_W, STAGE_H);
-  // the town the swarm is about to take, in silhouette, its windows glowing plague-purple one by one
-  const roofs = [[0, 60, 150], [60, 52, 168], [112, 70, 140], [182, 44, 176], [226, 64, 150], [290, 56, 162], [346, 70, 138], [416, 64, 158]];
-  roofs.forEach(([rx, rw, ry], i) => {
-    poly(sc, [[rx - 2, ry + 14], [rx + rw / 2, ry - 14], [rx + rw + 2, ry + 14]], '#120a18'); sc.fillStyle = '#120a18'; sc.fillRect(rx, ry + 12, rw, 230 - ry);
-    if (i % 3 === 1) { sc.fillRect(rx + rw - 16, ry - 18, 8, 18); }
-    for (let wy = ry + 22; wy < 220; wy += 22) for (let wx = rx + 8; wx < rx + rw - 10; wx += 18) {
-      const lit = span(t, 0.6 + ((wx * 7 + wy * 3) % 23) / 10, 1.4 + ((wx * 7 + wy * 3) % 23) / 10);
-      sc.fillStyle = lit > 0 ? `rgba(192,92,255,${(0.3 + lit * 0.6).toFixed(2)})` : '#2a1a2e'; sc.fillRect(wx, wy, 6, 8);
-    }
-  });
-  for (let i = 0; i < 5; i++) { sc.globalAlpha = 0.12; ell(sc, ((t * (14 + i * 5) + i * 120) % 640) - 80, 200 + i * 12, 90, 4, PLAGUE_DARK); } // fog
+  // the same street by night; the plague swarm floods through it, the Rat King in front
+  for (let i = 0; i < 5; i++) { sc.globalAlpha = 0.14; ell(sc, ((t * (14 + i * 5) + i * 120) % 640) - 80, 230 + i * 8, 90, 4, PLAGUE_DARK); } // purple mist
   sc.globalAlpha = 1;
-  for (let i = 0; i < 16; i++) {
-    const x = lerp(-40 - i * 26, 520 - i * 26, span(t, 1.0, 3.6)), y = 236 + (i % 3) * 9;
-    ratHR(sc, x, y, 1, t + i * 0.3, { plague: true, run: 1.4, hop: Math.abs(Math.sin(t * 12 + i)) * 3, crown: i === 0 });
+  for (let i = 0; i < 18; i++) {
+    const x = lerp(520 + i * 24, -60 + i * 24, span(t, 0.8, 4.2)), y = 238 + (i % 3) * 8;
+    ratSprite(x, y, -1, t + i * 0.3, { plague: true, run: 1.4, hop: Math.abs(Math.sin(t * 12 + i)) * 3, crown: i === 0 });
   }
+}
+function drawPaintedLayer(cx, toScreen, t) { // V19/V20: the painted backdrop and its rats, at full screen resolution under the stage
+  const S = STREET_IMG;
+  if (!S.bg && S.img.complete && S.img.naturalWidth) prepStreetImage();
+  if (!cut.bg.sewerP) cut.bg.sewerP = paintSewer();
+  if (S.bg && !S.night) S.night = paintNightStreet(S.bg);
+  const bg = t < 6 ? (S.bg || (S.img.naturalWidth ? S.img : null)) : t < 18 ? cut.bg.sewerP : S.night;
+  if (!bg) return;
+  const [x0, y0, sc0] = toScreen(0, S.y0), W = 1408 * S.k * sc0, H = 768 * S.k * sc0;
+  cx.imageSmoothingEnabled = true; cx.imageSmoothingQuality = 'high';
+  cx.drawImage(bg, x0, y0, W, H);
+  if (t >= 18) { // windows, door and lantern catching the plague one by one
+    cx.globalCompositeOperation = 'lighter';
+    NIGHT_GLOWS.forEach(([gx, gy, gr], i) => {
+      const a = span(t - 18, 0.4 + i * 0.22, 1.0 + i * 0.22) * (0.75 + 0.25 * Math.sin(t * 3 + i));
+      if (a <= 0) return;
+      const [px, py] = toScreen(gx * S.k, S.y0 + gy * S.k), rr = gr * S.k * sc0 * 1.6;
+      const gg = cx.createRadialGradient(px, py, 0, px, py, rr); gg.addColorStop(0, `rgba(200,110,255,${(0.75 * a).toFixed(2)})`); gg.addColorStop(1, 'rgba(120,40,200,0)');
+      cx.fillStyle = gg; cx.fillRect(px - rr, py - rr, rr * 2, rr * 2);
+    });
+    cx.globalCompositeOperation = 'source-over';
+  }
+  if (S.rat) {
+    if (!S.ratPlague) S.ratPlague = recolourRat(S.rat, l => [Math.round(60 + 150 * l), Math.round(24 + 70 * l), Math.round(96 + 150 * l)]);
+    if (!S.ratKing) S.ratKing = recolourRat(S.rat, l => [Math.round(14 + 44 * l), Math.round(10 + 32 * l), Math.round(20 + 56 * l)]);
+    for (const R of cut.sprites) if (R.kind !== 'rat') { // plague glow under the infected
+      const [gx, gy] = toScreen(R.x, R.y - R.hop - 6), rr = 18 * sc0;
+      const gg = cx.createRadialGradient(gx, gy, 0, gx, gy, rr); gg.addColorStop(0, 'rgba(192,92,255,.35)'); gg.addColorStop(1, 'rgba(192,92,255,0)');
+      cx.fillStyle = gg; cx.fillRect(gx - rr, gy - rr, rr * 2, rr * 2);
+    }
+    for (const R of cut.sprites) {
+      const img = R.kind === 'king' ? S.ratKing : R.kind === 'plague' ? S.ratPlague : S.rat;
+      const [rx, ry] = toScreen(R.x, R.y - R.hop), w = 116 * S.k * sc0 * R.k, h = 62 * S.k * sc0 * R.k;
+      const bobY = R.run ? Math.abs(Math.sin(R.t * 26)) * 1.2 * sc0 : 0, tilt = R.rot || (R.run ? Math.sin(R.t * 26) * 0.05 : 0);
+      cx.save(); cx.translate(rx, ry - bobY - h * 0.45); cx.scale(R.dir > 0 ? -1 : 1, 1); cx.rotate(tilt);
+      if (!R.hop) { cx.fillStyle = 'rgba(20,14,10,.25)'; cx.fillRect(-w * 0.4, h * 0.42, w * 0.8, 2 * sc0); }
+      cx.drawImage(img, -w / 2, -h / 2, w, h); cx.restore();
+    }
+  }
+  cx.imageSmoothingEnabled = false;
 }
 
 // V12: where the portrait camera looks (stage x) through the story, eased between keys.
@@ -2801,7 +2866,7 @@ function drawCutscene(dt) {
   cutAssets();
   cut.t += dt;
   const t = cut.t;
-  sc.clearRect(0, 0, STAGE_W, STAGE_H);
+  sc.clearRect(0, 0, STAGE_W, STAGE_H); cut.sprites = [];
   if (t < 6) sceneStreet(t); else if (t < 12) sceneSewer(t - 6); else if (t < 18) sceneDrink(t - 12); else sceneTitle(t - 18);
   for (const p of cut.parts) { p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 60 * dt; p.life -= dt; }
   cut.parts = cut.parts.filter(p => p.life > 0);
@@ -2813,7 +2878,7 @@ function drawCutscene(dt) {
   for (const [o, m, i] of fade) { if (t > o && t < m) a = (t - o) / (m - o); else if (t >= m && t < i) a = 1 - (t - m) / (i - m); }
   if (a > 0) { sc.fillStyle = `rgba(0,0,0,${Math.min(1, a).toFixed(3)})`; sc.fillRect(0, 0, STAGE_W, STAGE_H); }
   // vignette edges
-  const v = sc.createRadialGradient(STAGE_W / 2, STAGE_H / 2, STAGE_W * 0.22, STAGE_W / 2, STAGE_H / 2, STAGE_W * 0.62); v.addColorStop(0, 'rgba(0,0,0,0)'); v.addColorStop(1, t < 6 ? 'rgba(0,0,0,.3)' : 'rgba(0,0,0,.65)');
+  const v = sc.createRadialGradient(STAGE_W / 2, STAGE_H / 2, STAGE_W * 0.22, STAGE_W / 2, STAGE_H / 2, STAGE_W * 0.62); v.addColorStop(0, 'rgba(0,0,0,0)'); v.addColorStop(1, t < 6 ? 'rgba(0,0,0,.3)' : 'rgba(0,0,0,.5)');
   sc.fillStyle = v; sc.fillRect(0, 0, STAGE_W, STAGE_H);
   // stage onto the screen, letterboxed
   // the cutscene gets its own full-resolution canvas so the hi-res art survives
@@ -2829,7 +2894,7 @@ function drawCutscene(dt) {
     const fit = Math.min(CW / STAGE_W, CH / STAGE_H); s = fit >= 1 ? Math.floor(fit * 2) / 2 : fit;
     left = 0; ox = Math.round((CW - STAGE_W * s) / 2); oy = Math.round((CH - STAGE_H * s) / 2);
   }
-  if (t < 6) drawStreetLayer(cx, (x, y) => [ox + x * s, oy + y * s, s]); // V19: the painted street sits under the stage
+  drawPaintedLayer(cx, (x, y) => [ox + x * s, oy + y * s, s], t); // V19, V20: the painted scenes sit under the stage
   cx.drawImage(stage, ox, oy, STAGE_W * s, STAGE_H * s);
   // captions and the title card
   const cap = CUT_CAPTIONS.find(([a0, b0]) => t >= a0 && t <= b0);
