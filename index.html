@@ -305,6 +305,104 @@ button.secondary { background: var(--ink); color: var(--parch); border: 2px soli
 @media (prefers-reduced-motion: reduce) { .splashBtn { animation: none; } #cutCaption, #cutTitle { transition: none; } }
 @media (prefers-reduced-motion: reduce) { .hunters.urgent { animation: none; } }
 @media (prefers-reduced-motion: reduce) { .swarm.low .count { animation: none; } #pctFill { transition: none; } }
+/* V21: menus. Few words, big buttons, icon badges; every panel framed like the HUD bars. */
+#menuBg { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 4; background: #0b0710; }
+#menuBgShade { position: fixed; inset: 0; z-index: 4; pointer-events: none; background: radial-gradient(ellipse at 50% 28%, rgba(140,60,210,.30), transparent 60%), linear-gradient(rgba(20,8,30,.25), rgba(8,4,12,.9) 80%); }
+.m-screen { display: flex !important; flex-direction: column; align-items: stretch; justify-content: flex-start; place-items: initial; padding: calc(env(safe-area-inset-top, 0px) + 14px) 18px calc(env(safe-area-inset-bottom, 0px) + 16px); background: transparent; }
+.m-screen[hidden] { display: none !important; }
+.m-wrap { width: 100%; max-width: 26rem; margin: 0 auto; flex: 1; display: flex; flex-direction: column; min-height: 0; }
+.m-dim { background: radial-gradient(ellipse at center, rgba(10,8,6,.5), rgba(10,8,6,.88)); }
+.m-modal { justify-content: center; background: rgba(8,5,12,.72); z-index: 6; }
+.m-gap { flex: 1; }
+.m-chip { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px 4px 6px; background: rgba(18,12,10,.85); border: 2px solid #a08a64; box-shadow: inset 0 0 0 1px rgba(192,92,255,.35); font-size: 15px; font-weight: 600; color: #e8c8ff; font-variant-numeric: tabular-nums; }
+.m-chip img { width: 18px; height: 18px; image-rendering: pixelated; }
+.m-logo { font-family: var(--font-display); font-size: clamp(76px, 25vw, 112px); line-height: .82; text-align: center; color: #efe2c0; text-shadow: 0 0 22px rgba(192,92,255,.7), 4px 4px 0 #120a14; margin: 0; font-weight: 400; }
+.m-tag { font-size: 12px; letter-spacing: .24em; text-transform: uppercase; color: var(--plague); text-align: center; margin-top: 10px; }
+.m-panel { position: relative; border: 3px solid var(--edge); outline: 2px solid #000; box-shadow: inset 0 0 0 2px #0b0806, inset 0 0 0 3px rgba(192,92,255,.32), 6px 6px 0 rgba(0,0,0,.5);
+  background: linear-gradient(#a08a64, #a08a64) left 5px top 5px / 4px 4px no-repeat, linear-gradient(#a08a64, #a08a64) right 5px top 5px / 4px 4px no-repeat, linear-gradient(#a08a64, #a08a64) left 5px bottom 5px / 4px 4px no-repeat, linear-gradient(#a08a64, #a08a64) right 5px bottom 5px / 4px 4px no-repeat, repeating-linear-gradient(135deg, rgba(255,255,255,.018) 0 2px, transparent 2px 7px), var(--panel); }
+.m-panel.teeth::after { content: ''; position: absolute; left: 10px; right: 10px; bottom: 7px; height: 3px; background: repeating-linear-gradient(90deg, var(--edge) 0 4px, transparent 4px 10px); }
+.m-pad { padding: 20px 16px 22px; }
+.m-btn { display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; border: 3px solid #120a14; font-family: var(--font-ui); text-transform: uppercase; letter-spacing: .08em; cursor: pointer; transform: none; }
+.m-btn:active { transform: translate(2px, 2px); }
+.m-btnP { min-height: 68px; background: var(--plague); color: #140a1a; font-size: 24px; font-weight: 600; box-shadow: inset 0 -5px 0 #8a3ac8, inset 0 3px 0 #e2b0ff, 4px 4px 0 #000; flex-direction: column; gap: 2px; padding: 8px 12px; }
+.m-btnP small { font-size: 12px; letter-spacing: .06em; text-transform: none; font-weight: 400; color: #3a1450; }
+.m-btnP:active { box-shadow: inset 0 -3px 0 #8a3ac8, 2px 2px 0 #000; }
+.m-btnS { min-height: 52px; background: #1d1813; color: var(--parch); font-size: 17px; font-weight: 600; border-color: #a08a64; box-shadow: inset 0 0 0 2px #0b0806, inset 0 0 0 3px rgba(192,92,255,.3), 4px 4px 0 #000; padding: 6px 14px; }
+.m-btnS .n { margin-left: auto; font-size: 14px; color: var(--dim); }
+.m-btnS.sm { min-height: 44px; font-size: 14px; }
+.m-btn:focus-visible { outline: 3px solid var(--parch); outline-offset: 3px; }
+.m-icons { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+.m-ib { display: flex; flex-direction: column; align-items: center; gap: 6px; font: 400 11px var(--font-ui); letter-spacing: .1em; text-transform: uppercase; color: var(--dim); background: none; border: 0; box-shadow: none; padding: 0; cursor: pointer; }
+.m-ib .sq { width: 58px; height: 58px; display: grid; place-items: center; background: #1d1813; border: 3px solid #a08a64; box-shadow: inset 0 0 0 2px #0b0806, inset 0 0 0 3px rgba(192,92,255,.3), 3px 3px 0 #000; }
+.m-ib:active .sq { transform: translate(2px, 2px); box-shadow: inset 0 0 0 2px #0b0806, 1px 1px 0 #000; }
+.m-ib:active { transform: none; }
+.m-credit { text-align: center; margin-top: 16px; font-size: 10px; letter-spacing: .2em; color: #6a5a4a; text-transform: uppercase; }
+.m-h { font-family: var(--font-display); font-size: 44px; line-height: .9; margin: 0; color: #efe2c0; font-weight: 400; }
+.m-eyebrow { font-size: 11px; letter-spacing: .2em; text-transform: uppercase; color: var(--plague); }
+.m-x { position: absolute; top: 10px; right: 10px; width: 36px; height: 36px; display: grid; place-items: center; background: none; border: 0; box-shadow: none; padding: 0; cursor: pointer; }
+.m-tip { display: grid; grid-template-columns: 52px 1fr; gap: 12px; align-items: center; padding: 10px 0; border-top: 1px dashed var(--edge); }
+.m-tip .pic { width: 52px; height: 52px; display: grid; place-items: center; align-content: center; background: #0d0a08; border: 2px solid var(--edge); }
+.m-tip p { margin: 0; font-size: 14px; line-height: 1.35; color: var(--parch); }
+.m-tip b { color: #efe2c0; }
+.m-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 12px 0; border-top: 1px dashed var(--edge); font-size: 15px; }
+.m-row > span { display: flex; gap: 8px; align-items: center; }
+.m-seg { display: flex; border: 2px solid #a08a64; }
+.m-seg button { padding: 6px 12px; font: 400 12px var(--font-ui); letter-spacing: .06em; text-transform: uppercase; color: var(--dim); background: none; border: 0; box-shadow: none; cursor: pointer; }
+.m-seg button[aria-pressed="true"] { background: var(--plague); color: #140a1a; font-weight: 600; }
+.m-seg button:active { transform: none; }
+.m-pill { padding: 5px 12px; font: 600 13px var(--font-ui); background: #120d0a; color: var(--parch); border: 2px solid #a08a64; box-shadow: 2px 2px 0 #000; cursor: pointer; }
+.m-pill.m-danger { color: var(--blood); border-color: var(--blood); }
+.m-head { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+.m-back { width: 44px; height: 44px; display: grid; place-items: center; background: #1d1813; border: 3px solid #a08a64; box-shadow: 3px 3px 0 #000; padding: 0; cursor: pointer; }
+.m-list { flex: 1; min-height: 0; overflow-y: auto; touch-action: pan-y; overscroll-behavior: contain; margin: 0 -6px; padding: 2px 6px 8px; }
+.m-card { display: grid; grid-template-columns: 70px 1fr auto; gap: 10px; align-items: center; padding: 8px 14px 8px 8px; margin-bottom: 8px; width: 100%; text-align: left; color: var(--parch); font-family: var(--font-ui); cursor: pointer; }
+.m-card:active { transform: none; }
+.m-card.on { outline: 3px solid var(--plague); outline-offset: -1px; }
+.m-card[disabled] { cursor: default; filter: grayscale(1) brightness(.55); }
+.m-thumb { width: 70px; height: 52px; border: 2px solid #0b0806; background: #2a221c center / cover no-repeat; image-rendering: pixelated; position: relative; }
+.m-thumb .num { position: absolute; left: -6px; top: -6px; min-width: 22px; height: 22px; display: grid; place-items: center; background: #120a14; border: 2px solid #a08a64; font-size: 12px; font-weight: 600; }
+.m-card .nm { font-size: 16px; font-weight: 600; line-height: 1.1; }
+.m-card .meta { display: flex; flex-wrap: wrap; gap: 4px 10px; margin-top: 5px; font-size: 12px; color: var(--dim); align-items: center; }
+.m-card .meta span { display: inline-flex; align-items: center; gap: 4px; }
+.m-foot { margin: 0 -18px -16px; padding: 12px 18px calc(env(safe-area-inset-bottom, 0px) + 16px); background: linear-gradient(transparent, rgba(10,8,6,.95) 30%); }
+.m-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.m-stat { background: #0d0a08; border: 2px solid var(--edge); padding: 8px 4px; text-align: center; }
+.m-stat .v { font-size: 20px; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 5px; font-variant-numeric: tabular-nums; }
+.m-stat .v img { width: 16px; height: 16px; image-rendering: pixelated; }
+.m-stat .k { font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: var(--dim); margin-top: 3px; }
+.m-tags { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0 6px; }
+.m-tag2 { display: inline-flex; align-items: center; gap: 6px; padding: 6px 8px 6px 9px; background: #0d0a08; border: 2px solid var(--edge); font: 400 13px var(--font-ui); color: var(--parch); box-shadow: none; cursor: pointer; }
+.m-tag2 .i { width: 16px; height: 16px; border-radius: 50%; display: grid; place-items: center; border: 1px solid var(--dim); font-size: 10px; color: var(--dim); }
+.m-tag2[aria-expanded="true"] { border-color: var(--plague); }
+.m-tag2:active { transform: none; }
+.m-info { font-size: 13px; line-height: 1.4; color: var(--parch); background: #0d0a08; border-left: 3px solid var(--plague); padding: 8px 10px; margin-bottom: 6px; }
+.m-info .key { color: #ffd75a; }
+.m-sub { display: flex; justify-content: space-between; align-items: center; margin: 12px 0 8px; }
+.m-pwgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.m-pwt { background: #0d0a08; border: 2px solid var(--edge); padding: 10px 8px; display: grid; justify-items: center; gap: 6px; text-align: center; }
+.m-pwt > img { width: 40px; height: 36px; image-rendering: pixelated; }
+.m-pwt .nm { font-size: 13px; font-weight: 600; }
+.m-pwt button { width: 100%; padding: 7px 0; font: 600 13px var(--font-ui); display: flex; justify-content: center; gap: 5px; align-items: center; background: var(--plague); color: #140a1a; border: 2px solid #120a14; box-shadow: 3px 3px 0 #000; cursor: pointer; }
+.m-pwt button img { width: 14px; height: 14px; image-rendering: pixelated; }
+.m-pwt button:disabled { background: #1d1813; color: var(--dim); border-color: var(--edge); box-shadow: none; cursor: default; }
+.m-pwt.owned button { background: none; border-color: #9cff3a; color: #9cff3a; box-shadow: none; }
+.m-note { margin: 8px 0 0; font-size: 12px; color: var(--dim); text-align: center; }
+.m-bar { position: relative; height: 16px; background: #0d0a08; border: 2px solid var(--edge); }
+.m-bar i { position: absolute; left: 0; top: 0; bottom: 0; background: var(--plague); }
+.m-bar b { position: absolute; top: -6px; bottom: -6px; width: 3px; background: var(--parch); }
+.m-barcap { display: flex; justify-content: space-between; font-size: 12px; color: var(--dim); margin: 6px 0 14px; }
+.m-barcap b { color: var(--plague); }
+.m-two { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.m-bill { border: 2px solid var(--edge); padding: 10px 12px; display: grid; gap: 6px; margin-top: 10px; }
+.m-bill ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; font-size: 13px; }
+.m-bill li { display: grid; grid-template-columns: auto 1fr auto; gap: 6px; align-items: baseline; }
+.m-bill .lead { border-bottom: 2px dotted #4a3c2c; transform: translateY(-3px); }
+.m-bill li b { color: var(--plague); font-variant-numeric: tabular-nums; }
+.m-scroll { overflow-y: auto; max-height: calc(100vh - 40px); touch-action: pan-y; overscroll-behavior: contain; }
+.m-confirm { border: 2px solid var(--blood); padding: 10px 12px; margin-top: 4px; display: grid; gap: 10px; font-size: 14px; }
+.m-confirm div { display: flex; gap: 10px; }
+.m-ok { font-size: 13px; color: var(--plague); margin: 6px 0 0; }
+.px { display: block; image-rendering: pixelated; }
 </style>
 </head>
 <body>
@@ -343,64 +441,99 @@ button.secondary { background: var(--ink); color: var(--parch); border: 2px soli
   <span class="skip">Tap or press any key to skip</span>
 </div>
 
-<div class="screen" id="titleScreen" hidden>
-  <div class="card">
-    <div class="eyebrow">Ten districts to fall</div>
-    <h1>Plague Rat</h1>
-    <p>Every townsperson a rat touches catches the plague and breeds another rat. Go too long without an infection and a rat dies.</p>
-    <p class="hunterNote"><b>Rat hunters</b> carry a number. While your swarm is smaller, he chases you on sight, and if he touches your lead rat it's over. Match his number and he runs, and your rats can eat him for 5 more rats. Eat every hunter to take the district.</p>
-    <p class="progress" id="progressLine"></p>
-    <div class="actions"><button id="startBtn">Begin the plague</button><button id="levelsBtn" class="secondary">Choose level</button></div>
-    <p class="controls">WASD or arrow keys, or the joystick on touch screens. The corner map shows healthy townsfolk and hunters.</p>
-    <div class="handRow"><span>Powerup buttons</span><div class="seg" role="group" aria-label="Powerup buttons side">
-      <button id="handR" type="button" aria-pressed="true">Left of stick<small>right-handed</small></button>
-      <button id="handL" type="button" aria-pressed="false">Right of stick<small>left-handed</small></button>
-    </div></div>
-    <div class="actions"><button id="introBtn" class="linkish" type="button">Watch the intro</button><button id="resetBtn" class="linkish" type="button">Reset progress</button></div>
-    <div class="confirm" id="resetConfirm" hidden>
-      <p>Wipe your progress? Every district except the first will be locked again and your plague points and powerups are lost.</p>
-      <div class="actions"><button id="resetYes" type="button" class="danger">Yes, reset</button><button id="resetNo" type="button" class="secondary">Cancel</button></div>
+<canvas id="menuBg" hidden></canvas><div id="menuBgShade" hidden></div>
+
+<div class="screen m-screen" id="titleScreen" hidden>
+  <div class="m-wrap">
+    <div style="display:flex;justify-content:flex-end"><span class="m-chip" title="Plague points"><img data-ico="pp" alt=""><span id="ppTitle">0</span></span></div>
+    <h1 class="m-logo" style="margin-top:9vh">Plague<br>Rat</h1>
+    <div class="m-tag">Ten districts to fall</div>
+    <div class="m-gap"></div>
+    <button id="startBtn" class="m-btn m-btnP" type="button"><span>Play</span><small id="startSub"></small></button>
+    <div style="height:14px"></div>
+    <button id="levelsBtn" class="m-btn m-btnS" type="button"><i data-px="scroll" data-c="#a08a64" data-s="3"></i>Districts<span class="n" id="levelsCount"></span></button>
+    <div style="height:22px"></div>
+    <div class="m-icons">
+      <button id="howBtn" class="m-ib" type="button"><span class="sq"><i data-px="q" data-c="#efe2c0" data-s="4"></i></span>How to play</button>
+      <button id="settingsBtn" class="m-ib" type="button"><span class="sq"><i data-px="gear" data-c="#efe2c0" data-s="4"></i></span>Settings</button>
+      <button id="introBtn" class="m-ib" type="button"><span class="sq"><i data-px="film" data-c="#efe2c0" data-s="4"></i></span>Intro</button>
     </div>
-    <p class="note" id="resetNote" hidden></p>
+    <div class="m-credit">A Pixel Mullet game</div>
   </div>
 </div>
 
-<div class="screen" id="levelScreen" hidden>
-  <div class="card">
-    <div class="eyebrow">Choose a district</div>
-    <h2>Levels</h2>
-    <div class="levels" id="levelList"></div>
-    <div class="actions"><button id="playBtn">Play</button><button id="backBtn" class="secondary">Back</button></div>
-  </div>
-</div>
-
-<div class="screen" id="endScreen" hidden>
-  <div class="card">
-    <div class="eyebrow" id="endEyebrow"></div>
-    <h2 id="endTitle"></h2>
-    <p id="endText"></p>
-    <dl class="facts" id="endFacts"></dl>
-    <div class="bill" id="bill" hidden></div>
-    <div class="actions"><button id="retryBtn">Play again</button><button id="menuBtn" class="secondary">Choose level</button></div>
-  </div>
-</div>
-
-<div class="screen levelCard" id="levelCard" hidden>
-  <div class="card">
-    <div class="eyebrow" id="lcEyebrow"></div>
-    <h2 id="lcName"></h2>
-    <dl class="facts">
-      <div><dt>Infect</dt><dd id="lcTarget"></dd></div>
-      <div><dt>Rat hunters</dt><dd id="lcHunters"></dd></div>
-    </dl>
-    <div class="lcList" id="lcList"></div>
-    <div class="shop">
-      <div class="shopHead"><b>Powerups</b><div class="purse"><img class="ico" data-ico="pp" alt=""><b id="ppHave">0</b><span>plague points</span></div></div>
-      <div id="shopList"></div>
-      <p class="shopNote" id="shopNote"></p>
+<div class="screen m-screen m-modal" id="howScreen" hidden>
+  <div class="m-wrap" style="flex:none">
+    <div class="m-panel teeth m-pad m-scroll">
+      <button class="m-x" type="button" data-close aria-label="Close"><i data-px="close" data-c="#a08a64" data-s="3"></i></button>
+      <div class="m-eyebrow">How to play</div><h2 class="m-h" style="margin:4px 0 12px">Spread it</h2>
+      <div class="m-tip"><div class="pic"><i data-px="rat" data-c="#c05cff" data-s="5"></i></div><p><b>Touch townsfolk</b> to infect them. Each one breeds a rat.</p></div>
+      <div class="m-tip"><div class="pic"><i data-px="timer" data-c="#d04a32" data-s="5"></i></div><p><b>Keep biting.</b> When the countdown runs out, a rat dies.</p></div>
+      <div class="m-tip"><div class="pic"><i data-px="skull" data-c="#e0482c" data-s="4"></i><span style="font-size:11px;color:#e0482c;font-weight:600">14</span></div><p><b>Hunters</b> chase smaller swarms. Match his number and eat him.</p></div>
+      <div class="m-tip"><div class="pic"><i data-px="target" data-c="#c05cff" data-s="5"></i></div><p><b>Hit the target</b> and eat every hunter to take the district.</p></div>
+      <div class="m-tip"><div class="pic"><i data-px="hand" data-c="#efe2c0" data-s="5"></i></div><p><b>Steer</b> with the joystick, or WASD / arrow keys.</p></div>
     </div>
-    <button id="lcGo" type="button">Start</button>
-    <p class="controls">Tap Start or press Enter</p>
+  </div>
+</div>
+
+<div class="screen m-screen m-modal" id="settingsScreen" hidden>
+  <div class="m-wrap" style="flex:none">
+    <div class="m-panel teeth m-pad m-scroll">
+      <button class="m-x" type="button" data-close aria-label="Close"><i data-px="close" data-c="#a08a64" data-s="3"></i></button>
+      <div class="m-eyebrow">Settings</div><h2 class="m-h" style="margin:4px 0 12px">Options</h2>
+      <div class="m-row"><span><i data-px="sound" data-c="#efe2c0" data-s="3"></i>Sound</span><div class="m-seg" role="group" aria-label="Sound"><button id="sndOn" type="button" aria-pressed="true">On</button><button id="sndOff" type="button" aria-pressed="false">Off</button></div></div>
+      <div class="m-row"><span><i data-px="hand" data-c="#efe2c0" data-s="3"></i>Powerup buttons</span><div class="m-seg" role="group" aria-label="Powerup buttons side"><button id="handR" type="button" aria-pressed="true">Left</button><button id="handL" type="button" aria-pressed="false">Right</button></div></div>
+      <div class="m-row"><span><i data-px="film" data-c="#efe2c0" data-s="3"></i>Opening story</span><button id="introBtn2" class="m-pill" type="button">Watch</button></div>
+      <div class="m-row" style="padding-bottom:6px"><span style="color:var(--blood)">Reset progress</span><button id="resetBtn" class="m-pill m-danger" type="button">Reset</button></div>
+      <div class="m-confirm" id="resetConfirm" hidden>
+        <span>Lock every district but the first and lose your plague points and powerups?</span>
+        <div><button id="resetYes" type="button" class="m-pill m-danger">Yes, reset</button><button id="resetNo" type="button" class="m-pill">Cancel</button></div>
+      </div>
+      <p class="m-ok" id="resetNote" hidden></p>
+    </div>
+  </div>
+</div>
+
+<div class="screen m-screen" id="levelScreen" hidden>
+  <div class="m-wrap">
+    <div class="m-head"><button id="backBtn" class="m-back" type="button" aria-label="Back"><i data-px="back" data-c="#efe2c0" data-s="3"></i></button><h2 class="m-h" style="font-size:40px">Districts</h2><div class="m-gap"></div><span class="m-chip" title="Plague points"><img data-ico="pp" alt=""><span id="ppLevels">0</span></span></div>
+    <div class="m-list" id="levelList"></div>
+    <div class="m-foot"><button id="playBtn" class="m-btn m-btnP" type="button"><span>Play</span><small id="playSub"></small></button></div>
+  </div>
+</div>
+
+<div class="screen m-screen m-dim" id="levelCard" hidden style="justify-content:flex-end">
+  <div class="m-wrap" style="flex:none">
+    <div class="m-panel teeth m-pad m-scroll">
+      <div class="m-eyebrow" id="lcEyebrow"></div><h2 class="m-h" id="lcName" style="margin:4px 0 14px"></h2>
+      <div class="m-stats" id="lcStats"></div>
+      <div class="m-tags" id="lcList"></div>
+      <div class="m-info" id="lcInfo" hidden></div>
+      <div class="m-sub"><span class="m-eyebrow" style="color:#9cff3a">Powerups</span><span class="m-chip" title="Plague points"><img data-ico="pp" alt=""><span id="ppHave">0</span></span></div>
+      <div class="m-pwgrid" id="shopList"></div>
+      <p class="m-note" id="shopNote" hidden></p>
+      <div style="height:14px"></div>
+      <button id="lcGo" class="m-btn m-btnP" type="button">Start</button>
+    </div>
+  </div>
+</div>
+
+<div class="screen m-screen m-dim" id="endScreen" hidden style="justify-content:center">
+  <div class="m-wrap" style="flex:none">
+    <div class="m-panel teeth m-pad m-scroll" style="text-align:center">
+      <div id="endCrown" hidden style="display:flex;justify-content:center;margin-bottom:6px"><i data-px="crown" data-c="#e0b040" data-s="7"></i></div>
+      <div class="m-eyebrow" id="endEyebrow"></div><h2 class="m-h" id="endTitle" style="margin:4px 0 14px"></h2>
+      <div class="m-bar"><i id="endFill"></i><b id="endMark"></b></div>
+      <div class="m-barcap"><span id="endCapL"></span><span id="endCapR"></span></div>
+      <div class="m-stats" id="endFacts"></div>
+      <div style="height:12px"></div>
+      <button id="billBtn" class="m-btn m-btnS sm" type="button" aria-expanded="false"><i data-px="scroll" data-c="#a08a64" data-s="3"></i>Bill of Mortality<span class="n" id="billArrow">▸</span></button>
+      <div class="m-bill" id="bill" hidden style="text-align:left"></div>
+      <div style="height:16px"></div>
+      <button id="retryBtn" class="m-btn m-btnP" type="button"><span id="retryLabel">Try again</span><small id="retrySub" hidden></small></button>
+      <div style="height:12px"></div>
+      <div class="m-two"><button id="menuBtn" class="m-btn m-btnS sm" type="button"><i data-px="scroll" data-c="#a08a64" data-s="2"></i>Districts</button><button id="homeBtn" class="m-btn m-btnS sm" type="button">Menu</button></div>
+    </div>
   </div>
 </div>
 
@@ -3555,28 +3688,139 @@ function loadLevel(i) {
   if (loadedLevel !== i) { buildMap(LEVEL); mapCanvas = renderMap(); loadedLevel = i; }
   $('target').style.left = CONFIG.targetPercent + '%';
 }
+// V21: small pixel icons for the menus, drawn as crisp SVG squares.
+const PX_ICONS = {
+  skull: ['..#####..', '.#######.', '##..#..##', '##..#..##', '.#######.', '..##.##..', '..#.#.#..'],
+  target: ['..#####..', '.#.....#.', '#..###..#', '#..#.#..#', '#..###..#', '.#.....#.', '..#####..'],
+  grate: ['..#####..', '.#.#.#.#.', '#.#.#.#.#', '#.#.#.#.#', '#.#.#.#.#', '.#.#.#.#.', '..#####..'],
+  q: ['..####..', '.##..##.', '.....##.', '....##..', '...##...', '........', '...##...'],
+  gear: ['...##...', '.######.', '.##..##.', '##....##', '##....##', '.##..##.', '.######.', '...##...'],
+  film: ['########', '#.#..#.#', '########', '#......#', '#......#', '########', '#.#..#.#', '########'],
+  back: ['...#....', '..##....', '.#######', '########', '.#######', '..##....', '...#....'],
+  lock: ['..####..', '.#....#.', '.#....#.', '########', '###..###', '###..###', '########'],
+  check: ['.......#', '......##', '#....##.', '##..##..', '.####...', '..##....'],
+  close: ['##....##', '.##..##.', '..####..', '...##...', '..####..', '.##..##.', '##....##'],
+  sound: ['....#...', '...##.#.', '####.#.#', '####.#.#', '####.#.#', '...##.#.', '....#...'],
+  scroll: ['.######.', '#......#', '.#.##.#.', '.#....#.', '.#.##.#.', '.#....#.', '#......#', '.######.'],
+  maze: ['########', '#.....##', '#.###..#', '#.#.#.##', '#.#...##', '#.#####.', '#.......', '########'],
+  timer: ['..####..', '.#..#.#.', '#...#..#', '#...##.#', '#......#', '.#....#.', '..####..'],
+  hand: ['...#.#..', '..#.#.#.', '..#####.', '.######.', '.######.', '..####..', '..####..'],
+  rat: ['.....##.', '.######.', '########', '#######.', '.#..#...'],
+  crown: ['#..#..#', '##.#.##', '#######', '#.###.#', '#######'],
+  play: ['#....', '###..', '#####', '###..', '#....'],
+  wave: ['........', '.##..##.', '#..##..#', '........', '.##..##.', '#..##..#', '........'],
+  moon: ['..###...', '.##.....', '##......', '##......', '##......', '.##.....', '..###...'],
+  fire: ['...#....', '..##..#.', '..###.#.', '.#####..', '.######.', '########', '.######.'],
+  gate: ['########', '#.#.#.#.', '#.#.#.#.', '########', '#.#.#.#.', '#.#.#.#.', '#.#.#.#.'],
+  cart: ['..#####.', '.#######', '########', '.#....#.', '###..###', '.#....#.'],
+  rats: ['......##', '.#######', '########', '........', '.....##.', '.######.', '#######.'],
+};
+function pxIcon(name, col, s = 3) {
+  const r = PX_ICONS[name]; if (!r) return '';
+  const w = r[0].length, h = r.length;
+  let out = `<svg class="px" width="${w * s}" height="${h * s}" viewBox="0 0 ${w} ${h}" shape-rendering="crispEdges" aria-hidden="true">`;
+  r.forEach((row, y) => [...row].forEach((ch, x) => { if (ch === '#') out += `<rect x="${x}" y="${y}" width="1" height="1" fill="${col}"/>`; }));
+  return out + '</svg>';
+}
+function fillPxIcons(root = document) { root.querySelectorAll('i[data-px]').forEach(el => { el.outerHTML = pxIcon(el.dataset.px, el.dataset.c || '#efe2c0', +el.dataset.s || 3); }); }
+fillPxIcons();
+const coinImg = sz => `<img src="${UI_ICON_URL.pp}" alt="" style="width:${sz}px;height:${sz}px;image-rendering:pixelated">`;
+
+// The menus sit over the painted street at night (the same art as the end of the opening story).
+const menuBg = $('menuBg');
+function drawMenuBg() {
+  const S = STREET_IMG;
+  if (!S.bg && S.img.complete && S.img.naturalWidth) prepStreetImage();
+  if (S.bg && !S.night) S.night = paintNightStreet(S.bg);
+  const src = S.night || (S.img.naturalWidth ? S.img : null);
+  const W = window.innerWidth, H = window.innerHeight;
+  if (menuBg.width !== W || menuBg.height !== H) { menuBg.width = W; menuBg.height = H; }
+  const g = menuBg.getContext('2d'); g.fillStyle = '#0b0710'; g.fillRect(0, 0, W, H);
+  if (!src) return;
+  const k = Math.max(W / 1408, H / 768), w = 1408 * k, h = 768 * k;
+  g.imageSmoothingEnabled = true; g.imageSmoothingQuality = 'high';
+  g.drawImage(src, Math.round((W - w) * 0.42), Math.round((H - h) / 2), w, h);
+}
+STREET_IMG.img.addEventListener('load', () => { if (!menuBg.hidden) setTimeout(drawMenuBg, 50); });
+function showMenuBg(on) { menuBg.hidden = !on; $('menuBgShade').hidden = !on; if (on) drawMenuBg(); }
+
+// District thumbnails: a crop of each district's map around the well, made a few at a time and kept on this device.
+const THUMB_KEY = 'plague-rat-thumbs-v1';
+let thumbs = {}, thumbBusy = false;
+try { thumbs = JSON.parse(localStorage.getItem(THUMB_KEY) || '{}'); } catch (e) { thumbs = {}; }
+function makeThumbs() {
+  if (thumbBusy) return;
+  const next = LEVELS.findIndex((lv, i) => !thumbs[i]);
+  if (next < 0) return;
+  thumbBusy = true;
+  setTimeout(() => {
+    thumbBusy = false;
+    if (state !== 'title') return; // only while the menus are up
+    loadLevel(next);
+    const c = makeCanvas(140, 104), g = c.getContext('2d'); g.imageSmoothingEnabled = false;
+    g.drawImage(mapCanvas, WELL.x - 140, WELL.y - 104, 280, 208, 0, 0, 140, 104);
+    thumbs[next] = c.toDataURL();
+    try { localStorage.setItem(THUMB_KEY, JSON.stringify(thumbs)); } catch (e) { /* storage full or blocked */ }
+    const el = document.querySelector(`.m-card[data-i="${next}"] .m-thumb`); if (el) el.style.backgroundImage = `url(${thumbs[next]})`;
+    makeThumbs();
+  }, 60);
+}
+// Obstacles in a district, as short tags (the long text shows when a tag is tapped on the level card).
+function levelObstacles(lv) {
+  const F = lv.features || {}, out = [];
+  if (lv.canalBand !== undefined) out.push(['wave', 'Canal', 'A canal cuts the district in two. Only the bridges cross it.']);
+  if (lv.alleyChance >= 0.7) out.push(['maze', 'Maze', 'Narrow alleys split almost every block.']);
+  if (THEMES[lv.theme].night) out.push(['moon', 'Dark', 'Night has fallen. You only see what the lamps light.']);
+  if (F.fires) out.push(['fire', 'Fires', 'Fire pits smoulder, then flare up and burn any rat in them. Cross while they smoulder or once they die down.']);
+  if (F.flood) out.push(['wave', 'Flood', 'Flooded streets slow everyone down. Keep to the dry causeways.']);
+  if (F.gates) out.push(['gate', 'Gates', 'Iron gates across the streets drop on a timer and block the way. Slip under while they are up.']);
+  if (F.carts) out.push(['cart', 'Carts', 'Horse-drawn carts roll up and down the streets and crush rats. Cross behind them.']);
+  if (F.sewers) out.push(['grate', 'Sewers', 'Find the <span class="key">gold sewer key</span> to open the four grates in the corners. Step on an open grate and the swarm pops out of another one, picked at random.']);
+  return out;
+}
 function renderLevelList() {
   $('levelList').innerHTML = LEVELS.map((lv, i) => {
-    const t = lv.tune, locked = i >= unlocked;
-    const nh = lv.hunters.length, meta = locked ? 'Locked' : `${t.targetPercent}% · ${nh ? nh + ' hunter' + (nh > 1 ? 's' : '') : 'no hunters'}`;
-    return `<button class="lvl${i === selected ? ' on' : ''}" data-i="${i}" ${locked ? 'disabled' : ''}><span class="n">${i + 1}</span><span>${lv.name}</span><span class="meta">${meta}</span></button>`;
+    const t = lv.tune, locked = i >= unlocked, done = i < unlocked - 1, nh = lv.hunters.length;
+    const meta = locked
+      ? `<span>${pxIcon('lock', '#a8987a', 2)}Take ${LEVELS[i - 1].name.replace(/^The /, '')}</span>`
+      : `<span>${pxIcon('target', '#c05cff', 2)}${t.targetPercent}%</span><span>${nh ? pxIcon('skull', '#e0482c', 2) + nh : 'No hunters'}</span>` + levelObstacles(lv).map(([ic, nm]) => `<span>${pxIcon(ic, '#a8987a', 2)}${nm}</span>`).join('');
+    const end = done ? pxIcon('check', '#9cff3a', 3) : i === selected && !locked ? pxIcon('play', '#c05cff', 4) : locked ? pxIcon('lock', '#6a5a4a', 3) : '';
+    return `<button class="m-card m-panel${i === selected ? ' on' : ''}" type="button" data-i="${i}" ${locked ? 'disabled' : ''}>
+      <span class="m-thumb" style="${thumbs[i] ? `background-image:url(${thumbs[i]})` : ''}"><span class="num">${i + 1}</span></span>
+      <span><span class="nm">${lv.name}</span><span class="meta">${meta}</span></span><span>${end}</span></button>`;
   }).join('');
-  $('playBtn').textContent = `Play ${LEVELS[selected].name}`;
-  $('progressLine').innerHTML = `<b>${unlocked} of ${LEVELS.length}</b> districts unlocked · next up: <b>${LEVELS[selected].name}</b> · <b>${plaguePoints}</b> plague points`;
+  $('playSub').textContent = LEVELS[selected].name;
+  $('startSub').textContent = `District ${selected + 1} · ${LEVELS[selected].name}`;
+  $('levelsCount').textContent = `${unlocked} / ${LEVELS.length}`;
+  $('ppTitle').textContent = $('ppLevels').textContent = plaguePoints;
 }
 $('levelList').addEventListener('click', e => {
-  const b = e.target.closest('.lvl'); if (!b || b.disabled) return;
-  selected = +b.dataset.i; renderLevelList();
+  const b = e.target.closest('.m-card'); if (!b || b.disabled) return;
+  const top = $('levelList').scrollTop;
+  selected = +b.dataset.i; renderLevelList(); $('levelList').scrollTop = top;
 });
-function hideScreens() { for (const id of ['titleScreen', 'levelScreen', 'endScreen', 'splash', 'levelCard']) $(id).hidden = true; }
+
+const SCREENS = ['titleScreen', 'levelScreen', 'endScreen', 'splash', 'levelCard', 'howScreen', 'settingsScreen'];
+function hideScreens() { for (const id of SCREENS) $(id).hidden = true; showMenuBg(false); }
 function enterMenu() { state = 'title'; stopMusic(); hideScreens(); setFramed(false); mini.hidden = true; stickEl.hidden = true; }
-function showTitle() { enterMenu(); renderLevelList(); $('titleScreen').hidden = false; $('startBtn').focus(); }
-function showLevels() { enterMenu(); renderLevelList(); $('levelScreen').hidden = false; $('playBtn').focus(); }
+const focusKb = el => { if (!isTouch()) el.focus(); };
+function showTitle() { enterMenu(); renderLevelList(); showMenuBg(true); $('titleScreen').hidden = false; focusKb($('startBtn')); makeThumbs(); }
+function showLevels() {
+  enterMenu(); renderLevelList(); showMenuBg(true); $('levelScreen').hidden = false; focusKb($('playBtn')); makeThumbs();
+  const on = document.querySelector('.m-card.on'); if (on) on.scrollIntoView({ block: 'center' });
+}
+function openPanel(id) { $(id).hidden = false; focusKb($(id).querySelector('[data-close]')); }
+function closePanels() { $('howScreen').hidden = true; $('settingsScreen').hidden = true; $('resetConfirm').hidden = true; $('resetNote').hidden = true; if (!$('titleScreen').hidden) focusKb($('startBtn')); }
+document.querySelectorAll('[data-close]').forEach(b => b.addEventListener('click', closePanels));
+for (const id of ['howScreen', 'settingsScreen']) $(id).addEventListener('click', e => { if (e.target === $(id)) closePanels(); }); // tap outside the panel
+$('howBtn').addEventListener('click', () => openPanel('howScreen'));
+$('settingsBtn').addEventListener('click', () => openPanel('settingsScreen'));
 $('levelsBtn').addEventListener('click', showLevels);
 $('backBtn').addEventListener('click', showTitle);
 $('playBtn').addEventListener('click', () => startLevel(selected));
+$('introBtn2').addEventListener('click', () => { closePanels(); beginCutscene(); });
 // Reset progress: asks for confirmation on the page (browser confirm dialogs aren't available here).
-$('resetBtn').addEventListener('click', () => { $('resetNote').hidden = true; $('resetConfirm').hidden = false; $('resetYes').focus(); $('resetConfirm').scrollIntoView({ block: 'nearest' }); });
+$('resetBtn').addEventListener('click', () => { $('resetNote').hidden = true; $('resetConfirm').hidden = false; $('resetYes').focus(); });
 $('resetNo').addEventListener('click', () => { $('resetConfirm').hidden = true; $('resetBtn').focus(); });
 // V17: which side of the joystick the powerup buttons sit on, remembered on this device
 const HAND_KEY = 'plague-rat-hand';
@@ -3590,6 +3834,8 @@ function setHand(left) { leftHanded = left; try { localStorage.setItem(HAND_KEY,
 $('handR').addEventListener('click', () => setHand(false));
 $('handL').addEventListener('click', () => setHand(true));
 applyHand();
+$('sndOn').addEventListener('click', () => { if (muted) toggleMute(); });
+$('sndOff').addEventListener('click', () => { if (!muted) toggleMute(); });
 $('resetYes').addEventListener('click', () => {
   unlocked = 1; selected = 0; // the next game starts from the first district
   plaguePoints = 0; savePoints(); // P1: a reset also empties the plague points
@@ -3597,7 +3843,7 @@ $('resetYes').addEventListener('click', () => {
   try { localStorage.setItem(SAVE_KEY, '1'); } catch (e) { /* storage blocked: progress was only in memory anyway */ }
   $('resetConfirm').hidden = true;
   $('resetNote').textContent = 'Progress reset. Only The Market District is open now.'; $('resetNote').hidden = false;
-  renderLevelList(); $('startBtn').focus();
+  renderLevelList(); $('resetBtn').focus();
 });
 
 function startLevel(i) {
@@ -3608,12 +3854,11 @@ function startLevel(i) {
     state = 'playing';
     startMusic();
     hideScreens(); mini.hidden = false; setFramed(true);
-    $('startBtn').textContent = 'Begin the plague';
     stickEl.hidden = !isTouch();
     canvas.focus?.();
   };
   if (loadedLevel === i) go();
-  else { $('startBtn').textContent = 'Preparing the district…'; $('playBtn').textContent = 'Preparing the district…'; $('retryBtn').textContent = 'Preparing…'; setTimeout(go, 30); }
+  else { for (const id of ['startSub', 'playSub']) $(id).textContent = 'Preparing the district…'; setTimeout(go, 30); }
 }
 // ---------------------------------------------------------------------------
 // P1-P4: plague points and powerups.
@@ -3656,14 +3901,14 @@ function buyPower(id) {
 function renderShop() {
   const P = game.powers;
   $('ppHave').textContent = plaguePoints;
+  const names = { bite: 'Super bite', boost: `Speed boost ×${CONFIG.boostCharges}` };
   $('shopList').innerHTML = Object.entries(POWERS).map(([id, pw]) => {
     const cost = pw.cost(), bought = P[id + 'Bought'], can = !bought && plaguePoints >= cost;
-    const label = bought ? 'Owned' : plaguePoints >= cost ? `Buy · ${cost}` : `${cost} pts`;
-    return `<div class="item${bought ? ' bought' : ''}"><div><b>${pw.name}</b><span>${pw.desc()}</span></div><button type="button" data-buy="${id}" ${can ? '' : 'disabled'}>${label}</button></div>`;
+    return `<div class="m-pwt${bought ? ' owned' : ''}" title="${pw.desc().replace(/"/g, '&quot;')}"><img src="${UI_ICON_URL[id]}" alt=""><div class="nm">${names[id]}</div>
+      <button type="button" data-buy="${id}" ${can ? '' : 'disabled'}>${bought ? 'Owned' : `${coinImg(14)}${cost}`}</button></div>`;
   }).join('');
-  $('shopNote').textContent = plaguePoints === 0 && !P.biteBought && !P.boostBought
-    ? 'No plague points yet. Earn 1 for every person you infect and 3 for every hunter you eat.'
-    : 'You can own one of each. Unused powerups are kept for next time; once you dash, the rest of that boost goes at the end of the level.';
+  const none = plaguePoints === 0 && !P.biteBought && !P.boostBought;
+  $('shopNote').hidden = !none; $('shopNote').textContent = 'Infect townsfolk and eat hunters to earn plague points.';
 }
 $('shopList').addEventListener('click', e => { const b = e.target.closest('[data-buy]'); if (b && !b.disabled) buyPower(b.dataset.buy); });
 
@@ -3790,32 +4035,34 @@ const startGame = () => startLevel(selected);
 
 // R21: after the swarm climbs out of the well, a title card sums up the district.
 // Everything stays paused until the player dismisses it.
-function levelBriefing(lv) {
-  const F = lv.features || {}, out = [];
-  const haz = (name, text) => out.push(`<div class="haz"><b>${name}</b>${text}</div>`);
-  if (lv.canalBand !== undefined) haz('Canal', 'A canal cuts the district in two. Only the bridges cross it.');
-  if (lv.alleyChance >= 0.7) haz('Maze of alleys', 'Narrow alleys split almost every block.');
-  if (THEMES[lv.theme].night) haz('Darkness', 'Night has fallen. You only see what the lamps light.');
-  if (F.fires) haz('Street fires', 'Fire pits smoulder, then flare up and burn any rat in them. Cross while they smoulder or once they die down.');
-  if (F.flood) haz('Floodwater', 'Flooded streets slow everyone down. Keep to the dry causeways.');
-  if (F.gates) haz('Portcullises', 'Iron gates across the streets drop on a timer and block the way. Slip under while they are up.');
-  if (F.carts) haz('Carts', 'Horse-drawn carts roll up and down the streets and crush rats. Cross behind them.');
-  if (F.sewers) out.push(`<div class="sewer"><b>Sewers</b>Find the <span class="key">gold sewer key</span> to open the four grates in the corners. Step on an open grate and the swarm pops out of another one, picked at random.</div>`);
-  if (!out.length) out.push('<div><b>No obstacles</b>Open streets. Learn the ropes.</div>');
-  return out.join('');
-}
+// R21 + V21: the level card. Three stat tiles, short obstacle tags (tap one for the details), the powerup shop.
 function showLevelCard() {
-  const G = game, lv = LEVEL;
+  const G = game, lv = LEVEL, F = lv.features || {}, nh = lv.hunters.length;
   G.card = true;
   $('lcEyebrow').textContent = `District ${levelIndex + 1} of ${LEVELS.length}`;
   $('lcName').textContent = lv.name;
-  $('lcTarget').textContent = `${CONFIG.targetPercent}% of ${CONFIG.population}`;
-  $('lcHunters').innerHTML = lv.hunters.length ? `${lv.hunters.length}<br>${lv.hunters.map(n => `<span class="hnum">${n}</span>`).join('')}` : 'None';
-  $('lcList').innerHTML = levelBriefing(lv);
+  const tile = (v, k) => `<div class="m-stat"><div class="v">${v}</div><div class="k">${k}</div></div>`;
+  $('lcStats').innerHTML = tile(`${pxIcon('target', '#c05cff', 3)}${CONFIG.targetPercent}%`, `Infect ${Math.ceil(CONFIG.targetPercent * CONFIG.population / 100)}`)
+    + tile(`${pxIcon('skull', nh ? '#e0482c' : '#6a5a4a', 3)}${nh}`, nh ? lv.hunters.join(' · ') : 'No hunters')
+    + (F.sewers ? tile(pxIcon('grate', '#c05cff', 3), 'Sewers') : tile(`${pxIcon('rats', '#a8987a', 3)}${CONFIG.startRats}`, 'Rats'));
+  const obs = levelObstacles(lv);
+  $('lcList').innerHTML = obs.length
+    ? obs.map(([ic, nm], i) => `<button class="m-tag2" type="button" data-ob="${i}" aria-expanded="false">${pxIcon(ic, ic === 'grate' ? '#c05cff' : '#f0884a', 2)}${nm === 'Sewers' ? 'Find the key' : nm === 'Maze' ? 'Maze of alleys' : nm}<span class="i">i</span></button>`).join('')
+    : `<span class="m-tag2" style="cursor:default">Open streets: learn the ropes</span>`;
+  $('lcList').dataset.lv = levelIndex;
+  $('lcInfo').hidden = true;
   renderShop();
   stickEl.hidden = true;
-  $('levelCard').hidden = false; $('lcGo').focus();
+  $('levelCard').hidden = false; focusKb($('lcGo'));
 }
+$('lcList').addEventListener('click', e => {
+  const b = e.target.closest('[data-ob]'); if (!b) return;
+  const open = b.getAttribute('aria-expanded') === 'true';
+  $('lcList').querySelectorAll('[data-ob]').forEach(x => x.setAttribute('aria-expanded', 'false'));
+  if (open) { $('lcInfo').hidden = true; return; }
+  b.setAttribute('aria-expanded', 'true');
+  $('lcInfo').innerHTML = levelObstacles(LEVELS[+$('lcList').dataset.lv])[+b.dataset.ob][2]; $('lcInfo').hidden = false;
+});
 function dismissLevelCard() {
   if (!game || !game.card) return;
   game.card = false; $('levelCard').hidden = true;
@@ -3830,31 +4077,37 @@ function endGame(won, reason) {
   mini.hidden = true;
   stickEl.hidden = true; stick.id = null; stick.x = stick.y = 0; knobEl.style.transform = '';
   updateHud();
-  const pct = Math.floor(G.infected * 100 / CONFIG.population), last = levelIndex === LEVELS.length - 1;
+  const pct = Math.floor(G.infected * 100 / CONFIG.population), last = levelIndex === LEVELS.length - 1, left = huntersLeft(G);
   if (won) unlock(levelIndex + 2);
-  $('endEyebrow').textContent = `Level ${levelIndex + 1} · ${LEVEL.name}`;
-  $('endTitle').textContent = won ? (last ? 'The whole city has fallen' : 'The district has fallen') : reason === 'caught' ? 'Caught by a rat hunter' : 'Your swarm died out';
+  // V3 + V21: headline, a progress bar against the target, three tiles, the Bill of Mortality folded away
+  $('endCrown').hidden = !won;
+  $('endEyebrow').textContent = `District ${levelIndex + 1} · ${LEVEL.name}`;
+  $('endTitle').textContent = won ? (last ? 'The city has fallen' : 'District taken') : reason === 'caught' ? 'Caught!' : left && targetMet(G) ? 'Hunters escaped' : 'Swarm died out';
   $('endTitle').style.color = won ? 'var(--plague)' : 'var(--blood)';
-  const short = Math.ceil(CONFIG.targetPercent * CONFIG.population / 100) - G.infected;
-  $('endText').textContent = won
-    ? `You infected ${G.infected} of ${CONFIG.population} townsfolk with ${G.rats.length} rats still standing.${last ? ' There is nowhere left to spread.' : ''}`
-    : reason === 'caught'
-      ? `His number was ${G.caughtBy.number} and your swarm was only ${G.rats.length}. Grow past a hunter's number before you let him near your lead rat.`
-      : short <= 0 ? `You hit the ${CONFIG.targetPercent}% target, but ${huntersLeft(G)} hunter${huntersLeft(G) > 1 ? 's' : ''} still walked the streets.`
-      : `You reached ${pct}% of the ${CONFIG.targetPercent}% needed. ${short} more infections would have done it.`;
-  const facts = [['Spread', pct + '%'], ['Time', fmtTime(G.time)], ['Biggest swarm', G.peak], ['Hunters eaten', `${G.huntersKilled} of ${G.hunters.length}`], ['Plague points', `+${G.pointsEarned} (${plaguePoints})`]];
-  $('endFacts').innerHTML = facts.map(([k, v]) => `<div><dt>${k}</dt><dd>${v}</dd></div>`).join('');
+  $('endFill').style.width = Math.min(100, pct) + '%'; $('endMark').style.left = CONFIG.targetPercent + '%';
+  $('endCapL').innerHTML = `<b>${pct}%</b> infected`;
+  $('endCapR').textContent = won ? `in ${fmtTime(G.time)}` : reason === 'caught' ? `caught by hunter ${G.caughtBy.number}` : targetMet(G) ? `${left} hunter${left > 1 ? 's' : ''} left` : `needed ${CONFIG.targetPercent}%`;
+  const all = G.huntersKilled === G.hunters.length;
+  const tile = (v, k) => `<div class="m-stat"><div class="v">${v}</div><div class="k">${k}</div></div>`;
+  $('endFacts').innerHTML = tile(G.peak, 'Top swarm')
+    + tile(G.hunters.length ? `${pxIcon('skull', all ? '#9cff3a' : '#e0482c', 3)}${G.huntersKilled}/${G.hunters.length}` : '—', 'Hunters')
+    + tile(`${coinImg(16)}+${G.pointsEarned}`, 'Points');
   const bill = billOfMortality(G.infected);
-  $('bill').hidden = !bill.length;
-  $('bill').innerHTML = `<h3>Bill of Mortality</h3><div class="sub">${LEVEL.name}, this week</div><ol>` +
+  $('billBtn').hidden = !bill.length; $('bill').hidden = true; $('billBtn').setAttribute('aria-expanded', 'false'); $('billArrow').textContent = '▸';
+  $('bill').innerHTML = `<div class="m-eyebrow" style="color:var(--dim)">${LEVEL.name}, this week</div><ol>` +
     bill.map(([c, n]) => `<li><span>${c}</span><span class="lead"></span><b>${n}</b></li>`).join('') + '</ol>';
-  if (won && !last) { $('retryBtn').textContent = `Next: ${LEVELS[levelIndex + 1].name}`; endAction = () => { selected = levelIndex + 1; startLevel(selected); }; }
-  else if (won) { $('retryBtn').textContent = 'Back to the levels'; endAction = () => { selected = levelIndex; showTitle(); }; }
-  else { $('retryBtn').textContent = 'Try again'; endAction = () => startLevel(levelIndex); }
+  const sub = $('retrySub');
+  if (won && !last) { $('retryLabel').textContent = 'Next district'; sub.textContent = LEVELS[levelIndex + 1].name; sub.hidden = false; endAction = () => { selected = levelIndex + 1; startLevel(selected); }; }
+  else if (won) { $('retryLabel').textContent = 'Districts'; sub.hidden = true; endAction = () => { selected = levelIndex; showLevels(); }; }
+  else { $('retryLabel').textContent = 'Try again'; sub.hidden = true; endAction = () => startLevel(levelIndex); }
   stopMusic();
   (won ? sfx.win : sfx.lose)();
-  setTimeout(() => { $('endScreen').hidden = false; $('retryBtn').focus(); }, 700);
+  setTimeout(() => { $('endScreen').hidden = false; focusKb($('retryBtn')); }, 700);
 }
+$('billBtn').addEventListener('click', () => {
+  const open = $('bill').hidden; $('bill').hidden = !open;
+  $('billBtn').setAttribute('aria-expanded', String(open)); $('billArrow').textContent = open ? '▾' : '▸';
+});
 
 // ---------------------------------------------------------------------------
 // Input + main loop
@@ -3870,7 +4123,11 @@ window.addEventListener('keydown', e => {
     return;
   }
   keys.add(e.code);
-  if (state !== 'playing' && (e.code === 'Enter' || e.code === 'Space') && !e.repeat) {
+  if (state !== 'playing' && e.code === 'Escape' && !e.repeat) {
+    if (!$('howScreen').hidden || !$('settingsScreen').hidden) closePanels(); else if (!$('levelScreen').hidden) showTitle();
+    return;
+  }
+  if (state !== 'playing' && (e.code === 'Enter' || e.code === 'Space') && !e.repeat && $('howScreen').hidden && $('settingsScreen').hidden) {
     if (!$('endScreen').hidden && endAction) { e.preventDefault(); endAction(); }
     else if (!$('titleScreen').hidden) { e.preventDefault(); startGame(); }
     else if (!$('levelScreen').hidden) { e.preventDefault(); startLevel(selected); }
@@ -3908,8 +4165,10 @@ window.addEventListener('touchstart', () => { if (state === 'playing' && !game.c
 $('startBtn').addEventListener('click', startGame);
 $('retryBtn').addEventListener('click', () => endAction && endAction());
 $('menuBtn').addEventListener('click', () => { selected = levelIndex; showLevels(); });
+$('homeBtn').addEventListener('click', () => { selected = Math.min(unlocked - 1, levelIndex + (state === 'won' ? 1 : 0)); showTitle(); });
 function toggleMute() {
   muted = !muted; $('mute').textContent = 'Sound: ' + (muted ? 'off' : 'on');
+  $('sndOn').setAttribute('aria-pressed', String(!muted)); $('sndOff').setAttribute('aria-pressed', String(muted));
   if (music.gain) music.gain.gain.setValueAtTime(muted ? 0 : 1, actx.currentTime);
 }
 $('mute').addEventListener('click', e => { toggleMute(); e.currentTarget.blur(); });
