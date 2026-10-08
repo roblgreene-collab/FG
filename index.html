@@ -72,6 +72,14 @@ h2 { font-size: clamp(40px, 11vw, 56px); }
 .facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr)); gap: 10px; margin: 0; }
 .facts div { border-top: 2px solid var(--edge); padding-top: 6px; }
 .facts dt { font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--dim); }
+.levelCard { background: rgba(10, 8, 6, .45); }
+.lcList { display: grid; gap: 8px; }
+.lcList div { border-left: 3px solid var(--edge); padding: 2px 0 2px 10px; font-size: 14px; line-height: 1.4; }
+.lcList b { display: block; font-size: 12px; letter-spacing: .08em; text-transform: uppercase; }
+.lcList .haz b { color: #f0884a; }
+.lcList .sewer b { color: var(--plague); }
+.lcList .key { color: #ffd75a; }
+.hnum { display: inline-block; min-width: 1.6em; margin: 0 4px 4px 0; padding: 0 4px; text-align: center; font-size: 15px; background: #000; color: #e0482c; border: 1px solid #e0482c; }
 .facts dd { margin: 2px 0 0; font-size: 18px; font-weight: 600; font-variant-numeric: tabular-nums; }
 button {
   font: 600 18px var(--font-ui); color: var(--ink); background: var(--plague);
@@ -210,7 +218,7 @@ button.secondary { background: var(--ink); color: var(--parch); border: 2px soli
 
 <div class="screen" id="titleScreen" hidden>
   <div class="card">
-    <div class="eyebrow">Five districts to fall</div>
+    <div class="eyebrow">Ten districts to fall</div>
     <h1>Plague Rat</h1>
     <p>Every townsperson a rat touches catches the plague and breeds another rat. Go too long without an infection and a rat dies.</p>
     <p class="hunterNote"><b>Rat hunters</b> carry a number. While your swarm is smaller, he chases you on sight, and if he touches your lead rat it's over. Match his number and he runs, and your rats can eat him for 5 more rats. Eat every hunter to take the district.</p>
@@ -243,6 +251,20 @@ button.secondary { background: var(--ink); color: var(--parch); border: 2px soli
     <dl class="facts" id="endFacts"></dl>
     <div class="bill" id="bill" hidden></div>
     <div class="actions"><button id="retryBtn">Play again</button><button id="menuBtn" class="secondary">Choose level</button></div>
+  </div>
+</div>
+
+<div class="screen levelCard" id="levelCard" hidden>
+  <div class="card">
+    <div class="eyebrow" id="lcEyebrow"></div>
+    <h2 id="lcName"></h2>
+    <dl class="facts">
+      <div><dt>Infect</dt><dd id="lcTarget"></dd></div>
+      <div><dt>Rat hunters</dt><dd id="lcHunters"></dd></div>
+    </dl>
+    <div class="lcList" id="lcList"></div>
+    <button id="lcGo" type="button">Start</button>
+    <p class="controls">Tap Start or press any key</p>
   </div>
 </div>
 
@@ -308,26 +330,29 @@ const LEVELS = [
   { name: 'The Docks', theme: 'docks', seed: 2203, blocksX: 7, blocksY: 5, parkChance: 0.06, alleyChance: 0.3, canalBand: 3,
     tune: { population: 95, targetPercent: 60, startRats: 8 }, hunters: [12, 16] },
   { name: 'The Shambles', theme: 'slums', seed: 3517, blocksX: 7, blocksY: 5, parkChance: 0.08, alleyChance: 0.8,
-    tune: { population: 100, targetPercent: 65, startRats: 8 }, hunters: [14, 18, 22] },
+    tune: { population: 100, targetPercent: 65, startRats: 8 }, hunters: [14, 18, 22],
+    features: { sewers: true } },
   { name: 'Frostgate', theme: 'winter', seed: 4441, blocksX: 7, blocksY: 5, parkChance: 0.12, alleyChance: 0.4,
-    tune: { population: 100, targetPercent: 65, startRats: 12, decayInterval: 1.4 }, hunters: [14, 18, 22, 26] },
+    tune: { population: 100, targetPercent: 65, startRats: 12, decayInterval: 1.4 }, hunters: [14, 18, 22, 26],
+    features: { sewers: true } },
   { name: 'The Palace Ward', theme: 'night', seed: 5903, blocksX: 7, blocksY: 5, parkChance: 0.1, alleyChance: 0.3,
-    tune: { population: 120, targetPercent: 70, startRats: 12, decayInterval: 1.3 }, hunters: [16, 20, 24, 28, 32] },
+    tune: { population: 120, targetPercent: 70, startRats: 12, decayInterval: 1.3 }, hunters: [16, 20, 24, 28, 32],
+    features: { sewers: true } },
   { name: 'The Burning Quarter', theme: 'ash', seed: 6131, blocksX: 7, blocksY: 5, parkChance: 0.06, alleyChance: 0.35,
     tune: { population: 125, targetPercent: 70, startRats: 14, decayInterval: 1.3 }, hunters: [16, 20, 24, 28, 32],
-    features: { sewers: true, fires: 26, tip: 'Fires flare up: cross while they smoulder' } },
+    features: { sewers: true, fires: 26 } },
   { name: 'The Drowned Ward', theme: 'flood', seed: 7177, blocksX: 7, blocksY: 5, parkChance: 0.08, alleyChance: 0.35,
     tune: { population: 130, targetPercent: 70, startRats: 14, decayInterval: 1.35 }, hunters: [14, 18, 22, 26, 28],
-    features: { sewers: true, flood: 0.4, tip: 'Floodwater slows you: keep to the dry causeways' } },
+    features: { sewers: true, flood: 0.4 } },
   { name: 'The Walled Quarter', theme: 'fort', seed: 8209, blocksX: 7, blocksY: 5, parkChance: 0.06, alleyChance: 0.2,
     tune: { population: 140, targetPercent: 72, startRats: 14, decayInterval: 1.25 }, hunters: [14, 18, 22, 26, 30, 34],
-    features: { sewers: true, gates: 0.5, tip: 'Portcullises drop on a timer: slip under while they are up' } },
+    features: { sewers: true, gates: 0.5 } },
   { name: 'The Midsummer Fair', theme: 'fair', seed: 9293, blocksX: 7, blocksY: 5, parkChance: 0.14, alleyChance: 0.25,
     tune: { population: 140, targetPercent: 72, startRats: 14, decayInterval: 1.25 }, hunters: [14, 18, 22, 26, 30, 34],
-    features: { sewers: true, carts: 4, tip: 'Carts crush rats: cross behind them' } },
+    features: { sewers: true, carts: 4 } },
   { name: 'The Cathedral Close', theme: 'cathedral', seed: 10331, blocksX: 7, blocksY: 5, parkChance: 0.14, alleyChance: 0.3,
     tune: { population: 160, targetPercent: 75, startRats: 14, decayInterval: 1.25 }, hunters: [14, 18, 22, 26, 28, 32],
-    features: { sewers: true, gates: 0.3, fires: 14, carts: 2, tip: 'Gates, fires and carts: everything at once' } },
+    features: { sewers: true, gates: 0.3, fires: 14, carts: 2 } },
 ];
 
 // Visual themes (V7). Material indexes refer to MATERIALS below.
@@ -1656,7 +1681,7 @@ function updateIntro(dt) {
     r.anim += dt; if (r.moving && r.anim > 0.07) { r.anim = 0; r.frame ^= 1; }
   });
   stepFx(dt);
-  if (I.t >= I.end) { G.intro = null; G.rats.forEach(r => { r.z = 0; r.hidden = false; }); }
+  if (I.t >= I.end) { G.intro = null; G.rats.forEach(r => { r.z = 0; r.hidden = false; }); showLevelCard(); }
 }
 
 // Sprites are written as character grids and coloured with a palette.
@@ -2065,7 +2090,7 @@ const HUNTER_FRAMES = [
   ['...aaaa...', '.aaaaaaaa.', '..hssssh..', '..sesseS..', '...sSSS...', '.kcccccCk.', 'kccrrrrCCk', 'kcccccCCCk', 'ksdddDddSk', 'kccccCCCCk', '.kgccCCCk.', '..bb..BB..', '.bb....BB.', '.ff....ff.'],
 ];
 const HUNTER_PAL = { a: '#2e2620', h: '#3a2a1e', s: '#c99470', S: '#a87a5a', e: '#1d1712', k: '#3a3026', c: '#5a4a32', C: '#463a28', r: '#a8322c', d: '#2a2018', D: '#b89a50', g: '#6e5b4c', b: '#2c2620', B: '#221d18', f: '#1d1712' };
-const HUNTER_DANGER = '#e0482c', HUNTER_PREY = '#f2c14a';
+const HUNTER_DANGER = '#e0482c', HUNTER_PREY = '#3fd8f0'; // H1, H2: red = dangerous, cyan = prey
 const hunterSprites = {
   danger: HUNTER_FRAMES.map(f => spriteFrom(f, HUNTER_PAL, HUNTER_DANGER)),
   prey: HUNTER_FRAMES.map(f => spriteFrom(f, HUNTER_PAL, HUNTER_PREY)),
@@ -2983,6 +3008,7 @@ function update(dt) {
   const G = game;
   if (G.intro) { updateIntro(dt); return; } // V9: the swarm climbs out of the well first
   if (G.feast) { updateFeast(dt); return; } // H7: the world waits while the swarm eats
+  if (G.card) { stepFx(dt); return; }       // R21: nothing moves until the title card is dismissed
   G.time += dt;
 
   // R1: lead rat follows the player's input
@@ -3290,8 +3316,8 @@ function updateHud() {
     el.classList.toggle('urgent', met && left > 0);
   }
   // R16-R20: the district's obstacle tip for the first seconds, then the sewer key status
-  const F = LEVEL.features || {}, hz = !F.sewers && !F.tip ? '' : G.time < 6 && F.tip ? F.tip : !F.sewers ? '' : G.hasKey ? 'Sewers open \u00b7 step on a grate' : 'Find the sewer key';
-  if (hudCache.hz !== hz) { hudCache.hz = hz; const el = $('hazLine'); el.hidden = !hz; el.textContent = hz; el.classList.toggle('open', !!G.hasKey && G.time >= 6); }
+  const F = LEVEL.features || {}, hz = !F.sewers ? '' : G.hasKey ? 'Sewers open \u00b7 step on a grate' : 'Find the sewer key';
+  if (hudCache.hz !== hz) { hudCache.hz = hz; const el = $('hazLine'); el.hidden = !hz; el.textContent = hz; el.classList.toggle('open', !!G.hasKey); }
   const di = decayIntervalFor(G.rats.length);
   $('decayFill').style.width = Math.max(0, 100 - G.decayTimer / di * 100) + '%';
   if (hudCache.di !== di) { $('decaySecs').textContent = di.toFixed(1) + 's'; hudCache.di = di; }
@@ -3328,7 +3354,7 @@ $('levelList').addEventListener('click', e => {
   const b = e.target.closest('.lvl'); if (!b || b.disabled) return;
   selected = +b.dataset.i; renderLevelList();
 });
-function hideScreens() { for (const id of ['titleScreen', 'levelScreen', 'endScreen', 'splash']) $(id).hidden = true; }
+function hideScreens() { for (const id of ['titleScreen', 'levelScreen', 'endScreen', 'splash', 'levelCard']) $(id).hidden = true; }
 function enterMenu() { state = 'title'; stopMusic(); hideScreens(); $('hud').hidden = true; mini.hidden = true; stickEl.hidden = true; }
 function showTitle() { enterMenu(); renderLevelList(); $('titleScreen').hidden = false; $('startBtn').focus(); }
 function showLevels() { enterMenu(); renderLevelList(); $('levelScreen').hidden = false; $('playBtn').focus(); }
@@ -3362,6 +3388,40 @@ function startLevel(i) {
   else { $('startBtn').textContent = 'Preparing the district…'; $('playBtn').textContent = 'Preparing the district…'; $('retryBtn').textContent = 'Preparing…'; setTimeout(go, 30); }
 }
 const startGame = () => startLevel(selected);
+
+// R21: after the swarm climbs out of the well, a title card sums up the district.
+// Everything stays paused until the player dismisses it.
+function levelBriefing(lv) {
+  const F = lv.features || {}, out = [];
+  const haz = (name, text) => out.push(`<div class="haz"><b>${name}</b>${text}</div>`);
+  if (lv.canalBand !== undefined) haz('Canal', 'A canal cuts the district in two. Only the bridges cross it.');
+  if (lv.alleyChance >= 0.7) haz('Maze of alleys', 'Narrow alleys split almost every block.');
+  if (THEMES[lv.theme].night) haz('Darkness', 'Night has fallen. You only see what the lamps light.');
+  if (F.fires) haz('Street fires', 'Fire pits smoulder, then flare up and burn any rat in them. Cross while they smoulder or once they die down.');
+  if (F.flood) haz('Floodwater', 'Flooded streets slow everyone down. Keep to the dry causeways.');
+  if (F.gates) haz('Portcullises', 'Iron gates across the streets drop on a timer and block the way. Slip under while they are up.');
+  if (F.carts) haz('Carts', 'Horse-drawn carts roll up and down the streets and crush rats. Cross behind them.');
+  if (F.sewers) out.push(`<div class="sewer"><b>Sewers</b>Find the <span class="key">gold sewer key</span> to open the four grates in the corners. Step on an open grate and the swarm pops out of another one, picked at random.</div>`);
+  if (!out.length) out.push('<div><b>No obstacles</b>Open streets. Learn the ropes.</div>');
+  return out.join('');
+}
+function showLevelCard() {
+  const G = game, lv = LEVEL;
+  G.card = true;
+  $('lcEyebrow').textContent = `District ${levelIndex + 1} of ${LEVELS.length}`;
+  $('lcName').textContent = lv.name;
+  $('lcTarget').textContent = `${CONFIG.targetPercent}% of ${CONFIG.population}`;
+  $('lcHunters').innerHTML = lv.hunters.length ? `${lv.hunters.length}<br>${lv.hunters.map(n => `<span class="hnum">${n}</span>`).join('')}` : 'None';
+  $('lcList').innerHTML = levelBriefing(lv);
+  stickEl.hidden = true;
+  $('levelCard').hidden = false; $('lcGo').focus();
+}
+function dismissLevelCard() {
+  if (!game || !game.card) return;
+  game.card = false; $('levelCard').hidden = true;
+  stickEl.hidden = !isTouch(); canvas.focus?.();
+}
+$('lcGo').addEventListener('click', dismissLevelCard);
 let endAction = null;
 function endGame(won, reason) {
   if (state !== 'playing') return;
@@ -3404,6 +3464,7 @@ window.addEventListener('keydown', e => {
   if (state === 'splash' && !e.repeat) { e.preventDefault(); beginLogo(); return; }
   if (state === 'logo' && !e.repeat) { e.preventDefault(); finishLogo(); return; }
   if (state === 'cutscene' && !e.repeat) { e.preventDefault(); endCutscene(true); return; }
+  if (state === 'playing' && game.card && !e.repeat) { e.preventDefault(); dismissLevelCard(); return; }
   keys.add(e.code);
   if (state !== 'playing' && (e.code === 'Enter' || e.code === 'Space') && !e.repeat) {
     if (!$('endScreen').hidden && endAction) { e.preventDefault(); endAction(); }
@@ -3437,7 +3498,7 @@ stickEl.addEventListener('pointerdown', e => {
 stickEl.addEventListener('pointermove', e => { if (e.pointerId === stick.id) moveStick(e); });
 stickEl.addEventListener('pointerup', releaseStick);
 stickEl.addEventListener('pointercancel', releaseStick);
-window.addEventListener('touchstart', () => { if (state === 'playing') stickEl.hidden = false; }, { passive: true });
+window.addEventListener('touchstart', () => { if (state === 'playing' && !game.card) stickEl.hidden = false; }, { passive: true });
 $('startBtn').addEventListener('click', startGame);
 $('retryBtn').addEventListener('click', () => endAction && endAction());
 $('menuBtn').addEventListener('click', () => { selected = levelIndex; showLevels(); });
