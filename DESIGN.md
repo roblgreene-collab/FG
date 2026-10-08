@@ -221,10 +221,12 @@ Status **Planned** = recorded for later; not built until the designer says so.
 - More hazards: cats, or guards that kill rats.
 - Townsfolk types: e.g. a doctor who cures, a crowd that clusters at a market.
 - A best time and star rating saved per level.
+- *Tried and declined (2026-10-08):* repainting the in-game town and townsfolk to look more like the intro painting. Three mock-ups were made (a flat repaint, a brighter palette, and redrawn people and house fronts); the designer prefers the original in-game style, so it stays as it is.
 
 ## 7. Change Log
 | Date | Change | Approved by |
 |------|--------|-------------|
+| 2026-10-08 | In-game art repaint toward the intro style mocked up three ways and declined; original in-game style kept (recorded in §6) | Designer |
 | 2026-10-08 | Rat King's crown is part of his own picture and rats are drawn back to front, so the crown shows in the pile without covering rats in front (V20) | Designer |
 | 2026-10-08 | Sewer, drinking and title scenes repainted to match the street painting; all rats use the painted rat (V20; V18 retired) | Designer |
 | 2026-10-08 | Townsfolk animation in the intro removed again (people stay still); the wider portrait framing stays (V19) | Designer |
