@@ -403,6 +403,36 @@ button.secondary { background: var(--ink); color: var(--parch); border: 2px soli
 .m-confirm div { display: flex; gap: 10px; }
 .m-ok { font-size: 13px; color: var(--plague); margin: 6px 0 0; }
 .px { display: block; image-rendering: pixelated; }
+
+/* V16 + V21: the in-game HUD in the menu style: a framed meter, a swarm tile, one row of icon chips */
+#hud { gap: 8px 12px; align-content: stretch; }
+#hud .meter { flex: 1; min-width: 0; max-width: none; align-self: center; }
+#hud .label { font-size: 11px; letter-spacing: .12em; color: var(--dim); align-items: center; }
+#hud .label span { display: flex; align-items: center; gap: 6px; white-space: nowrap; }
+#hud .label b { font-size: 16px; letter-spacing: 0; }
+#hud .bar { height: 16px; margin-top: 6px; background: #0d0a08; border: 2px solid var(--edge); }
+#hud #target { top: -6px; bottom: -6px; width: 3px; }
+#hud .swarm { box-sizing: border-box; min-width: 0; width: 104px; background: #0d0a08; border: 2px solid var(--edge); padding: 5px 8px 6px; text-align: center; }
+#hud .count { font-size: 26px; display: flex; align-items: baseline; justify-content: center; gap: 4px; margin: 0; }
+#hud .count small { font-size: 10px; letter-spacing: .1em; text-transform: uppercase; }
+#hud .decayRow { margin-top: 3px; }
+#hud .decay { height: 5px; background: #2a1e18; }
+#hud .status { flex-basis: 100%; display: flex; gap: 6px; justify-content: flex-start; border-top: 0; padding-top: 0; min-height: 0; flex-wrap: nowrap; }
+.hchip { display: inline-flex; align-items: center; gap: 5px; height: 24px; padding: 0 8px 0 6px; background: rgba(13,10,8,.9); border: 2px solid #a08a64; box-shadow: inset 0 0 0 1px rgba(192,92,255,.3); font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.hchip.hunters { color: #e0482c; } .hchip.hunters.done { color: #9cff3a; border-color: #5a8a3a; }
+.hchip.hunters.urgent { color: #ffd75a; border-color: #e0b040; animation: pulse .6s steps(2) infinite; }
+.hchip.hazLine { color: #e8c860; text-align: left; } .hchip.hazLine.open { color: var(--plague); border-color: var(--plague); }
+.hchip.ppChip { margin-left: auto; color: #e8c8ff; font-size: 13px; letter-spacing: 0; flex: none; }
+.hchip.ppChip .ico { width: 14px; height: 14px; }
+.hchip.ppChip.bump { border-color: var(--plague); box-shadow: 0 0 8px var(--plague); }
+@media (prefers-reduced-motion: reduce) { .hchip.hunters.urgent { animation: none; } }
+body.land #hud .swarm { width: 100%; text-align: center; }
+body.land #hud .status { flex-direction: column; align-items: stretch; gap: 6px; }
+body.land .hchip.ppChip { margin-left: 0; }
+body.land .hchip { display: flex; }
+/* the sound button and minimap in the bottom bar, in the same style */
+#muteSlot #mute { font: 600 12px var(--font-ui); letter-spacing: .06em; text-transform: uppercase; padding: 6px 10px; background: #120d0a; color: var(--parch); border: 2px solid #a08a64; box-shadow: inset 0 0 0 1px rgba(192,92,255,.3), 2px 2px 0 #000; }
+#bottomBar #minimap { border: 2px solid #a08a64; box-shadow: inset 0 0 0 1px rgba(192,92,255,.3), 2px 2px 0 #000; }
 </style>
 </head>
 <body>
@@ -410,16 +440,18 @@ button.secondary { background: var(--ink); color: var(--parch); border: 2px soli
 
 <div id="hud" class="frame" hidden>
   <div class="meter">
-    <div class="label"><span>Plague spread</span><b id="pct">0%</b></div>
+    <div class="label"><span><i data-px="target" data-c="#c05cff" data-s="2"></i>Plague spread</span><b id="pct">0%</b></div>
     <div class="bar"><div id="pctFill"></div><div id="target"></div></div>
   </div>
   <div class="swarm" id="swarmBox">
-    <div class="label" style="justify-content:flex-end">Swarm</div>
-    <div class="count"><span id="rats">0</span> <small>rats</small></div>
-    <div class="ppRow" title="Plague points"><img class="ico" data-ico="pp" alt=""><b id="ppHud">0</b><small>pts</small></div>
+    <div class="count"><span id="rats">0</span><small>rats</small></div>
     <div class="decayRow"><span id="decaySecs">1.5s</span><div class="decay" title="Time until the next rat dies. Infect someone to refill it."><div id="decayFill"></div></div></div>
   </div>
-  <div class="status"><span class="hunters" id="huntersLeft" hidden></span><span class="hazLine" id="hazLine" hidden></span></div>
+  <div class="status">
+    <span class="hchip hunters" id="huntersLeft" hidden></span>
+    <span class="hchip hazLine" id="hazLine" hidden></span>
+    <span class="hchip ppChip" title="Plague points"><img class="ico" data-ico="pp" alt=""><b id="ppHud">0</b></span>
+  </div>
 </div>
 
 <div class="screen splash" id="splash">
@@ -3644,12 +3676,12 @@ function updateHud() {
     hudCache.hk = hk;
     const el = $('huntersLeft');
     el.hidden = !G.hunters.length;
-    el.textContent = !left ? 'All hunters eaten' : met ? `Target reached · eat ${left} more hunter${left > 1 ? 's' : ''}` : `${left} hunter${left > 1 ? 's' : ''} left to eat`;
-    el.classList.toggle('urgent', met && left > 0);
+    el.innerHTML = pxIcon('skull', !left ? '#9cff3a' : met ? '#ffd75a' : '#e0482c', 2) + (!left ? 'All eaten' : met ? `Eat ${left} more!` : `${left} left`);
+    el.classList.toggle('urgent', met && left > 0); el.classList.toggle('done', !left);
   }
   // R16-R20: the district's obstacle tip for the first seconds, then the sewer key status
-  const F = LEVEL.features || {}, hz = !F.sewers ? '' : G.hasKey ? 'Sewers open \u00b7 step on a grate' : 'Find the sewer key';
-  if (hudCache.hz !== hz) { hudCache.hz = hz; const el = $('hazLine'); el.hidden = !hz; el.textContent = hz; el.classList.toggle('open', !!G.hasKey); }
+  const F = LEVEL.features || {}, hz = !F.sewers ? '' : G.hasKey ? 'Sewers open' : 'Find the key';
+  if (hudCache.hz !== hz) { hudCache.hz = hz; const el = $('hazLine'); el.hidden = !hz; el.innerHTML = pxIcon('grate', G.hasKey ? '#c05cff' : '#e8c860', 2) + hz; el.classList.toggle('open', !!G.hasKey); }
   const P = G.powers, pw = [P.bite, P.biteArmed, P.boost, P.boostT > 0, P.biteBought, P.boostBought, !!G.spreader].join();
   if (hudCache.pw !== pw) { // P3, P4: powerup buttons in the bottom bar
     hudCache.pw = pw;
