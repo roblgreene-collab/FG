@@ -57,7 +57,9 @@ Status: **Locked** (agreed, must be honored), **Draft** (being tried out), **Ret
 | P3 | **Super spreader bite** (`biteCost` 40). Tap **Bite** (key 1 / Q) to ready it; the **next person the swarm infects becomes a super spreader**: glowing green and purple, with a green ring showing the reach of the burst. They stagger along the streets (`spreaderSpeed` 30 px/s) to the nearest crowd of healthy people, and **burst** when they reach it (or after `spreaderFuse` 8 s wherever they are), infecting every healthy person within `blastRadius` (30 px). Each one counts as a normal infection: +1 infected, +1 rat, +1 plague point, countdown restarted. The super spreader is used up in the burst (still counted as infected). The burst **never harms or infects hunters or rats**, and **hunters back away** from a super spreader within `spreaderAvoid` (64 px). Only one super spreader at a time. | Draft |
 | P4 | **Speed boost** (`boostCost` 25). Gives **3 dashes** for the attempt (`boostCharges`). Tap **Boost** (key 2 / E) for `boostTime` (3 s) at `boostMult` (160%) speed for the Rat King (the swarm follows). A dash can't be started while one is running. Once the first dash is used, the boost is spent at the end of that level (P2). | Draft |
 
-Bought powerups appear as buttons in the controls bar (next to the sound button), showing what's left ("1", "ready", "used", "2 left", "go!").
+**Powerup buttons** sit either side of the joystick (Bite on the left, Boost on the right; in landscape, side by side just above it). They react the instant a finger touches them, even while another finger holds the joystick, so the player never has to stop steering; keys 1 / Q and 2 / E work mid-run too. Each button has a pixel-art icon (green-dripping fangs for the bite, a lightning bolt with speed lines for the boost) and shows its state clearly: **none** (faded empty slot), **ready** (lit border, "tap" or "N left"), **armed / active** (fills bright green or gold, glows and pulses; the boost also shows a draining time bar and its bolt shakes), **used** (greyed). On the map, a dripping green ring circles the Rat King while the bite is armed, and gold speed lines stream behind him during a dash.
+
+**Plague points on screen:** the top HUD bar shows the current total under the swarm count (purple coin icon, flashes when it goes up), and the shop on the title card shows it large ("purse") and updates as you buy.
 
 ### Rat hunters (built from the designer's H-rules)
 | ID | Rule | Status |
@@ -219,6 +221,7 @@ Status **Planned** = recorded for later; not built until the designer says so.
 ## 7. Change Log
 | Date | Change | Approved by |
 |------|--------|-------------|
+| 2026-10-08 | Powerup buttons moved beside the joystick and fire on touch-down with a second finger; pixel icons with clear none/ready/armed/used states and on-map effects; plague points shown in the HUD and as a large purse in the shop (P1–P4) | Designer |
 | 2026-10-08 | Unused powerups are kept between attempts and levels; a speed boost whose first dash was used is lost (with any remaining dashes) at the end of that level (P2, P4) | Designer |
 | 2026-10-08 | Plague points and a powerup shop (P1–P4): super spreader bite and speed boost. Prices, burst size and boost numbers chosen by Claude, pending designer review. HUD bars move to the sides on landscape screens (V16). | Designer |
 | 2026-10-08 | HUD, minimap, joystick and sound button moved off the level into framed top and bottom bars (V16; R11, R12 updated) | Designer |
