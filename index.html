@@ -2690,6 +2690,50 @@ function sceneStreet(t) {
   if (t > 4.25 && !cut.s1c) { cut.s1c = 1; cutBurst(96, G, 10, ['#b8b0a0', '#d8d0b8'], 30, 0.5, 8); }
   if (t > 4.95 && !cut.s1d) { cut.s1d = 1; cutBurst(DRAIN.x, G, 10, ['#4a5a60', '#8aa0a8'], 22, 0.4, 14); }
 }
+// The painted townsfolk come gently alive: each one is lifted out of the painting with soft edges
+// and breathes, sways and reacts. Boxes and anchors (feet, or neck for heads) are in image pixels.
+const FOLK = [
+  { x: 0, y: 350, w: 80, h: 205, ax: 36, ay: 552, ph: 0.4 },                     // drinker by the door
+  { x: 50, y: 340, w: 155, h: 335, ax: 128, ay: 668, ph: 1.7 },                  // woman in the green cloak
+  { x: 445, y: 325, w: 160, h: 375, ax: 528, ay: 694, ph: 0.0, id: 'kicker' },   // man with the tankard
+  { x: 582, y: 338, w: 168, h: 344, ax: 662, ay: 680, ph: 2.4, id: 'blue' },     // woman with the basket
+  { x: 750, y: 335, w: 155, h: 345, ax: 828, ay: 676, ph: 1.1 },                 // man with the cane
+  { x: 940, y: 355, w: 165, h: 337, ax: 1012, ay: 690, ph: 3.0, id: 'shooer' },  // woman with the sack
+];
+const HEADS = [
+  { x: 492, y: 330, w: 76, h: 80, ax: 528, ay: 402, ph: 0.3, talk: 1 },          // the two chatting nod as they talk
+  { x: 625, y: 340, w: 76, h: 76, ax: 660, ay: 408, ph: 2.0, talk: 1 },
+];
+const folkWork = {};
+function folkMask(w, h) { // a soft-edged oval so the moving cut-out melts into the painting
+  const k = w + 'x' + h; if (folkWork[k]) return folkWork[k];
+  const c = makeCanvas(w, h), g = c.getContext('2d'), r = Math.max(w, h) / 2;
+  g.translate(w / 2, h / 2); g.scale(w / (2 * r), h / (2 * r));
+  const grad = g.createRadialGradient(0, 0, r * 0.62, 0, 0, r); grad.addColorStop(0, '#000'); grad.addColorStop(1, 'rgba(0,0,0,0)');
+  g.fillStyle = grad; g.fillRect(-r, -r, r * 2, r * 2);
+  return (folkWork[k] = { mask: c, work: makeCanvas(w, h) });
+}
+function folkPose(F, t) { // breathing, a slow sway, and reactions to the rat
+  let rot = Math.sin(t * 0.9 + F.ph) * 0.008, sy = 1 + Math.sin(t * 2.1 + F.ph) * 0.01, dx = 0, dy = 0;
+  if (F.talk) { rot = Math.sin(t * (F.talk ? 5.5 : 1) + F.ph) * 0.05; dy = Math.max(0, Math.sin(t * 5.5 + F.ph)) * 2; sy = 1; }
+  if (F.id === 'shooer' && t > 1.85 && t < 2.5) { const k = Math.sin(span(t, 1.85, 2.5) * Math.PI); rot = k * 0.06; sy = 1 + k * 0.035; }   // she rears back (feet stay put)
+  if (F.id === 'kicker' && t > 3.45 && t < 4.0) { const k = Math.sin(span(t, 3.45, 4.0) * Math.PI); rot = -k * 0.07; sy = 1 - k * 0.02; }      // he lunges at it
+  if (F.id === 'blue' && t > 3.6 && t < 4.1) { const k = Math.sin(span(t, 3.6, 4.1) * Math.PI); sy = 1 + k * 0.04; rot = k * 0.03; }               // she starts
+  return { rot, sy, dx, dy };
+}
+function drawFolk(cx, src, toScreen, t) {
+  const S = STREET_IMG, P = 14;
+  for (const F of FOLK.concat(HEADS)) {
+    const w = F.w + P * 2, h = F.h + P * 2, { mask, work } = folkMask(w, h), wg = work.getContext('2d');
+    const { rot, sy, dx, dy } = folkPose(F, t), bx = F.x - P, by = F.y - P, axl = F.ax - bx, ayl = F.ay - by;
+    wg.setTransform(1, 0, 0, 1, 0, 0); wg.globalCompositeOperation = 'source-over'; wg.clearRect(0, 0, w, h);
+    wg.translate(axl + dx, ayl + dy); wg.rotate(rot); wg.scale(1, sy); wg.translate(-axl, -ayl);
+    wg.drawImage(src, bx, by, w, h, 0, 0, w, h);
+    wg.setTransform(1, 0, 0, 1, 0, 0); wg.globalCompositeOperation = 'destination-in'; wg.drawImage(mask, 0, 0);
+    const [sx0, sy0, s] = toScreen(bx * S.k, S.y0 + by * S.k);
+    cx.drawImage(work, sx0, sy0, w * S.k * s, h * S.k * s);
+  }
+}
 function drawStreetLayer(cx, toScreen) { // the painted street and its rat, drawn at full screen resolution under the stage
   const S = STREET_IMG, src = S.bg || (S.img.complete && S.img.naturalWidth ? S.img : null);
   if (!src) return;
@@ -2697,6 +2741,7 @@ function drawStreetLayer(cx, toScreen) { // the painted street and its rat, draw
   const [x0, y0, sc0] = toScreen(0, S.y0);
   cx.imageSmoothingEnabled = true; cx.imageSmoothingQuality = 'high';
   cx.drawImage(S.bg || src, x0, y0, 1408 * S.k * sc0, 768 * S.k * sc0);
+  drawFolk(cx, S.bg || src, (x, y) => toScreen(x, y), cut.t);
   const R = cut.rat;
   if (R && S.rat) {
     const [rx, ry] = toScreen(R.x, R.y - R.hop), w = 116 * S.k * sc0, h = 62 * S.k * sc0;
@@ -2784,7 +2829,7 @@ function sceneTitle(t) {
 
 // V12: where the portrait camera looks (stage x) through the story, eased between keys.
 const CUT_CAM = [
-  [0, 410], [1.2, 372], [1.9, 372], [2.9, 172], [3.6, 168], [4.3, 112], [6, 100], // street: follow the rat between the townsfolk to the drain
+  [0, 340], [1.9, 340], [2.9, 210], [3.6, 200], [4.4, 150], [6, 150],      // street: drift after the rat between the townsfolk to the drain
   [6.01, 318], [12, 318],                                                     // sewer: the huddle and the grate
   [12.01, 290], [12.5, 290], [13.5, 145], [14.6, 145], [15.6, 165], [16.6, 150], [18, 150], // drinking
   [18.01, 240], [23, 240],                                                    // title
@@ -2823,8 +2868,8 @@ function drawCutscene(dt) {
   cx.fillStyle = '#000'; cx.fillRect(0, 0, CW, CH);
   let s, left, ox, oy;
   if (CW / CH < 1.2) { // V12: portrait phones zoom in and pan to follow the action
-    s = Math.min(CH * 0.68 / STAGE_H, CW / (STAGE_W * 0.3)); const vw = CW / s;
-    left = Math.max(0, Math.min(STAGE_W - vw, cutCamX(t) - vw / 2)); ox = -left * s; oy = Math.round(CH * 0.2);
+    s = Math.min(CH * 0.68 / STAGE_H, CW / (STAGE_W * 0.55)); const vw = CW / s; // shows over half the stage, so the camera pans less
+    left = Math.max(0, Math.min(STAGE_W - vw, cutCamX(t) - vw / 2)); ox = -left * s; oy = Math.round(Math.max(CH * 0.2, (CH - STAGE_H * s) / 2));
   } else {
     const fit = Math.min(CW / STAGE_W, CH / STAGE_H); s = fit >= 1 ? Math.floor(fit * 2) / 2 : fit;
     left = 0; ox = Math.round((CW - STAGE_W * s) / 2); oy = Math.round((CH - STAGE_H * s) / 2);
