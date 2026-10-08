@@ -62,6 +62,17 @@ body.framed { background: #0b0907; }
 .stickWrap #stick { width: 120px; height: 120px; }
 @media (max-height: 560px) { .stickWrap #stick { width: 96px; height: 96px; } }
 .stickWrap { display: grid; place-items: center; }
+.pwGroup { display: flex; gap: 6px; }
+/* V17: left-handed players get the bar mirrored: joystick on the left, powerups to its right, minimap on the right */
+body.lefty #bottomBar { grid-template-columns: 1fr auto; }
+body.lefty .barSide { order: 2; justify-items: end; }
+body.lefty .pwGroup { order: 2; }
+.handRow { display: grid; gap: 6px; }
+.handRow > span { font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--dim); }
+.seg { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.seg button { background: var(--ink); color: var(--dim); border: 2px solid var(--edge); box-shadow: none; font-size: 13px; padding: 7px 8px; display: grid; gap: 2px; }
+.seg button small { font-size: 10px; letter-spacing: .06em; text-transform: uppercase; opacity: .8; }
+.seg button[aria-pressed="true"] { background: var(--plague); color: #120f0c; border-color: var(--parch); }
 #barHint { margin: 0; font-size: 12px; line-height: 1.6; letter-spacing: .06em; text-transform: uppercase; color: var(--dim); text-align: center; }
 #stick:not([hidden]) + #barHint { display: none; }
 @media (max-height: 560px) { #hud { height: 116px; } #bottomBar { height: 124px; } .pw { height: 84px; } }
@@ -107,7 +118,7 @@ body.touch .pw .key { display: none; }
 /* V16 landscape: the two bars stand at the sides of the level instead */
 body.land #hud {
   top: calc(env(safe-area-inset-top, 0px) + 6px); bottom: calc(env(safe-area-inset-bottom, 0px) + 6px); left: calc(env(safe-area-inset-left, 0px) + 6px); right: auto;
-  width: clamp(170px, 21vw, 240px); height: auto; padding: 14px;
+  width: clamp(200px, 24vw, 260px); height: auto; padding: 14px;
   flex-direction: column; flex-wrap: nowrap; justify-content: flex-start; align-content: stretch; gap: 16px;
 }
 body.land #hud .meter { flex: none; width: 100%; max-width: none; }
@@ -117,20 +128,26 @@ body.land .status { flex-basis: auto; flex-direction: column; gap: 6px; }
 body.land .hazLine { text-align: left; }
 body.land #bottomBar {
   top: calc(env(safe-area-inset-top, 0px) + 6px); bottom: calc(env(safe-area-inset-bottom, 0px) + 6px); right: calc(env(safe-area-inset-right, 0px) + 6px); left: auto;
-  width: clamp(170px, 21vw, 240px); height: auto; padding: 14px;
+  width: clamp(200px, 24vw, 260px); height: auto; padding: 14px;
   grid-template-columns: 1fr; grid-template-rows: auto 1fr; justify-items: center; align-items: start;
 }
 body.land .barSide { justify-items: center; width: 100%; }
 body.land #minimap { width: 100%; max-height: 30vh; object-fit: contain; }
-body.land .barMid { display: grid; grid-template-columns: auto auto; grid-template-areas: "b o" "s s"; gap: 8px; justify-items: center; align-self: end; }
-body.land #pwBite { grid-area: b; } body.land #pwBoost { grid-area: o; } body.land .stickWrap { grid-area: s; }
-body.land .pw { width: 64px; height: 66px; padding-top: 4px; gap: 2px; }
+body.land .barMid { align-self: end; }
+body.land .pwGroup { flex-direction: column; }
+body.land .pw { width: 54px; height: 62px; padding-top: 4px; gap: 2px; }
+body.land .stickWrap #stick { width: 108px; height: 108px; }
 body.land .pw .st { display: none; }
 body.land #minimap { max-height: 26vh; }
 body.land .pw .ico { width: 30px; height: 27px; }
 body.land .frame::after { left: auto; right: auto; top: 10px; bottom: 10px; width: 4px; height: auto; background: repeating-linear-gradient(180deg, var(--edge) 0 4px, transparent 4px 10px); }
 body.land #hud::after { right: -8px; bottom: 10px; }
 body.land #bottomBar::after { left: -8px; top: 10px; }
+body.land.lefty #hud { left: auto; right: calc(env(safe-area-inset-right, 0px) + 6px); }
+body.land.lefty #bottomBar { right: auto; left: calc(env(safe-area-inset-left, 0px) + 6px); }
+body.land.lefty #hud::after { right: auto; left: -8px; }
+body.land.lefty #bottomBar::after { left: auto; right: -8px; }
+body.land.lefty .barSide { order: 0; justify-items: center; }
 /* P2: the powerup shop on the level title card */
 .shop { border: 2px solid var(--edge); padding: 10px 12px; display: grid; gap: 8px; }
 .shopHead { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 6px; }
@@ -335,6 +352,10 @@ button.secondary { background: var(--ink); color: var(--parch); border: 2px soli
     <p class="progress" id="progressLine"></p>
     <div class="actions"><button id="startBtn">Begin the plague</button><button id="levelsBtn" class="secondary">Choose level</button></div>
     <p class="controls">WASD or arrow keys, or the joystick on touch screens. The corner map shows healthy townsfolk and hunters.</p>
+    <div class="handRow"><span>Powerup buttons</span><div class="seg" role="group" aria-label="Powerup buttons side">
+      <button id="handR" type="button" aria-pressed="true">Left of stick<small>right-handed</small></button>
+      <button id="handL" type="button" aria-pressed="false">Right of stick<small>left-handed</small></button>
+    </div></div>
     <div class="actions"><button id="introBtn" class="linkish" type="button">Watch the intro</button><button id="resetBtn" class="linkish" type="button">Reset progress</button></div>
     <div class="confirm" id="resetConfirm" hidden>
       <p>Wipe your progress? Every district except the first will be locked again and your plague points and powerups are lost.</p>
@@ -386,12 +407,14 @@ button.secondary { background: var(--ink); color: var(--parch); border: 2px soli
 <div id="bottomBar" class="frame" hidden>
   <div class="barSide"><canvas id="minimap" hidden></canvas><span id="muteSlot"></span></div>
   <div class="barMid">
+    <div class="pwGroup">
     <button id="pwBite" class="pw" type="button" tabindex="-1" data-state="none" aria-label="Super spreader bite"><img class="ico" data-ico="bite" alt=""><b>Bite</b><span class="st"></span><i class="key">1</i></button>
+    <button id="pwBoost" class="pw" type="button" tabindex="-1" data-state="none" aria-label="Speed boost"><img class="ico" data-ico="boost" alt=""><b>Boost</b><span class="st"></span><i class="key">2</i><i class="bar"><i id="boostLeft"></i></i></button>
+    </div>
     <div class="stickWrap">
       <div id="stick" hidden aria-hidden="true"><div id="knob"></div></div>
       <p id="barHint">WASD or arrows to run<br>M mutes the sound</p>
     </div>
-    <button id="pwBoost" class="pw" type="button" tabindex="-1" data-state="none" aria-label="Speed boost"><img class="ico" data-ico="boost" alt=""><b>Boost</b><span class="st"></span><i class="key">2</i><i class="bar"><i id="boostLeft"></i></i></button>
   </div>
 </div>
 
@@ -3453,7 +3476,10 @@ function resize() {
   const W = window.innerWidth, H = window.innerHeight, framed = !$('bottomBar').hidden, land = framed && W > H * 1.2;
   document.body.classList.toggle('land', land); // landscape: the bars stand at the sides
   let top = 0, bottom = H, left = 0, right = W;
-  if (land) { left = Math.round($('hud').getBoundingClientRect().right) + 6; right = Math.round($('bottomBar').getBoundingClientRect().left) - 6; }
+  if (land) { // whichever bar is on the left (V17 swaps them for left-handed players)
+    const a = $('hud').getBoundingClientRect(), b = $('bottomBar').getBoundingClientRect(), [l, r] = a.left < b.left ? [a, b] : [b, a];
+    left = Math.round(l.right) + 6; right = Math.round(r.left) - 6;
+  }
   else if (framed) { top = Math.round($('hud').getBoundingClientRect().bottom) + 6; bottom = Math.round($('bottomBar').getBoundingClientRect().top) - 6; }
   const PW = Math.max(60, right - left), PH = Math.max(60, bottom - top);
   const scale = Math.max(1, Math.round(Math.min(PW, PH) / 190));
@@ -3550,6 +3576,18 @@ $('playBtn').addEventListener('click', () => startLevel(selected));
 // Reset progress: asks for confirmation on the page (browser confirm dialogs aren't available here).
 $('resetBtn').addEventListener('click', () => { $('resetNote').hidden = true; $('resetConfirm').hidden = false; $('resetYes').focus(); $('resetConfirm').scrollIntoView({ block: 'nearest' }); });
 $('resetNo').addEventListener('click', () => { $('resetConfirm').hidden = true; $('resetBtn').focus(); });
+// V17: which side of the joystick the powerup buttons sit on, remembered on this device
+const HAND_KEY = 'plague-rat-hand';
+let leftHanded = false;
+try { leftHanded = localStorage.getItem(HAND_KEY) === 'left'; } catch (e) { /* storage blocked */ }
+function applyHand() {
+  document.body.classList.toggle('lefty', leftHanded);
+  $('handR').setAttribute('aria-pressed', String(!leftHanded)); $('handL').setAttribute('aria-pressed', String(leftHanded));
+}
+function setHand(left) { leftHanded = left; try { localStorage.setItem(HAND_KEY, left ? 'left' : 'right'); } catch (e) { /* storage blocked */ } applyHand(); resize(); }
+$('handR').addEventListener('click', () => setHand(false));
+$('handL').addEventListener('click', () => setHand(true));
+applyHand();
 $('resetYes').addEventListener('click', () => {
   unlocked = 1; selected = 0; // the next game starts from the first district
   plaguePoints = 0; savePoints(); // P1: a reset also empties the plague points
