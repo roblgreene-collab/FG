@@ -2615,13 +2615,14 @@ function drawSmoke(t, x, y) { // chimney smoke drifting off to the right
 // The townsfolk stay put; only the rat moves, scurrying between them, shooed and kicked away.
 const STREET_IMG = { img: new Image(), bg: null, rat: null, k: STAGE_W / 1408, y0: (STAGE_H - 768 * STAGE_W / 1408) / 2 };
 STREET_IMG.img.src = 'assets/intro-street.jpg';
-STREET_IMG.img.decode?.().then(prepStreetImage).catch(() => {});
+Promise.all([STREET_IMG.img.decode?.(), document.fonts?.load('600 12px "Pixelify Sans"')]).then(prepStreetImage).catch(() => {});
 function prepStreetImage() {
   const im = STREET_IMG.img;
   if (!im.naturalWidth) return;
   // the backdrop, with the painted rat covered by a patch of flagstones from further along the street
   const bg = makeCanvas(1408, 768), g = bg.getContext('2d');
   g.drawImage(im, 0, 0); g.drawImage(im, 300, 683, 120, 62, 870, 683, 120, 62);
+  paintTavernSign(g);
   STREET_IMG.bg = bg;
   // the painted rat itself, cut out from the pavement, becomes the rat we animate
   try {
@@ -2632,6 +2633,21 @@ function prepStreetImage() {
     rg.putImageData(d, 0, 0);
     STREET_IMG.rat = r;
   } catch (e) { STREET_IMG.rat = null; } // pixels unreadable (e.g. opened from a file): the drawn rat stands in
+}
+// The painting's tavern sign is repainted to read THE RAT & CROWN: the old lettering is covered with
+// the board's green, then chunky cream capitals are drawn on, sheared to follow the sign's slant.
+function paintTavernSign(g) {
+  const SLOPE = 0.2;
+  g.fillStyle = '#45603b';
+  g.beginPath(); g.moveTo(199, 126); g.lineTo(534, 193); g.lineTo(536, 229); g.lineTo(199, 181); g.closePath(); g.fill();
+  const t = makeCanvas(140, 20), tg = t.getContext('2d');
+  tg.font = '600 11px "Pixelify Sans", ui-monospace, monospace'; tg.textBaseline = 'top'; tg.fillStyle = '#dccb92';
+  const text = 'THE RAT & CROWN', w = Math.ceil(tg.measureText(text).width); tg.fillText(text, 1, 2);
+  const d = tg.getImageData(0, 0, 140, 20); for (let i = 3; i < d.data.length; i += 4) d.data[i] = d.data[i] > 100 ? 255 : 0; tg.putImageData(d, 0, 0); // hard pixel edges
+  const f = w * 3 <= 322 ? 3 : 2, cx = 369, x0 = Math.round(cx - (w * f) / 2);
+  g.save(); g.imageSmoothingEnabled = false; g.setTransform(1, SLOPE, 0, 1, 0, 0);
+  g.drawImage(t, 0, 0, w + 2, 20, x0, Math.round(183 - SLOPE * cx - 7 * f), (w + 2) * f, 20 * f); // centred on the board
+  g.restore();
 }
 const DRAIN = { x: 62, y: 252 };
 function bang(x, y) { // a red "!" over someone's head
