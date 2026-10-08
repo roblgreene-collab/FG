@@ -3241,6 +3241,63 @@ function playIntroJingle() {
   [music.dry, music.wet] = saved;
 }
 
+// A8: end-of-level jingles, played with the music instruments on their own bus.
+function jingleBus() {
+  if (!music.gain) setupMusicGraph();
+  stopJingle();
+  const bus = actx.createGain(); bus.gain.value = muted ? 0 : 1; bus.connect(actx.destination); music.jingle = bus;
+  const dry = actx.createGain(), wet = actx.createGain(), rev = actx.createConvolver();
+  rev.buffer = music.rev.buffer; dry.connect(bus); wet.gain.value = 0.32; wet.connect(rev); rev.connect(bus);
+  return { dry, wet };
+}
+function stopJingle() { // fade out a jingle that's still ringing (e.g. the player tapped Try again)
+  if (!music.jingle || !actx) return;
+  music.jingle.gain.setTargetAtTime(0, actx.currentTime, 0.06); music.jingle = null;
+}
+function withBus(fn) { const b = jingleBus(), saved = [music.dry, music.wet]; music.dry = b.dry; music.wet = b.wet; try { fn(); } finally { [music.dry, music.wet] = saved; } }
+function playWinJingle(t0 = actx.currentTime + 0.05) { // a bright fanfare on the rhyme's opening, landing on a big major chord
+  withBus(() => {
+    const V = CONFIG.musicVolume, N = NOTE_NUM, at = s => t0 + s, E = 0.11;
+    const tune = (start, notes, vol, inst = 'lead') => { let t = start; for (const [n, len] of notes) { if (n) INST[inst](at(t), N(n), len * E, vol); t += len * E; } };
+    INST.snare(at(0), V * 1.2); INST.snare(at(0.05), V * 1.6);                                          // flam pickup
+    tune(0.11, [['E5', 2], ['E5', 1], ['C#5', 2], ['F#5', 1], ['E5', 3], ['C#5', 3]], V * 1.1);         // "ring a ring o' roses", in A major
+    tune(0.11, [['C#5', 2], ['C#5', 1], ['A4', 2], ['D5', 1], ['C#5', 3], ['A4', 3]], V * 0.5, 'harm');
+    const chords = [[0.11, 45, [57, 61, 64]], [0.77, 50, [50, 54, 57]], [1.1, 52, [52, 56, 59]]];
+    chords.forEach(([s, root, tones], i) => {
+      const end = i < 2 ? chords[i + 1][0] : 1.43;
+      INST.pad(at(s), tones, end - s, V * 0.3);
+      for (let b = s; b < end - 0.01; b += E) INST.bass(at(b), root - 12, E * 0.9, V * 2);
+    });
+    for (let k = 0; k < 12; k++) { const t = 0.11 + k * E; if (k % 3 === 0) INST.kick(at(t), V * 4); INST.hat(at(t), V * (k % 3 ? 0.7 : 1.3)); }
+    for (let k = 0; k < 8; k++) INST.snare(at(1.1 + k * 0.04), V * (0.8 + k * 0.25));                   // drum roll into the chord
+    const F = 1.43;                                                                                       // the big finish: A major
+    INST.kick(at(F), V * 5.5); INST.crash(at(F), V * 2.2); INST.snare(at(F), V * 2);
+    INST.lead(at(F), N('A5'), 1.7, V * 1.15); INST.lead(at(F), N('E5'), 1.7, V * 0.5); INST.lead(at(F), N('C#6'), 1.7, V * 0.35);
+    INST.pad(at(F), [45, 57, 61, 64, 69], 2.0, V * 0.5); INST.bass(at(F), 33, 1.9, V * 2.4);
+    ['A5', 'C#6', 'E6', 'A6', 'C#7'].forEach((n, i) => INST.arp(at(F + 0.12 + i * 0.07), N(n), V * 0.6)); // sparkle
+    INST.kick(at(F + 0.33), V * 3); INST.kick(at(F + 0.44), V * 3.5);
+  });
+}
+function playLoseJingle(t0 = actx.currentTime + 0.05) { // "we all fall down", slow and sinking, in A minor
+  withBus(() => {
+    // softer instruments, so lifted to sit level with the win jingle
+    const V = CONFIG.musicVolume * 1.4, N = NOTE_NUM, at = s => t0 + s, E = 0.24;
+    let t = 0;
+    for (const [n, len] of [['E4', 2], ['E4', 1], ['D4', 3], ['C4', 2], ['B3', 1], ['A3', 7]]) { INST.lead(at(t), N(n), len * E * 0.95, V * 0.85); t += len * E; }
+    for (const [n, s, len] of [['C4', 0, 3], ['B3', 3, 3], ['A3', 6, 3], ['E3', 9, 7]]) INST.harm(at(s * E), N(n), len * E, V * 0.45);
+    const chords = [[0, 45, [57, 60, 64]], [3, 38, [50, 53, 57]], [6, 40, [52, 56, 59]], [9, 33, [45, 48, 52]]];
+    chords.forEach(([s, root, tones], i) => {
+      const len = (i < 3 ? 3 : 7) * E;
+      INST.pad(at(s * E), tones, len, V * (i < 3 ? 0.28 : 0.34)); INST.bass(at(s * E), root, len * 0.95, V * 1.7);
+      INST.kick(at(s * E), V * (i < 3 ? 2.2 : 3.6)); if (i < 3) INST.kick(at(s * E + 0.2), V * 1.4);   // a slow, fading heartbeat
+    });
+    INST.crash(at(9 * E), V * 0.6);
+    // a last little squeak, falling away
+    const g = envGain(at(3.15), 0.005, V * 0.5, 0.05, 0.35), f = filt('lowpass', 2500); g.connect(f); f.connect(music.dry); f.connect(music.wet);
+    const o = voice('square', 1500, at(3.15), 0.45, g); o.frequency.exponentialRampToValueAtTime(260, at(3.55));
+  });
+}
+
 // ---------------------------------------------------------------------------
 // Game state
 // ---------------------------------------------------------------------------
@@ -3882,7 +3939,7 @@ function startLevel(i) {
   if (state === 'playing') return;
   if (!actx) { try { actx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { actx = null; } }
   const go = () => {
-    loadLevel(i); newGame(); hudCache = {};
+    stopJingle(); loadLevel(i); newGame(); hudCache = {};
     state = 'playing';
     startMusic();
     hideScreens(); mini.hidden = false; setFramed(true);
@@ -4133,7 +4190,7 @@ function endGame(won, reason) {
   else if (won) { $('retryLabel').textContent = 'Districts'; sub.hidden = true; endAction = () => { selected = levelIndex; showLevels(); }; }
   else { $('retryLabel').textContent = 'Try again'; sub.hidden = true; endAction = () => startLevel(levelIndex); }
   stopMusic();
-  (won ? sfx.win : sfx.lose)();
+  if (actx) (won ? playWinJingle : playLoseJingle)(actx.currentTime + 0.7); // A8: lands as the panel appears
   setTimeout(() => { $('endScreen').hidden = false; focusKb($('retryBtn')); }, 700);
 }
 $('billBtn').addEventListener('click', () => {

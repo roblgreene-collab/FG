@@ -101,7 +101,7 @@ Status: **Locked** (agreed, must be honored), **Draft** (being tried out), **Ret
 ## 3b. Audio
 | ID | Rule | Status |
 |----|------|--------|
-| A1 | Short synth sound effects: a squeak on each infection, a low blip when a rat dies, a jingle on win and lose. | Draft |
+| A1 | Short synth sound effects: a squeak on each infection, a low blip when a rat dies. (Win and lose jingles now follow A8.) | Draft |
 | A2 | One "Sound" button (bottom right, or the M key) mutes and unmutes everything, music included. | Draft |
 | A4 | A rising whistle when a hunter starts chasing; a crunch when the swarm eats a hunter. | Draft |
 | A3 | Background music: "Ring a Ring o' Roses" as a driving chase theme. The nursery-rhyme melody is played by a punchy saw/square lead over a darker A-minor progression (Am Am Am Em F F G Am, then an instrumental fill bar over E that pulls back to Am). Two verses alternate: plain, then ornamented with passing notes. 6/8 time; tempo and layers follow A5. It plays during a level (including the well intro and feasts) and fades out at the end screen. | Draft |
@@ -110,6 +110,7 @@ Status: **Locked** (agreed, must be honored), **Draft** (being tried out), **Ret
 | A5 | **The music builds with the plague.** Five tiers, chosen on each bar line from the spread so far (as a share of the level's target): **0** (under 25%) lead, kick on the beats, bass pulse; **1** (25%+) adds a snare backbeat, running bass and an arpeggio; **2** (50%+) adds hi-hats, a harmony line, a string pad and an octave-pumping bass; **3** (75%+) doubles the lead an octave up, adds off-beat hats, an extra kick and snare rolls into each verse; **4** (target reached but hunters still alive) adds a shrill high pad for the final hunt. Each tier is a little faster (eighth note 170 → 163 → 156 → 150 → 143 ms) and a cymbal crash marks every step up. | Draft |
 | A6 | **Intro jingle**, scored to the cutscene: a slow, low statement of the rhyme over a drone on the street, with hits on the stamp, a whoosh for the broom, a scurrying run and a drop for the drain; a cold drone, a heartbeat and drip notes in the sewer; climbing chords, a quickening bass and a noise riser through the drinking, with a big hit on the transformation; then the rhyme at full gallop with drums and harmony over the title, ending on a held A-minor chord. Skipping fades it out. | Draft |
 | A7 | **Logo startup sound**, an original 90s-console-style sting synchronised to the Pixel Mullet video (it starts when the video starts playing, so it stays in step): a dark synth chord swelling open under the typed text with soft typing ticks (0.5–3 s); a deep boom, a falling whoosh and a crystal shimmer as the mullet appears (3.3 s); a rising bell chime for each letter of PIXEL MULLET (3.9–6 s); then a lush, wide chord bloom with a shimmering top that fades out with the video (6.2–10 s). Skipping the logo fades it out. | Draft |
+| A8 | **End-of-level jingles**, played with the music instruments as the end screen appears (about 0.7 s after the level ends; the chase music stops first). **Win:** a ~2.5 s triumphant fanfare in A major: a snare flam, a bright lead with harmony over A → D → E with driving bass and drums, a snare roll, then a crash on a held A chord with a rising sparkle. **Lose:** a ~4 s sad tune in A minor: a slow falling lead with harmony over Am → Dm → E → low Am with heartbeat kicks, ending on a falling squeak. They follow the Sound setting and fade out if the next level starts while they're still ringing. Replaces the old win/lose beeps from A1. | Draft |
 
 ## 4. Tunable Numbers
 All live in the `CONFIG` object at the top of the script in `index.html`. Tuning these never changes a rule.
@@ -227,6 +228,7 @@ Status **Planned** = recorded for later; not built until the designer says so.
 ## 7. Change Log
 | Date | Change | Approved by |
 |------|--------|-------------|
+| 2026-10-08 | Added A8: triumphant win jingle and sad lose jingle on the end screen, approved from audio samples (replaces the A1 win/lose beeps) | Designer |
 | 2026-10-08 | In-game HUD restyled to match the menus: framed spread meter, swarm tile, one row of short icon chips; fixes status text spilling out of the top bar on phones (V16) | Designer |
 | 2026-10-08 | Menus redesigned from the approved mock-ups: title with Play / Districts and How to play, Settings, Intro icon buttons; district cards with map thumbnails; compact level card with tappable obstacle tags and powerup tiles; end screen with progress bar, tiles and a folding Bill of Mortality (V21; R14, R21, V3, P1, P2 updated) | Designer |
 | 2026-10-08 | In-game art repaint toward the intro style mocked up three ways and declined; original in-game style kept (recorded in §6) | Designer |
