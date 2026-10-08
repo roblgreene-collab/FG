@@ -628,8 +628,9 @@ const CONFIG = {
   gateShut: 4.2,           // R19: ...shut from this point to the end of the cycle
   pointsPerInfection: 1,   // P1: plague points for each person infected
   pointsPerHunter: 3,      // P1: plague points for each hunter eaten
-  biteCost: 40,            // P3: price of the super spreader bite
-  boostCost: 25,           // P4: price of the speed boost
+  biteCost: 60,            // P3: price of the super spreader bite
+  boostCost: 40,           // P4: price of the speed boost
+  biteCharges: 3,          // P3: super spreaders per purchase
   spreaderSpeed: 30,       // P3: px/s, the super spreader staggering to a crowd
   spreaderFuse: 8,         // P3: seconds before the super spreader bursts wherever they are
   blastRadius: 30,         // P3: px, reach of the burst
@@ -3744,7 +3745,7 @@ function updateHud() {
     hudCache.pw = pw;
     const b = $('pwBite'), o = $('pwBoost');
     b.dataset.state = !P.biteBought ? 'none' : P.biteArmed ? 'armed' : P.bite ? 'ready' : 'used';
-    b.querySelector('.st').textContent = { none: 'none', armed: 'armed!', ready: 'tap', used: 'used' }[b.dataset.state];
+    b.querySelector('.st').textContent = { none: 'none', armed: 'armed!', ready: `${P.bite} left`, used: 'used' }[b.dataset.state];
     o.dataset.state = !P.boostBought ? 'none' : P.boostT > 0 ? 'active' : P.boost ? 'ready' : 'used';
     o.querySelector('.st').textContent = o.dataset.state === 'none' ? 'none' : o.dataset.state === 'active' ? 'go!' : P.boost ? `${P.boost} left` : 'used';
   }
@@ -3953,7 +3954,7 @@ function startLevel(i) {
 // P1-P4: plague points and powerups.
 //   P1 plague points: 1 per infection, 3 per hunter eaten, kept between levels and after a loss
 //   P2 the shop on the level title card: each powerup can be bought once per attempt
-//   P3 super spreader bite: the next person bitten walks to the nearest crowd and bursts
+//   P3 super spreader bite: three bites; the next person bitten walks to the nearest crowd and bursts
 //   P4 speed boost: three short dashes per attempt
 // ---------------------------------------------------------------------------
 const PP_KEY = 'plague-rat-points';
@@ -3969,12 +3970,12 @@ function addPoints(n) { plaguePoints += n; if (game) game.pointsEarned = (game.p
 
 const POWERS = {
   bite: { name: 'Super spreader bite', key: '1', cost: () => CONFIG.biteCost,
-    desc: () => `Your next bite makes a super spreader. They stagger to the nearest crowd and burst, infecting everyone close by. Hunters keep clear of them.` },
+    desc: () => `${CONFIG.biteCharges} bites this level. Each one makes the next person you infect a super spreader. They stagger to the nearest crowd and burst, infecting everyone close by. Hunters keep clear of them.` },
   boost: { name: 'Speed boost', key: '2', cost: () => CONFIG.boostCost,
     desc: () => `${CONFIG.boostCharges} short dashes this level: ${CONFIG.boostTime} s at ${Math.round(CONFIG.boostMult * 100)}% speed.` },
 };
 const newPowers = () => ({ // an attempt starts with whatever powerups are owned (P2)
-  biteBought: !!inventory.bite, bite: inventory.bite ? 1 : 0, biteArmed: false,
+  biteBought: !!inventory.bite, bite: inventory.bite ? CONFIG.biteCharges : 0, biteArmed: false,
   boostBought: !!inventory.boost, boost: inventory.boost ? CONFIG.boostCharges : 0, boostT: 0,
 });
 
@@ -3984,13 +3985,13 @@ function buyPower(id) {
   plaguePoints -= cost; savePoints();
   inventory[id] = 1; saveInventory();
   P[id + 'Bought'] = true;
-  if (id === 'bite') P.bite = 1; else P.boost = CONFIG.boostCharges;
+  if (id === 'bite') P.bite = CONFIG.biteCharges; else P.boost = CONFIG.boostCharges;
   sfx.buy(); renderShop();
 }
 function renderShop() {
   const P = game.powers;
   $('ppHave').textContent = plaguePoints;
-  const names = { bite: 'Super bite', boost: `Speed boost ×${CONFIG.boostCharges}` };
+  const names = { bite: `Super bite ×${CONFIG.biteCharges}`, boost: `Speed boost ×${CONFIG.boostCharges}` };
   $('shopList').innerHTML = Object.entries(POWERS).map(([id, pw]) => {
     const cost = pw.cost(), bought = P[id + 'Bought'], can = !bought && plaguePoints >= cost;
     return `<div class="m-pwt${bought ? ' owned' : ''}" title="${pw.desc().replace(/"/g, '&quot;')}"><img src="${UI_ICON_URL[id]}" alt=""><div class="nm">${names[id]}</div>
@@ -4038,8 +4039,8 @@ for (const [id, el] of [['bite', $('pwBite')], ['boost', $('pwBoost')]]) {
 const SPREADER_COL = '#9cff3a';
 function makeSpreader(c) {
   const G = game;
-  G.powers.biteArmed = false; G.powers.bite = 0; hudCache.pw = null;
-  inventory.bite = 0; saveInventory(); // P3: used up
+  G.powers.biteArmed = false; G.powers.bite--; hudCache.pw = null;
+  if (inventory.bite) { inventory.bite = 0; saveInventory(); } // P3: a started bite is spent at the end of this level
   c.super = { t: 0, repath: 0, target: null };
   G.spreader = c;
   G.texts.push({ x: c.x - 22, y: c.y - 24, text: 'SUPER SPREADER', col: SPREADER_COL, life: 1.4 });
