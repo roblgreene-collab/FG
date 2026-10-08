@@ -24,15 +24,43 @@
 [hidden] { display: none !important; }
 html, body { height: 100%; margin: 0; background: var(--ink); color: var(--parch); overflow: hidden; }
 body { font-family: var(--font-ui); touch-action: manipulation; user-select: none; -webkit-user-select: none; }
-#game { position: fixed; left: 0; top: 0; display: block; touch-action: none; image-rendering: pixelated; image-rendering: crisp-edges; }
+#game { position: fixed; left: 0; top: 0; z-index: 1; display: block; touch-action: none; image-rendering: pixelated; image-rendering: crisp-edges; }
 
+/* V16: the HUD lives in two framed bars above and below the level, never on top of it. */
+body.framed { background: #0b0907; }
+.frame {
+  position: fixed; left: 6px; right: 6px; box-sizing: border-box; z-index: 2;
+  border: 3px solid var(--edge); outline: 2px solid #000;
+  box-shadow: inset 0 0 0 2px #0b0806, inset 0 0 0 3px rgba(192, 92, 255, .32);
+  background:
+    linear-gradient(#a08a64, #a08a64) left 5px top 5px / 4px 4px no-repeat,
+    linear-gradient(#a08a64, #a08a64) right 5px top 5px / 4px 4px no-repeat,
+    linear-gradient(#a08a64, #a08a64) left 5px bottom 5px / 4px 4px no-repeat,
+    linear-gradient(#a08a64, #a08a64) right 5px bottom 5px / 4px 4px no-repeat,
+    repeating-linear-gradient(135deg, rgba(255, 255, 255, .018) 0 2px, transparent 2px 7px),
+    var(--panel);
+}
+.frame::after { /* a row of teeth along the edge that faces the level */
+  content: ''; position: absolute; left: 10px; right: 10px; height: 4px;
+  background: repeating-linear-gradient(90deg, var(--edge) 0 4px, transparent 4px 10px);
+}
 #hud {
-  position: fixed; left: 0; right: 0; top: 0;
-  padding: calc(env(safe-area-inset-top, 0px) + 10px) 16px 10px;
-  display: flex; gap: 16px; align-items: flex-start; justify-content: space-between;
-  background: linear-gradient(var(--ink), transparent);
+  top: calc(env(safe-area-inset-top, 0px) + 6px); height: 104px;
+  padding: 10px 16px 8px;
+  display: flex; flex-wrap: wrap; gap: 0 16px; align-items: flex-start; justify-content: space-between; align-content: space-between;
   pointer-events: none;
 }
+#hud::after { bottom: -8px; }
+.status { flex-basis: 100%; display: flex; justify-content: space-between; gap: 10px; min-height: 16px; border-top: 1px dashed var(--edge); padding-top: 5px; }
+#bottomBar {
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 6px); height: 160px;
+  padding: 12px 16px; display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 10px;
+}
+#bottomBar::after { top: -8px; }
+.barMid { grid-column: 2; display: grid; place-items: center; }
+#barHint { margin: 0; font-size: 12px; line-height: 1.6; letter-spacing: .06em; text-transform: uppercase; color: var(--dim); text-align: center; }
+#stick:not([hidden]) + #barHint { display: none; }
+@media (max-height: 560px) { #hud { height: 92px; } #bottomBar { height: 118px; } #stick { width: 96px; height: 96px; } }
 .label { font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--dim); display: flex; justify-content: space-between; gap: 8px; }
 .meter { flex: 1; max-width: 360px; min-width: 0; }
 .meter .label b { color: var(--plague); font-weight: 600; font-variant-numeric: tabular-nums; }
@@ -90,19 +118,20 @@ button:hover { filter: brightness(1.1); }
 button:active { transform: translate(2px, 2px); box-shadow: 2px 2px 0 #000; }
 button:focus-visible { outline: 3px solid var(--parch); outline-offset: 3px; }
 #mute {
-  position: fixed; right: 16px; bottom: calc(env(safe-area-inset-bottom, 0px) + 12px);
+  position: fixed; right: 16px; bottom: calc(env(safe-area-inset-bottom, 0px) + 12px); z-index: 3;
   font-size: 12px; padding: 6px 10px; background: var(--panel); color: var(--dim);
   border: 2px solid var(--edge); box-shadow: none;
 }
+body.framed #mute { right: 24px; bottom: calc(env(safe-area-inset-bottom, 0px) + 22px); }
 #minimap {
-  position: fixed; left: 16px; bottom: calc(env(safe-area-inset-bottom, 0px) + 12px);
+  grid-column: 1; justify-self: start; max-height: 100%;
   width: clamp(96px, 24vw, 160px); height: auto;
   image-rendering: pixelated; image-rendering: crisp-edges;
   border: 2px solid var(--edge); pointer-events: none;
 }
 #stick {
-  position: fixed; left: 50%; bottom: calc(env(safe-area-inset-bottom, 0px) + 20px);
-  width: 128px; height: 128px; margin-left: -64px; box-sizing: border-box;
+  position: relative;
+  width: 128px; height: 128px; box-sizing: border-box;
   border-radius: 50%; border: 2px solid var(--edge);
   background: rgba(29, 24, 19, .55); touch-action: none;
 }
@@ -149,8 +178,8 @@ button.linkish { justify-self: start; background: none; border: 0; box-shadow: n
 button.linkish.armed { color: var(--blood); }
 button.linkish:active { transform: none; }
 button.secondary { background: var(--ink); color: var(--parch); border: 2px solid var(--edge); box-shadow: none; }
-.hunters { margin-top: 6px; font-size: 12px; letter-spacing: .06em; text-transform: uppercase; color: #e0482c; }
-.hazLine { margin-top: 4px; font-size: 11px; letter-spacing: .05em; text-transform: uppercase; color: #e8c860; }
+.hunters { font-size: 12px; letter-spacing: .06em; text-transform: uppercase; color: #e0482c; }
+.hazLine { font-size: 11px; text-align: right; letter-spacing: .05em; text-transform: uppercase; color: #e8c860; }
 .hazLine.open { color: #c05cff; }
 .hunters.urgent { color: #f2c14a; animation: pulse .6s steps(2) infinite; }
 .splash { background: #000; }
@@ -183,18 +212,17 @@ button.secondary { background: var(--ink); color: var(--parch); border: 2px soli
 <body>
 <canvas id="game"></canvas>
 
-<div id="hud" hidden>
+<div id="hud" class="frame" hidden>
   <div class="meter">
     <div class="label"><span>Plague spread</span><b id="pct">0%</b></div>
     <div class="bar"><div id="pctFill"></div><div id="target"></div></div>
-    <div class="hunters" id="huntersLeft" hidden></div>
-    <div class="hazLine" id="hazLine" hidden></div>
   </div>
   <div class="swarm" id="swarmBox">
     <div class="label" style="justify-content:flex-end">Swarm</div>
     <div class="count"><span id="rats">0</span> <small>rats</small></div>
     <div class="decayRow"><span id="decaySecs">1.5s</span><div class="decay" title="Time until the next rat dies. Infect someone to refill it."><div id="decayFill"></div></div></div>
   </div>
+  <div class="status"><span class="hunters" id="huntersLeft" hidden></span><span class="hazLine" id="hazLine" hidden></span></div>
 </div>
 
 <div class="screen splash" id="splash">
@@ -268,9 +296,13 @@ button.secondary { background: var(--ink); color: var(--parch); border: 2px soli
   </div>
 </div>
 
-<canvas id="minimap" hidden></canvas>
-
-<div id="stick" hidden aria-hidden="true"><div id="knob"></div></div>
+<div id="bottomBar" class="frame" hidden>
+  <canvas id="minimap" hidden></canvas>
+  <div class="barMid">
+    <div id="stick" hidden aria-hidden="true"><div id="knob"></div></div>
+    <p id="barHint">WASD or arrow keys to run<br>M mutes the sound</p>
+  </div>
+</div>
 
 <button id="mute" type="button">Sound: on</button>
 
@@ -2831,7 +2863,7 @@ function finishLogo() {
 function beginCutscene() {
   if (!actx) { try { actx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { actx = null; } }
   actx?.resume?.();
-  hideScreens(); $('splash').hidden = true; $('hud').hidden = true; mini.hidden = true; stickEl.hidden = true;
+  hideScreens(); $('splash').hidden = true; setFramed(false); mini.hidden = true; stickEl.hidden = true;
   Object.keys(cut).forEach(k => { if (/^(s\d[a-c]|p\d+|crown)$/.test(k)) delete cut[k]; });
   cut.t = 0; cut.parts = [];
   $('cutLayer').hidden = false;
@@ -3137,9 +3169,7 @@ function render() {
   const G = game, L = G.rats[0] || G.trail[0];
   const mw = MAP_W * TILE, mh = MAP_H * TILE;
   const cx = mw <= view.w ? (mw - view.w) / 2 : Math.max(0, Math.min(mw - view.w, L.x - view.w / 2));
-  // With the joystick showing, centre the leader in the space above it instead of the whole screen.
-  const lift = stickEl.hidden ? 0 : 84 / view.scale;
-  const cy = mh <= view.h ? (mh - view.h) / 2 : Math.max(0, Math.min(mh - view.h, L.y + lift - view.h / 2));
+  const cy = mh <= view.h ? (mh - view.h) / 2 : Math.max(0, Math.min(mh - view.h, L.y - view.h / 2));
   G.cam.x = Math.round(cx); G.cam.y = Math.round(cy);
   const ox = -G.cam.x, oy = -G.cam.y;
 
@@ -3284,11 +3314,21 @@ function makeVignette() {
   return v;
 }
 
+// V16: while playing, the level fills only the space between the top and bottom HUD bars.
+function setFramed(on) {
+  $('hud').hidden = !on; $('bottomBar').hidden = !on;
+  document.body.classList.toggle('framed', on);
+  resize();
+}
 function resize() {
-  const W = window.innerWidth, H = window.innerHeight;
-  const scale = Math.max(1, Math.floor(Math.min(W, H) / 190));
-  view = { w: Math.ceil(W / scale), h: Math.ceil(H / scale), scale };
+  const W = window.innerWidth, H = window.innerHeight, framed = !$('bottomBar').hidden;
+  const top = framed ? Math.round($('hud').getBoundingClientRect().bottom) + 6 : 0;
+  const bottom = framed ? Math.round($('bottomBar').getBoundingClientRect().top) - 6 : H;
+  const PH = Math.max(60, bottom - top);
+  const scale = Math.max(1, Math.round(Math.min(W, PH) / 190));
+  view = { w: Math.ceil(W / scale), h: Math.ceil(PH / scale), scale };
   canvas.width = view.w; canvas.height = view.h;
+  canvas.style.top = top + 'px'; canvas.style.left = Math.round((W - view.w * scale) / 2) + 'px';
   canvas.style.width = view.w * scale + 'px'; canvas.style.height = view.h * scale + 'px';
   ctx.imageSmoothingEnabled = false;
   vignette = makeVignette();
@@ -3355,7 +3395,7 @@ $('levelList').addEventListener('click', e => {
   selected = +b.dataset.i; renderLevelList();
 });
 function hideScreens() { for (const id of ['titleScreen', 'levelScreen', 'endScreen', 'splash', 'levelCard']) $(id).hidden = true; }
-function enterMenu() { state = 'title'; stopMusic(); hideScreens(); $('hud').hidden = true; mini.hidden = true; stickEl.hidden = true; }
+function enterMenu() { state = 'title'; stopMusic(); hideScreens(); setFramed(false); mini.hidden = true; stickEl.hidden = true; }
 function showTitle() { enterMenu(); renderLevelList(); $('titleScreen').hidden = false; $('startBtn').focus(); }
 function showLevels() { enterMenu(); renderLevelList(); $('levelScreen').hidden = false; $('playBtn').focus(); }
 $('levelsBtn').addEventListener('click', showLevels);
@@ -3379,7 +3419,7 @@ function startLevel(i) {
     loadLevel(i); newGame(); hudCache = {};
     state = 'playing';
     startMusic();
-    hideScreens(); $('hud').hidden = false; mini.hidden = false;
+    hideScreens(); mini.hidden = false; setFramed(true);
     $('startBtn').textContent = 'Begin the plague';
     stickEl.hidden = !isTouch();
     canvas.focus?.();
