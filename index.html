@@ -2492,262 +2492,327 @@ function poly(g, pts, col) { // crisp scanline polygon fill (no anti-aliasing)
   }
 }
 function edge(g, pts, col, closed = true) { for (let i = 0; i < pts.length - (closed ? 0 : 1); i++) { const a = pts[i], b = pts[(i + 1) % pts.length]; linePx(g, a[0], a[1], b[0], b[1], col); } }
-const OUT = '#120d0c'; // ink line used on every figure
 
-// A lean, sleek rat, side on (~56x22 px). Origin at its feet; dir 1 faces right.
+// V18: the opening story is drawn like a bright storybook pixel painting: flat colour with one
+// shadow and one light tone per material, and a soft dark-brown outline traced round each figure.
+const INK = '#2b1d17';
+const figPool = {};
+function figCanvas(w, h) { const k = w + 'x' + h; if (!figPool[k]) { const c = makeCanvas(w, h); figPool[k] = [c, c.getContext('2d')]; } const [c, g] = figPool[k]; g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, w, h); return [c, g]; }
+function inkOutline(c, g, col = INK) { // trace a 1px outline round everything drawn on c
+  const w = c.width, h = c.height, img = g.getImageData(0, 0, w, h), d = img.data, edge = [];
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const i = (y * w + x) * 4;
+    if (d[i + 3] > 0) { d[i + 3] = 255; continue; }
+    if ((x > 0 && d[i - 1] > 0) || (x < w - 1 && d[i + 7] > 0) || (y > 0 && d[i - w * 4 + 3] > 0) || (y < h - 1 && d[i + w * 4 + 3] > 0)) edge.push(i);
+  }
+  const r = parseInt(col.slice(1, 3), 16), gg = parseInt(col.slice(3, 5), 16), b = parseInt(col.slice(5, 7), 16);
+  for (const i of edge) { d[i] = r; d[i + 1] = gg; d[i + 2] = b; d[i + 3] = 255; }
+  g.putImageData(img, 0, 0);
+}
+function blit(g, c, x, y, ox, oy, dir, k = 1) { // draw a figure canvas with its origin at (x, y), mirrored for dir -1
+  g.save(); g.imageSmoothingEnabled = false; g.translate(Math.round(x), Math.round(y)); g.scale(dir, 1);
+  g.drawImage(c, -Math.round(ox * k), -Math.round(oy * k), Math.round(c.width * k), Math.round(c.height * k)); g.restore();
+}
+const tone3 = col => [shade(col, 0.74), col, shade(col, 1.16)]; // shadow, base, light
+
+// A brown street rat, side on (~44x20). Origin at its feet; dir 1 faces right.
 // o.run animates legs, o.hop lifts it, o.plague turns it, o.crown marks the Rat King.
 function ratHR(g, x, y, dir, t, o = {}) {
-  const run = o.run || 0, plague = !!o.plague, ph = t * 22 + x * 0.3;
-  g.fillStyle = 'rgba(0,0,0,.35)'; g.fillRect(Math.round(x - 14), Math.round(y), 28, 2);
-  const k = o.crown ? 1.3 : 1; // the Rat King stands a head taller than the rest
-  g.save(); g.translate(Math.round(x + (o.tremble ? Math.round(Math.sin(t * 50 + x)) : 0)), Math.round(y - (o.hop || 0))); g.scale(dir * k, k);
-  const king = !!o.crown;
-  const fur = king ? '#2e2630' : plague ? '#5e4a5c' : '#5a4a3e', furD = king ? '#1a141c' : plague ? '#3a2a3c' : '#3a2e26', furL = king ? '#6a5a72' : plague ? '#8a6e8c' : '#8a7462', belly = king ? '#4a3e4c' : plague ? '#7a6476' : '#8f7a66';
-  if (plague) { const a = g.globalAlpha; g.globalAlpha = 0.28; ell(g, 3, -9, 22, 12, PLAGUE); g.globalAlpha = a; }
-  // whip tail: long, thin, a slow S
-  for (let i = 0; i < 30; i++) {
-    const tx = -13 - i, ty = -6 - Math.sin(i / 30 * Math.PI * 1.1) * 6 + Math.sin(t * 4 + i * 0.35) * (i / 30) * 2.5;
-    g.fillStyle = i < 8 ? '#9a6a64' : '#b88a82'; g.fillRect(Math.round(tx), Math.round(ty), 1, i < 10 ? 2 : 1);
+  const run = o.run || 0, plague = !!o.plague, king = !!o.crown, ph = t * 22 + x * 0.3;
+  const [c, f] = figCanvas(64, 40), OX = 30, OY = 34;
+  f.translate(OX, OY);
+  const [fD, fur, fL] = king ? ['#1e1820', '#342a38', '#5a4a62'] : plague ? ['#4e2470', '#7a3eac', '#a670d8'] : ['#5a3a26', '#7e5436', '#a2744c'];
+  const pink = plague ? '#e0a0e8' : '#e0a090', pinkD = plague ? '#b070c0' : '#b87868';
+  // tail: a long pink S
+  for (let i = 0; i < 24; i++) { const tx = -12 - i, ty = -5 - Math.sin(i / 24 * Math.PI) * 5 + Math.sin(t * 4 + i * 0.4) * (i / 24) * 2; f.fillStyle = i < 6 ? pinkD : pink; f.fillRect(Math.round(tx), Math.round(ty), 1, i < 9 ? 2 : 1); }
+  const s = Math.sin(ph) * 3 * run, cc = Math.cos(ph) * 2 * run;
+  thick(f, -7, -5, -8 - s, -1, 2, fD); thick(f, 7, -5, 9 + s, -1, 2, fD);                         // far legs
+  ell(f, -1, -8, 13, 6.5, fur); ell(f, 9, -9, 7, 5, fur); poly(f, [[12, -13], [21, -7], [19, -5], [11, -4]], fur); // body, shoulders, snout
+  ell(f, -2, -10, 10, 3.5, fL); ell(f, 9, -11, 5, 2.5, fL);                                       // light along the back
+  ell(f, 0, -5, 10, 2, fD);                                                                          // shadowed belly line
+  thick(f, -5, -4, -5 + s, Math.min(0, -1 - cc), 2, pinkD); thick(f, 10, -4, 11 - s, Math.min(0, -1 + cc), 2, pinkD); // near legs
+  ell(f, 9, -15, 3, 3, fD); ell(f, 9, -15, 2, 2, pink);                                             // ear
+  f.fillStyle = plague ? '#f6c8ff' : INK; f.fillRect(15, -10, 2, 2); f.fillStyle = '#fff'; f.fillRect(15, -10, 1, 1); // eye
+  f.fillStyle = pink; f.fillRect(20, -7, 2, 2);                                                       // nose
+  if (plague) { f.fillStyle = '#e8b8ff'; for (const [px, py] of [[-6, -9], [2, -11], [-1, -6]]) f.fillRect(px, py, 2, 2); }
+  if (king) {
+    poly(f, [[6, -16], [6, -21], [8, -19], [10, -23], [12, -19], [14, -21], [14, -16]], '#e0b040');
+    f.fillStyle = '#fff2b0'; f.fillRect(10, -22, 1, 2); f.fillStyle = '#9a6a1a'; f.fillRect(6, -17, 9, 1); f.fillStyle = '#c05cff'; f.fillRect(9, -19, 2, 2);
   }
-  // far legs (darker), then body, then near legs
-  const s = Math.sin(ph) * 4 * run, c = Math.cos(ph) * 2 * run;
-  thick(g, -7, -6, -9 - s, -1, 2, furD); thick(g, 8, -6, 10 + s, -1, 2, furD);
-  const body = [[-14, -6], [-12, -11], [-6, -15], [2, -15], [8, -13], [12, -12], [16, -12], [20, -10], [25, -7], [22, -5], [16, -4], [10, -3], [0, -3], [-9, -3]];
-  poly(g, body, OUT); poly(g, body.map(([px, py]) => [px * 0.95, py * 0.93]), fur);
-  poly(g, [[-10, -5], [-4, -4], [8, -4], [14, -5], [8, -7], [-6, -7]], belly);                 // pale belly
-  poly(g, [[-11, -10], [-6, -14], [2, -14], [8, -12], [2, -11], [-6, -11]], furD);            // dark saddle along the spine
-  edge(g, [[-11, -11], [-6, -15], [2, -15], [8, -13]], furL, false);                          // moonlight on the back
-  g.fillStyle = furD; for (const [fx, fy] of [[-4, -9], [0, -8], [4, -10], [-8, -8]]) g.fillRect(fx, fy, 2, 1); // fur strokes
-  thick(g, -5, -5, -6 + s, Math.min(0, -1 - c), 2, '#a87a72'); thick(g, 11, -5, 12 - s, Math.min(0, -1 + c), 2, '#a87a72');
-  g.fillStyle = '#d8a8a0'; g.fillRect(Math.round(-7 + s), -1, 3, 1); g.fillRect(Math.round(11 - s), -1, 3, 1); // claws
-  // head details: pointed ear, slanted eye, nose, whiskers
-  poly(g, [[11, -12], [13, -19], [16, -12]], OUT); poly(g, [[12, -12], [13, -17], [15, -12]], '#c98d86');
-  g.fillStyle = plague ? '#f0b0ff' : '#ff3b2f'; g.fillRect(17, -10, 2, 1); g.fillRect(18, -11, 1, 1);
-  if (plague) { g.globalAlpha = 0.5; ell(g, 18, -10, 2.5, 1.5, '#f0b0ff'); g.globalAlpha = 1; }
-  g.fillStyle = '#e3a69e'; g.fillRect(24, -8, 2, 2);
-  g.fillStyle = 'rgba(210,200,185,.75)'; for (const dy of [-3, 0, 2]) for (let k = 0; k < 7; k++) g.fillRect(23 + k, -7 + Math.round(dy * k / 6), 1, 1);
-  if (plague) { g.fillStyle = '#2e0f3a'; g.fillRect(-2, -9, 2, 2); g.fillRect(6, -8, 1, 1); }
-  if (o.crown) { // the Rat King's crown, catching the light
-    poly(g, [[9, -14], [9, -19], [11, -17], [12, -21], [14, -17], [16, -20], [16, -14]], '#7a5a1a');
-    poly(g, [[10, -15], [10, -18], [11, -16], [12, -19], [13, -16], [15, -18], [15, -15]], '#e0b040');
-    g.fillStyle = '#fff2b0'; g.fillRect(12, -19, 1, 1); g.fillStyle = PLAGUE; g.fillRect(12, -16, 1, 1);
-  }
-  g.restore();
+  inkOutline(c, f, king ? '#120a14' : plague ? '#2a1430' : INK);
+  if (plague) { g.globalAlpha = 0.25; ell(g, x, y - 9, 18, 10, '#c05cff'); g.globalAlpha = 1; }
+  g.fillStyle = 'rgba(40,30,20,.28)'; g.fillRect(Math.round(x - 12), Math.round(y), 24, 2);
+  const k = king ? 1.25 : 1;
+  blit(g, c, x + (o.tremble ? Math.round(Math.sin(t * 50 + x)) : 0), y - (o.hop || 0), OX, OY, dir, k);
 }
 
-// A townsperson in profile (~34x92 px): long-limbed and angular, with flat light
-// and shadow planes and an ink outline. Origin at the feet; dir 1 faces right.
+// A townsperson, three-quarter view (~120 px tall). Origin at the feet; dir 1 faces right.
+// P: look; o.walk, o.stamp (0-1 front foot raised), o.dip, o.arm (front arm angle, 0 = hanging), o.scale.
 function personHR(g, x, y, dir, t, P, o = {}) {
-  const k = o.scale || 1, ph = t * 8, stride = o.walk ? Math.sin(ph) : 0, lift = o.stamp || 0, dress = P.dress;
-  g.fillStyle = 'rgba(0,0,0,.35)'; g.fillRect(Math.round(x - 14 * k), Math.round(y), Math.round(28 * k), 2);
-  g.save(); g.translate(Math.round(x), Math.round(y + (o.dip || 0))); g.scale(dir * k, k);
-  const C = P.cloth, CD = shade(P.cloth, 0.62), CL = shade(P.cloth, 1.25), S = P.skin, SD = shade(P.skin, 0.72);
-  // legs: thigh and shin with a knee, ending in a long pointed shoe
-  const leg = (ang, bend, col, raise = 0) => {
-    const hx = 0, hy = -40, kx = hx + Math.sin(ang) * 19, ky = hy + Math.cos(ang) * 19 - raise;
-    const ax = kx + Math.sin(ang - bend) * 19, ay = Math.min(-1, ky + Math.cos(ang - bend) * 19);
-    thick(g, hx, hy, kx, ky, 5, OUT); thick(g, kx, ky, ax, ay - 2, 4, OUT);
-    thick(g, hx, hy, kx, ky, 3, col); thick(g, kx, ky, ax, ay - 2, 2, col);
-    poly(g, [[ax - 3, ay - 4], [ax + 3, ay - 4], [ax + 11, ay], [ax - 3, ay]], OUT);
-    poly(g, [[ax - 2, ay - 3], [ax + 3, ay - 3], [ax + 8, ay - 1], [ax - 2, ay - 1]], '#3a2a1c');
+  const [c, f] = figCanvas(110, 160), OX = 50, OY = 150;
+  f.translate(OX, OY);
+  const ph = t * 8, stride = o.walk ? Math.sin(ph) : 0, lift = o.stamp || 0, bob = o.walk ? Math.abs(Math.cos(ph)) * 1.5 : 0;
+  f.translate(0, -Math.round(bob) + (o.dip || 0));
+  const [sD, sk, sL] = tone3(P.skin), [cD, cl, cL] = tone3(P.cloth);
+  const arm = (a, front) => { // shoulder at (2,-90); a = 0 hangs down, positive swings forward
+    const ex = 2 + Math.sin(a) * 15, ey = -90 + Math.cos(a) * 15, b = a + (front ? 0.55 : 0.35), hx = ex + Math.sin(b) * 14, hy = ey + Math.cos(b) * 14;
+    const sl = front ? cl : cD;
+    thick(f, 2, -90, ex, ey, 7, sl); thick(f, ex, ey, hx, hy, 6, sl);
+    if (P.cuffs) { f.fillStyle = '#f2ece0'; thick(f, ex + (hx - ex) * 0.8, ey + (hy - ey) * 0.8, hx, hy, 6, '#f2ece0'); }
+    ell(f, hx, hy + 1, 3, 3, front ? sk : sD);
+    return [hx, hy + 1];
   };
-  if (!dress) { leg(-stride * 0.45, Math.max(0, stride) * 0.6, P.legsD); leg(stride * 0.45 + lift * 0.9, Math.max(0, -stride) * 0.6 + lift * 1.3, P.legs, lift * 6); }
-  // back arm (in shadow)
-  const sw = o.arm !== undefined ? o.arm : stride * 0.5;
-  const arm = (a, col, w) => { const ex = 1 + Math.sin(a) * 14, ey = -66 + Math.cos(a) * 14, hx2 = ex + Math.sin(a + 0.5) * 13, hy2 = ey + Math.cos(a + 0.5) * 13; thick(g, 1, -66, ex, ey, w + 2, OUT); thick(g, ex, ey, hx2, hy2, w + 1, OUT); thick(g, 1, -66, ex, ey, w, col); thick(g, ex, ey, hx2, hy2, w - 1, col); return [hx2, hy2]; };
-  arm(-sw - 0.2, CD, 4);
-  // body: a stooped coat with tails, or a long gown with an apron and a shawl
-  const torso = dress
-    ? [[-7, -70], [5, -71], [8, -64], [6, -50], [9, -36], [13, -14], [15, -2], [-13, -2], [-12, -14], [-10, -36], [-8, -50], [-10, -62]]
-    : [[-8, -70], [5, -71], [9, -64], [7, -50], [6, -42], [10, -26], [-11, -27], [-8, -42], [-9, -52], [-11, -62]];
-  poly(g, torso, OUT); poly(g, torso.map(([px, py]) => [px * 0.88, py + (py < -60 ? 1 : 0)]), C);
-  poly(g, torso.filter(([px]) => px < 0).concat([[-1, dress ? -2 : -27], [-1, -70]]).map(([px, py]) => [px * 0.88, py]), CD); // back half in shadow
-  edge(g, [[6, -66], [6, -52], [5, -44]], CL, false);
-  if (dress) {
-    poly(g, [[1, -50], [6, -50], [10, -14], [12, -4], [2, -4]], P.apron); edge(g, [[1, -50], [2, -4]], shade(P.apron, 0.8), false);
-    for (const fx of [-8, -4]) edge(g, [[fx, -34], [fx - 2, -4]], CD, false);                     // skirt folds
-    poly(g, [[-9, -70], [5, -71], [7, -62], [-1, -58], [-10, -60]], shade(P.cloth, 0.45));         // shawl
+  const leg = (ang, bend, front, raise = 0) => { // hip at (0,-52)
+    const kx = Math.sin(ang) * 22, ky = -52 + Math.cos(ang) * 22 - raise, ax = kx + Math.sin(ang - bend) * 21, ay = Math.min(-4, ky + Math.cos(ang - bend) * 21);
+    thick(f, 0, -52, kx, ky, 9, front ? P.legs : shade(P.legs, 0.78));
+    thick(f, kx, ky, ax, ay, 7, front ? P.hose : shade(P.hose, 0.85));
+    ell(f, ax + 4, ay + 1, 7, 3.5, front ? P.shoes : shade(P.shoes, 0.8)); f.fillStyle = shade(P.shoes, 1.4); f.fillRect(Math.round(ax + 1), Math.round(ay - 2), 4, 1);
+  };
+  if (!P.dress) leg(-stride * 0.42, Math.max(0, stride) * 0.5, false);
+  arm(-(o.walk ? stride * 0.45 : 0) - 0.15, false);
+  if (P.dress) { // long skirt and apron, swaying as she walks
+    const sw = stride * 3;
+    ell(f, 8 + sw, -2, 6, 3, P.shoes);
+    poly(f, [[-12, -62], [12, -62], [17 + sw, -3], [-17 + sw, -3]], cl);
+    poly(f, [[-12, -62], [-3, -62], [-6 + sw, -3], [-17 + sw, -3]], cD);
+    for (const fx of [-8, 4]) { f.fillStyle = cD; f.fillRect(fx + Math.round(sw * 0.6), -40, 1, 36); }
+    poly(f, [[1, -64], [12, -64], [15 + sw, -6], [3 + sw, -6]], '#f2ece0'); poly(f, [[1, -64], [4, -64], [6 + sw, -6], [3 + sw, -6]], '#d8cfbd');
   } else {
-    g.fillStyle = OUT; g.fillRect(-8, -44, 15, 3); g.fillStyle = '#5a4028'; g.fillRect(-7, -44, 13, 2); g.fillStyle = '#c9a560'; g.fillRect(3, -44, 2, 2);
-    edge(g, [[0, -42], [-1, -27]], CD, false);                                                     // split in the coat tails
+    leg(stride * 0.42 + lift * 1.1, Math.max(0, -stride) * 0.5 + lift * 1.4, true, lift * 10);
+    poly(f, [[-12, -64], [12, -64], [14, -46], [-13, -46]], cl); poly(f, [[-12, -64], [-3, -64], [-4, -46], [-13, -46]], cD); // coat skirts
   }
-  // neck and a profile head: long skull, brow, hooked nose, jaw
-  thick(g, 1, -70, 2, -74, 4, SD);
-  const head = [[-4, -76], [-4, -82], [0, -86], [5, -85], [7, -81], [7, -79], [10, -75], [7, -74], [8, -72], [6, -70], [2, -69], [-2, -71]];
-  poly(g, head, OUT); poly(g, head.map(([px, py]) => [px * 0.86 + 0.6, py * 0.99]), S);
-  poly(g, [[-3, -76], [-3, -82], [0, -84], [1, -78], [0, -71], [-2, -72]], SD);                   // shadow side of the face
-  g.fillStyle = OUT; g.fillRect(3, -80, 3, 1); g.fillRect(4, -79, 2, 1);                            // brow and sunken eye
-  g.fillStyle = '#e9dcbc'; g.fillRect(5, -79, 1, 1);
-  g.fillStyle = shade(S, 0.6); g.fillRect(5, -72, 2, 1);                                            // mouth
-  if (P.stubble) { g.fillStyle = 'rgba(40,28,20,.55)'; g.fillRect(1, -72, 6, 3); }
-  if (dress) { // a starched wimple and veil
-    const wimple = [[-7, -66], [-8, -80], [-3, -89], [5, -88], [8, -82], [6, -82], [3, -84], [0, -82], [0, -72], [3, -69], [-2, -63]];
-    poly(g, wimple, OUT); poly(g, wimple.map(([px, py]) => [px * 0.88, py * 0.99]), '#e6dfcc');
-    edge(g, [[-5, -67], [-6, -80], [-2, -86]], '#c4bca8', false); edge(g, [[-3, -66], [-3, -76]], '#c4bca8', false);
-  } else { // a tall felt hat with a wide brim
-    poly(g, [[-6, -84], [-4, -95], [5, -96], [7, -84]], OUT); poly(g, [[-5, -84], [-3, -94], [4, -95], [6, -84]], P.cap);
-    poly(g, [[-10, -85], [12, -84], [12, -82], [-10, -82]], OUT); poly(g, [[-9, -84], [11, -83], [-9, -83]], shade(P.cap, 1.2));
-    g.fillStyle = shade(P.cap, 0.6); g.fillRect(-4, -87, 10, 2);                                    // hat band
-    g.fillStyle = P.hair; g.fillRect(-6, -81, 3, 7);
+  // body: doublet or bodice, a white collar or kerchief
+  poly(f, [[-11, -94], [11, -94], [12, -62], [-12, -62]], cl);
+  poly(f, [[-11, -94], [-3, -94], [-4, -62], [-12, -62]], cD);
+  f.fillStyle = cL; f.fillRect(8, -90, 2, 24);
+  if (!P.dress) { f.fillStyle = '#4a2c1a'; f.fillRect(-12, -64, 25, 4); f.fillStyle = '#d8b050'; f.fillRect(5, -64, 3, 4); f.fillStyle = shade(P.cloth, 0.55); for (let by = -88; by < -66; by += 6) f.fillRect(6, by, 2, 2); }
+  poly(f, P.dress ? [[-12, -95], [12, -95], [9, -82], [3, -74], [-6, -82]] : [[-9, -96], [10, -96], [12, -89], [2, -87], [-10, -89]], '#f2ece0');
+  f.fillStyle = '#d8cfbd'; f.fillRect(-9, P.dress ? -84 : -90, 8, 1);
+  // head: rounded, with simple features
+  f.fillStyle = sD; f.fillRect(-1, -100, 6, 6);                                   // neck
+  if (P.dress) ell(f, 1, -110, 12, 13, '#f2ece0');                                 // coif behind the head
+  ell(f, 3, -109, 10, 11, sk); f.fillStyle = sD; f.fillRect(-7, -112, 2, 9); f.fillRect(-6, -103, 3, 3); // face, shadow down the back edge
+  ell(f, -3, -108, 2, 3, sD); f.fillStyle = shade(P.skin, 0.6); f.fillRect(-3, -108, 1, 2);      // ear
+  f.fillStyle = '#e8988a'; f.fillRect(9, -105, 3, 2);                               // a ruddy cheek
+  if (P.dress) { poly(f, [[-8, -118], [13, -118], [11, -114], [-6, -112]], '#f2ece0'); f.fillStyle = P.hair; f.fillRect(-1, -114, 12, 2); }
+  else { f.fillStyle = P.hair; f.fillRect(-8, -112, 7, 10); }
+  f.fillStyle = '#fff'; f.fillRect(4, -110, 3, 3); f.fillRect(9, -110, 3, 3); f.fillStyle = INK; f.fillRect(5, -110, 2, 3); f.fillRect(10, -110, 2, 3); // eyes
+  f.fillStyle = shade(P.hair, 0.9); f.fillRect(4, -113, 3, 1); f.fillRect(9, -113, 4, 1); // brows
+  f.fillStyle = sD; f.fillRect(12, -107, 2, 3);                                    // nose
+  f.fillStyle = sL; f.fillRect(6, -116, 4, 2);                                     // light on the brow
+  if (P.beard) { poly(f, [[-1, -104], [13, -104], [11, -98], [5, -95], [0, -99]], P.hair); f.fillStyle = shade(P.hair, 0.75); f.fillRect(6, -104, 6, 1); }
+  else { f.fillStyle = shade(P.skin, 0.6); f.fillRect(7, -102, 4, 1); }
+  if (P.hat) { // a wide-brimmed felt hat
+    poly(f, [[-7, -118], [-6, -130], [11, -131], [12, -118]], P.hat); f.fillStyle = shade(P.hat, 0.7); f.fillRect(-7, -121, 19, 3);
+    ell(f, 3, -118, 16, 2.5, shade(P.hat, 1.15)); f.fillStyle = shade(P.hat, 1.3); f.fillRect(-3, -130, 8, 1);
   }
-  // front arm with a hand
-  const [hx2, hy2] = arm(sw, C, 4);
-  ell(g, hx2, hy2, 2, 2, OUT); ell(g, hx2, hy2, 1.4, 1.4, S);
-  g.restore();
-  return [x + dir * k * hx2, y + (o.dip || 0) + k * hy2]; // where the front hand is, for props
+  const hand = arm(o.arm !== undefined ? o.arm : (o.walk ? stride * 0.45 : 0.1), true);
+  if (P.tankard) { f.fillStyle = '#b0a898'; f.fillRect(Math.round(hand[0]) - 3, Math.round(hand[1]) - 8, 7, 9); f.fillStyle = '#f0e8d0'; f.fillRect(Math.round(hand[0]) - 3, Math.round(hand[1]) - 9, 7, 2); }
+  inkOutline(c, f);
+  const k = o.scale || 1;
+  g.fillStyle = 'rgba(40,30,20,.25)'; ell(g, x, y, 16 * k, 2, 'rgba(40,30,20,.25)');
+  blit(g, c, x, y, OX, OY, dir, k);
+  return [x + dir * hand[0] * k, y + (hand[1] - bob + (o.dip || 0)) * k];
 }
 
 function cutBurst(x, y, n, cols, sp = 20, life = 0.6, up = 10) {
   for (let i = 0; i < n; i++) { const a = Math.random() * Math.PI * 2, v = sp * (0.4 + Math.random()); cut.parts.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v - up, life, max: life, col: pick(Math.random, cols) }); }
 }
-// ---- V10 hi-res backdrops ---------------------------------------------------
+// ---- V18 backdrops ------------------------------------------------------------
 function bandSky(g, w, top, bottom, cols) { // stepped gradient with a dithered seam between bands
   const bh = (bottom - top) / cols.length;
   cols.forEach((c, i) => { g.fillStyle = c; g.fillRect(0, Math.round(top + i * bh), w, Math.ceil(bh) + 1); });
   cols.forEach((c, i) => { if (!i) return; g.fillStyle = c; const y = Math.round(top + i * bh) - 1; for (let x = (i % 2); x < w; x += 2) g.fillRect(x, y, 1, 1); });
 }
+function signText(g, text, x, y, size, col, weight = 600) { // crisp lettering: canvas text snapped to whole pixels
+  const [c, f] = figCanvas(260, 40);
+  f.font = `${weight} ${size}px "Pixelify Sans", ui-monospace, monospace`; f.textBaseline = 'top'; f.fillStyle = '#000';
+  const w = Math.ceil(f.measureText(text).width); f.fillText(text, 2, 2);
+  const img = f.getImageData(0, 0, c.width, c.height), d = img.data;
+  g.fillStyle = col;
+  for (let py = 0; py < c.height; py++) for (let px = 0; px < c.width; px++) if (d[(py * c.width + px) * 4 + 3] > 110) g.fillRect(Math.round(x - w / 2) + px - 2, y + py - 2, 1, 1);
+}
+function lattice(g, x, y, w, h, glass, lead, lit) { // leaded diamond panes
+  g.fillStyle = glass; g.fillRect(x, y, w, h);
+  if (lit) { g.fillStyle = lit; g.fillRect(x + 1, y + 1, Math.round(w * 0.4), Math.round(h * 0.45)); }
+  g.fillStyle = lead;
+  for (let k = -h; k < w + h; k += 6) for (let s = 0; s < h; s++) { const a = x + k + s, b = x + k + h - s; if (a >= x && a < x + w) g.fillRect(a, y + s, 1, 1); if (b >= x && b < x + w) g.fillRect(b, y + s, 1, 1); }
+}
+function frameRect(g, x, y, w, h, col, t = 3) { g.fillStyle = col; g.fillRect(x - t, y - t, w + t * 2, t); g.fillRect(x - t, y + h, w + t * 2, t); g.fillRect(x - t, y, t, h); g.fillRect(x + w, y, t, h); }
+function timberHouse(g, x0, x1, top, jetty, base, P, rng) { // white plaster between painted timbers, upper floor jettied out
+  const [tD, tm, tL] = P.timber;
+  g.fillStyle = P.plaster; g.fillRect(x0, top, x1 - x0, base - top);
+  g.fillStyle = P.plasterD; g.fillRect(x0, jetty + 6, x1 - x0, 5);                         // shadow under the jetty
+  // upper floor: posts, rails and long braces
+  g.fillStyle = tm; for (let px = x0; px <= x1 - 4; px += P.bay) g.fillRect(px, top, 5, jetty - top);
+  g.fillRect(x0, top + 2, x1 - x0, 4); g.fillRect(x0, Math.round((top + jetty) / 2), x1 - x0, 4);
+  for (let px = x0; px + P.bay <= x1; px += P.bay * 2) { thick(g, px + 4, Math.round((top + jetty) / 2) + 2, px + P.bay, top + 6, 4, tm); thick(g, px + P.bay + 4, top + 6, px + P.bay * 2, Math.round((top + jetty) / 2) + 2, 4, tm); }
+  g.fillStyle = tL; for (let px = x0; px <= x1 - 4; px += P.bay) g.fillRect(px, top, 1, jetty - top);
+  // the jetty beam
+  g.fillStyle = tD; g.fillRect(x0 - 4, jetty, x1 - x0 + 8, 7); g.fillStyle = tm; g.fillRect(x0 - 4, jetty, x1 - x0 + 8, 5); g.fillStyle = tL; g.fillRect(x0 - 4, jetty, x1 - x0 + 8, 1);
+  for (let px = x0 + 6; px < x1; px += 14) { g.fillStyle = tD; g.fillRect(px, jetty + 5, 4, 3); }
+  // ground floor posts and sill
+  g.fillStyle = tm; for (let px = x0; px <= x1 - 5; px += P.bay * 2) g.fillRect(px, jetty + 7, 6, base - jetty - 7);
+  g.fillStyle = tD; g.fillRect(x0, base - 4, x1 - x0, 4);
+}
 function streetBackdrop() {
-  const W = STAGE_W, H = STAGE_H, c = makeCanvas(W, H), g = c.getContext('2d'), rng = mulberry32(77);
-  bandSky(g, W, 0, 150, ['#0d0c1a', '#131226', '#1b1730', '#241c36', '#2e2138', '#3a2738', '#4a2f38']);
-  for (let i = 0; i < 40; i++) px1(g, rng() * W | 0, rng() * 70 | 0, rng() < .3 ? '#e9e2c8' : '#8a87a0');
-  // moon with a halo and craters
-  g.globalAlpha = 0.12; ell(g, 400, 42, 26, 26, '#e9e2c8'); g.globalAlpha = 0.2; ell(g, 400, 42, 19, 19, '#e9e2c8'); g.globalAlpha = 1;
-  ell(g, 400, 42, 14, 14, '#d8d0b4'); ell(g, 398, 40, 12, 12, '#ece5cc');
-  ell(g, 404, 46, 3, 2, '#cfc6a8'); ell(g, 394, 37, 2, 2, '#d6ceb2'); ell(g, 402, 36, 1.5, 1.5, '#d0c8ac');
-  for (const [cx, cy, w] of [[90, 30, 70], [300, 55, 90], [190, 18, 50]]) { ell(g, cx, cy, w / 2, 3, '#2a2340'); ell(g, cx + 6, cy - 2, w / 3, 2.5, '#332a48'); }
-  // far skyline: roofs, a church spire, a tower
-  g.fillStyle = '#17131f';
-  for (let x = -10; x < W; x += 26 + (rng() * 14 | 0)) { const h = 30 + (rng() * 26 | 0); g.fillRect(x, 150 - h, 24, h); for (let k = 0; k < 10; k++) g.fillRect(x + k, 150 - h - k, 24 - k * 2, 1); }
-  g.fillRect(286, 60, 16, 90); for (let k = 0; k < 40; k++) g.fillRect(294 - k / 5, 20 + k, Math.max(1, k / 2.5), 1); g.fillRect(293, 10, 2, 12); g.fillRect(290, 14, 8, 2);
-  g.fillRect(150, 70, 22, 80); g.fillRect(146, 66, 30, 6); for (let x = 146; x < 176; x += 6) g.fillRect(x, 62, 3, 4);
-  for (let i = 0; i < 26; i++) { g.fillStyle = rng() < .5 ? '#a8702e' : '#6e4a24'; g.fillRect(rng() * W | 0, 95 + (rng() * 50 | 0), 2, 2); }
-  // four timber-framed houses with jettied upper floors
-  const houses = [
-    { x: 0, w: 116, plaster: '#a8977a', roof: '#8a4a32' }, { x: 116, w: 128, plaster: '#b2a283', roof: '#4c5566' },
-    { x: 244, w: 112, plaster: '#9d9070', roof: '#76643a' }, { x: 356, w: 124, plaster: '#a79878', roof: '#6e3d36' },
-  ];
-  const beam = '#3a2a1c', beamHi = '#5a4028';
-  for (const h of houses) {
-    const { x, w } = h, mid = x + w / 2, eaves = 92, peak = 34, up = 96, down = 150, base = 212;
-    // gable roof edge (barge boards) and gable plaster
-    for (let yy = peak; yy < eaves; yy++) {
-      const half = (yy - peak) / (eaves - peak) * (w / 2 + 6);
-      g.fillStyle = shade(h.roof, 0.75); g.fillRect(Math.round(mid - half - 4), yy, Math.round(half * 2 + 8), 1);
-      g.fillStyle = h.roof; g.fillRect(Math.round(mid - half - 2), yy, Math.round(half * 2 + 4), 1);
-      g.fillStyle = h.plaster; g.fillRect(Math.round(mid - half + 3), yy, Math.max(0, Math.round(half * 2 - 6)), 1);
-    }
-    for (let yy = peak; yy < eaves; yy += 3) { const half = (yy - peak) / (eaves - peak) * (w / 2 + 6); g.fillStyle = shade(h.roof, 1.15); g.fillRect(Math.round(mid - half - 3), yy, 2, 1); g.fillRect(Math.round(mid + half + 1), yy, 2, 1); }
-    // gable timbers: king post and braces
-    g.fillStyle = beam; g.fillRect(mid - 1, peak + 6, 3, eaves - peak - 6);
-    thick(g, mid, peak + 14, mid - w / 4, eaves - 2, 2, beam); thick(g, mid, peak + 14, mid + w / 4, eaves - 2, 2, beam);
-    // jettied upper floor, wider than the ground floor, casting a shadow below
-    g.fillStyle = h.plaster; g.fillRect(x - 2, eaves, w + 4, down - eaves);
-    g.fillStyle = shade(h.plaster, 0.9); g.fillRect(x + 2, up, w - 4, base - up);
-    g.fillStyle = h.plaster; g.fillRect(x + 4, down + 4, w - 8, base - down - 4);
-    g.fillStyle = 'rgba(0,0,0,.4)'; g.fillRect(x + 4, down + 4, w - 8, 5);
-    // timber frame: rails, posts, braces
-    g.fillStyle = beam; g.fillRect(x - 3, eaves - 1, w + 6, 4); g.fillRect(x - 3, down, w + 6, 5); g.fillRect(x + 4, base - 3, w - 8, 3);
-    g.fillStyle = beamHi; g.fillRect(x - 3, eaves - 1, w + 6, 1); g.fillRect(x - 3, down, w + 6, 1);
-    for (let px = x; px <= x + w; px += 24) { g.fillStyle = beam; g.fillRect(Math.min(px, x + w - 3), eaves, 3, down - eaves); g.fillRect(Math.min(px, x + w - 3) + 4, down + 4, 3, base - down - 4); }
-    for (let px = x + 24; px < x + w - 20; px += 48) { thick(g, px + 2, eaves + 3, px + 22, down - 2, 2, beam); thick(g, px + 46, eaves + 3, px + 26, down - 2, 2, beam); }
-    // plaster wear: a damp stain and a patch of exposed brick
-    g.globalAlpha = 0.18; ell(g, x + 14 + (rng() * (w - 30) | 0), down + 30, 8, 14, '#3a2e20'); g.globalAlpha = 1;
-    const bx = x + 10 + (rng() * (w - 40) | 0), by = down + 34;
-    for (let r = 0; r < 3; r++) for (let k = 0; k < 4; k++) { g.fillStyle = '#4a2e22'; g.fillRect(bx + k * 6 + (r % 2) * 3 - 1, by + r * 4, 7, 4); g.fillStyle = (k + r) % 2 ? '#7a4a36' : '#8a5440'; g.fillRect(bx + k * 6 + (r % 2) * 3, by + r * 4, 5, 3); }
-    // upper windows: leaded diamond panes, some lit
-    for (let wx = x + 10; wx < x + w - 24; wx += 48) {
-      const lit = rng() < 0.6, wy = eaves + 14;
-      g.fillStyle = beam; g.fillRect(wx - 2, wy - 2, 22, 28);
-      g.fillStyle = lit ? '#d99a36' : '#1b242a'; g.fillRect(wx, wy, 18, 24);
-      if (lit) { g.fillStyle = '#f4cc6a'; g.fillRect(wx + 2, wy + 2, 6, 8); }
-      g.fillStyle = lit ? '#8a5a1c' : '#0f1418';
-      for (let k = -24; k < 24; k += 5) for (let s = 0; s < 24; s++) { const a = wx + k + s, b = wx + k + 24 - s; if (a >= wx && a < wx + 18) g.fillRect(a, wy + s, 1, 1); if (b >= wx && b < wx + 18) g.fillRect(b, wy + s, 1, 1); }
-      g.fillStyle = '#9a927f'; g.fillRect(wx - 3, wy + 24, 24, 3); g.fillStyle = '#b8b0a0'; g.fillRect(wx - 3, wy + 24, 24, 1);
-      g.fillStyle = '#4a5e3a'; g.fillRect(wx - 7, wy - 2, 5, 28); g.fillRect(wx + 20, wy - 2, 5, 28);
-      g.fillStyle = '#3a4a2e'; for (let s = 0; s < 28; s += 4) { g.fillRect(wx - 7, wy - 2 + s, 5, 1); g.fillRect(wx + 20, wy - 2 + s, 5, 1); }
-    }
-    // ground floor: an arched door with iron hinges and a step, and a bullseye-glass shop window
-    const dx = x + w - 34;
-    g.fillStyle = beam; g.fillRect(dx - 3, base - 46, 24, 46); ell(g, dx + 9, base - 46, 12, 7, beam);
-    g.fillStyle = '#5a3d26'; g.fillRect(dx, base - 44, 18, 44); ell(g, dx + 9, base - 44, 9, 5, '#5a3d26');
-    g.fillStyle = '#4a3220'; for (let k = 3; k < 18; k += 4) g.fillRect(dx + k, base - 47, 1, 47);
-    g.fillStyle = '#2a2a2e'; g.fillRect(dx, base - 36, 12, 2); g.fillRect(dx, base - 14, 12, 2); g.fillStyle = '#c9a560'; g.fillRect(dx + 14, base - 24, 2, 2);
-    g.fillStyle = '#7d776b'; g.fillRect(dx - 4, base, 26, 4); g.fillStyle = '#958e7f'; g.fillRect(dx - 4, base, 26, 1);
-    const sx = x + 12;
-    g.fillStyle = beam; g.fillRect(sx - 2, down + 14, 36, 30);
-    for (let r = 0; r < 2; r++) for (let k = 0; k < 3; k++) { ell(g, sx + 5 + k * 11, down + 22 + r * 13, 5, 5, '#1b2a30'); ell(g, sx + 5 + k * 11, down + 22 + r * 13, 2, 2, '#3a5a64'); px1(g, sx + 3 + k * 11, down + 20 + r * 13, '#8aaab4'); }
+  const W = STAGE_W, H = STAGE_H, c = makeCanvas(W, H), g = c.getContext('2d'), rng = mulberry32(77), BACK = 214;
+  // sky, clouds and hills (seen through the lane and over the bakery)
+  bandSky(g, W, 0, 200, ['#b4ccdc', '#bdd3e0', '#c7dae3', '#d1e0e6', '#dbe6e8']);
+  for (const [cx, cy, w] of [[330, 40, 46], [250, 14, 30], [420, 70, 34]]) { ell(g, cx, cy, w, 7, '#eef3f2'); ell(g, cx - w * 0.3, cy - 5, w * 0.45, 6, '#f6f8f6'); ell(g, cx + 4, cy + 4, w * 0.8, 3, '#d8e4e8'); }
+  poly(g, [[280, 150], [330, 112], [380, 104], [440, 130], [480, 150], [480, 210], [280, 210]], '#a6bc96');
+  poly(g, [[280, 172], [340, 140], [400, 152], [480, 168], [480, 210], [280, 210]], '#8aa872');
+  for (let i = 0; i < 18; i++) { const tx = 300 + (rng() * 160 | 0), ty = 140 + (rng() * 24 | 0); ell(g, tx, ty, 4, 3, '#6e8e5a'); }
+  // the lane: small houses stepping away into the haze, a cart, a few folk
+  g.fillStyle = '#ccc4b2'; g.fillRect(290, 196, 100, BACK - 196);
+  const far = [[312, 150, 30, '#a07858'], [338, 160, 26, '#8a6a58'], [360, 166, 22, '#9a7a62']];
+  for (const [fx, fy, fw, roof] of far) {
+    g.fillStyle = '#e4dccb'; g.fillRect(fx, fy, fw, 200 - fy);
+    poly(g, [[fx - 3, fy + 1], [fx + fw / 2, fy - 16], [fx + fw + 3, fy + 1]], roof);
+    g.fillStyle = '#8a7a64'; g.fillRect(fx, fy, 2, 200 - fy); g.fillRect(fx + fw - 2, fy, 2, 200 - fy); g.fillRect(fx, fy + 14, fw, 2);
+    thick(g, fx + 2, fy + 2, fx + fw / 2, fy + 14, 2, '#8a7a64');
+    g.fillStyle = '#6a7880'; g.fillRect(fx + 5, fy + 20, 6, 7); g.fillRect(fx + fw - 11, fy + 20, 6, 7);
   }
-  // a tavern sign on a bracket and a wall lantern
-  g.fillStyle = '#2a2a2e'; g.fillRect(232, 108, 30, 2); g.fillRect(236, 110, 1, 6); g.fillRect(256, 110, 1, 6);
-  g.fillStyle = '#3a2a1c'; g.fillRect(232, 116, 30, 22); g.fillStyle = '#7a5b3b'; g.fillRect(234, 118, 26, 18);
-  g.drawImage(iconSprites.tankard, 241, 121, 12, 12);
-  g.fillStyle = '#2a2a2e'; g.fillRect(104, 160, 10, 2); g.fillRect(112, 156, 2, 6);
-  // street: kerb, then cobbles that grow toward the viewer, a gutter and a drain
-  g.fillStyle = '#5f594e'; g.fillRect(0, 212, W, 6); g.fillStyle = '#7d776b'; g.fillRect(0, 212, W, 2); g.fillStyle = '#2b231b'; g.fillRect(0, 218, W, 2);
-  let yy = 220;
-  for (let row = 0; yy < H; row++) {
-    const h = 6 + row, sw = 10 + row * 2;
-    for (let xx = -(row % 2) * (sw >> 1); xx < W; xx += sw) {
-      const col = pick(rng, ['#4b453d', '#464038', '#514a41', '#413b34', '#4f463b']);
-      g.fillStyle = '#251e17'; g.fillRect(xx, yy, sw, h);
+  g.fillStyle = '#6a5440'; g.fillRect(350, 186, 16, 8); ell(g, 354, 195, 4, 4, '#4a3a2c'); ell(g, 354, 195, 1.5, 1.5, '#8a7458'); // cart
+  g.fillStyle = '#7a5a40'; g.fillRect(366, 184, 9, 6); g.fillRect(368, 190, 2, 6); g.fillRect(373, 190, 2, 6); g.fillRect(373, 180, 3, 5); // its horse
+  for (const [px, col] of [[322, '#8a5a4a'], [382, '#5a6a7a']]) { g.fillStyle = col; g.fillRect(px, 182, 5, 12); ell(g, px + 2, 179, 2.5, 3, '#d8b090'); g.fillStyle = '#f0ece0'; g.fillRect(px, 178, 5, 2); }
+  g.fillStyle = 'rgba(220,232,236,.25)'; g.fillRect(286, 100, 92, 114); // haze over the distance
+
+  // the bakery: salmon plaster, slate roof, chimney, a sign and an awning
+  const BX0 = 172, BX1 = 296;
+  g.fillStyle = '#b4563c'; g.fillRect(256, 2, 16, 22); g.fillStyle = '#c86a4c'; g.fillRect(256, 2, 16, 3); g.fillStyle = '#8a3e2c'; g.fillRect(258, 0, 12, 3); // chimney
+  poly(g, [[BX0 - 6, 46], [BX0 + 10, 20], [BX1 - 6, 20], [BX1 + 6, 46]], '#55627e');
+  for (let ry = 24; ry < 46; ry += 5) { g.fillStyle = '#4a5670'; g.fillRect(BX0 - 4, ry, BX1 - BX0 + 8, 1); }
+  g.fillStyle = '#6a7894'; g.fillRect(BX0 + 10, 20, BX1 - BX0 - 16, 2); g.fillStyle = '#3e4860'; g.fillRect(BX0 - 6, 46, BX1 - BX0 + 12, 3);
+  g.fillStyle = '#e29a78'; g.fillRect(BX0, 49, BX1 - BX0, 104);
+  g.fillStyle = '#c87e60'; g.fillRect(BX0, 49, 8, 104); g.fillRect(BX0, 49, BX1 - BX0, 4);
+  g.fillStyle = '#eeb092'; g.fillRect(BX1 - 6, 53, 6, 100);
+  for (const wx of [BX0 + 20, BX0 + 74]) { // upper windows: green frames, blue glass, white sills
+    frameRect(g, wx, 66, 28, 36, '#3e5a2a', 3);
+    g.fillStyle = '#5a7a94'; g.fillRect(wx, 66, 28, 36); g.fillStyle = '#7a9ab0'; g.fillRect(wx + 2, 68, 10, 12);
+    g.fillStyle = '#3e5a2a'; g.fillRect(wx + 13, 66, 2, 36); g.fillRect(wx, 83, 28, 2);
+    g.fillStyle = '#f0e8d8'; g.fillRect(wx - 5, 105, 38, 4); g.fillStyle = '#c8bca4'; g.fillRect(wx - 5, 108, 38, 1);
+  }
+  // the sign board
+  g.fillStyle = '#5a3a22'; g.fillRect(BX0 + 14, 120, 96, 24); g.fillStyle = '#efe2c0'; g.fillRect(BX0 + 16, 122, 92, 20); g.fillStyle = '#d8c8a0'; g.fillRect(BX0 + 16, 140, 92, 2);
+  signText(g, 'THE BAKERY', BX0 + 62, 125, 14, '#5a3a22');
+  // ground floor: grey stone, a bread window under a striped awning, a door
+  g.fillStyle = '#b0a898'; g.fillRect(BX0, 153, BX1 - BX0, BACK - 153);
+  for (let ry = 157; ry < BACK; ry += 9) for (let rx = BX0 + ((ry / 9) % 2) * 9; rx < BX1; rx += 18) { g.fillStyle = '#9c9484'; g.fillRect(rx, ry, 1, 9); g.fillRect(BX0, ry, BX1 - BX0, 1); }
+  frameRect(g, BX0 + 12, 176, 58, 32, '#5a3a22', 3);
+  g.fillStyle = '#3a3028'; g.fillRect(BX0 + 12, 176, 58, 32);
+  for (const [lx, ly] of [[BX0 + 18, 196], [BX0 + 32, 194], [BX0 + 46, 197], [BX0 + 58, 195], [BX0 + 26, 188], [BX0 + 52, 188]]) { ell(g, lx, ly, 6, 3.5, '#c88a44'); ell(g, lx - 1, ly - 1, 4, 2, '#e0aa5a'); g.fillStyle = '#9a6430'; g.fillRect(lx - 2, ly - 1, 1, 2); g.fillRect(lx + 1, ly - 1, 1, 2); }
+  g.fillStyle = '#7a5a3a'; g.fillRect(BX0 + 12, 202, 58, 6);
+  for (let k = 0; k < 8; k++) { poly(g, [[BX0 + 6 + k * 9, 160], [BX0 + 15 + k * 9, 160], [BX0 + 17 + k * 9, 172], [BX0 + 8 + k * 9, 172]], k % 2 ? '#f0e8d8' : '#c8a060'); }
+  g.fillStyle = '#9a7a48'; g.fillRect(BX0 + 4, 158, 78, 3); g.fillStyle = 'rgba(60,40,20,.25)'; g.fillRect(BX0 + 10, 172, 66, 4);
+  g.fillStyle = '#5a3a22'; g.fillRect(BX0 + 84, 164, 30, 50); g.fillStyle = '#7a5232'; g.fillRect(BX0 + 87, 167, 24, 47);
+  g.fillStyle = '#6a4428'; for (let k = 3; k < 24; k += 6) g.fillRect(BX0 + 87 + k, 167, 1, 47); g.fillStyle = '#d8b050'; g.fillRect(BX0 + 105, 192, 3, 3);
+
+  // the tavern: dark green timbers, leaded windows, an open door with a warm glow inside
+  timberHouse(g, 0, 176, 0, 92, BACK, { plaster: '#f2ead8', plasterD: '#d6ccb4', timber: ['#22341a', '#3a5428', '#567a3c'], bay: 32 }, rng);
+  for (const wx of [14, 110]) { frameRect(g, wx, 22, 46, 46, '#3a5428', 4); lattice(g, wx, 22, 46, 46, '#5e7480', '#34444c', '#8aa0aa'); }
+  g.fillStyle = '#22341a'; g.fillRect(6, 100, 164, 28); g.fillStyle = '#3a5428'; g.fillRect(8, 102, 160, 24); g.fillStyle = '#567a3c'; g.fillRect(8, 102, 160, 2);
+  signText(g, 'THE RAT & CROWN', 88, 106, 15, '#efe2c0');
+  frameRect(g, 12, 142, 62, 52, '#3a5428', 4); lattice(g, 12, 142, 62, 52, '#c8883c', '#6a4418', '#f0c070');
+  g.fillStyle = '#f0e8d8'; g.fillRect(6, 197, 74, 4); g.fillStyle = '#c8bca4'; g.fillRect(6, 200, 74, 1);
+  // the open door
+  g.fillStyle = '#22341a'; g.fillRect(96, 136, 46, BACK - 136);
+  const dg = g.createLinearGradient(0, 140, 0, BACK); dg.addColorStop(0, '#6a3a1c'); dg.addColorStop(1, '#e09040');
+  g.fillStyle = dg; g.fillRect(100, 140, 38, BACK - 140);
+  for (let yy = 140; yy < BACK; yy += 2) for (let xx = 100 + ((yy / 2) % 2); xx < 138; xx += 2) if (rng() < 0.12) { g.fillStyle = 'rgba(255,220,150,.25)'; g.fillRect(xx, yy, 1, 1); }
+  ell(g, 112, 168, 9, 9, '#f0b060'); g.fillStyle = '#ffe0a0'; g.fillRect(110, 162, 4, 8);   // a lamp inside
+  g.fillStyle = '#4a2a18'; g.fillRect(118, 186, 14, 4); g.fillRect(120, 190, 2, 24); g.fillRect(128, 190, 2, 24); // table
+  g.fillStyle = '#3a2416'; ell(g, 126, 176, 5, 6, '#3a2416'); g.fillRect(121, 180, 10, 10);  // a drinker in silhouette
+  g.fillStyle = '#5a3a20'; g.fillRect(132, 182, 4, 5);
+  poly(g, [[138, 138], [152, 142], [152, BACK - 2], [138, BACK]], '#3a5428'); g.fillStyle = '#22341a'; g.fillRect(150, 142, 2, BACK - 144); // door leaf, open
+  g.fillStyle = '#567a3c'; for (let yy = 146; yy < BACK - 6; yy += 14) g.fillRect(140, yy, 10, 2);
+  g.fillStyle = '#9c9484'; g.fillRect(92, BACK - 3, 54, 3);
+
+  // the house on the right: overhanging timbers, a lantern on an iron bracket
+  timberHouse(g, 380, 480, 0, 110, BACK, { plaster: '#ece4d2', plasterD: '#d0c6ae', timber: ['#22341a', '#3a5428', '#567a3c'], bay: 28 }, rng);
+  frameRect(g, 404, 30, 40, 50, '#3a5428', 4); lattice(g, 404, 30, 40, 50, '#4e626c', '#2c3a42', '#7a909a');
+  frameRect(g, 398, 136, 50, 44, '#3a5428', 4); lattice(g, 398, 136, 50, 44, '#3e5058', '#24323a', '#6a808a');
+  g.fillStyle = '#2a2a2e'; g.fillRect(378, 84, 40, 3); thick(g, 382, 98, 404, 86, 2, '#2a2a2e'); g.fillRect(400, 87, 2, 8);
+  g.fillStyle = '#2a2a2e'; poly(g, [[394, 95], [408, 95], [406, 99], [396, 99]], '#2a2a2e'); g.fillRect(395, 99, 12, 16); poly(g, [[395, 115], [407, 115], [403, 119], [399, 119]], '#2a2a2e');
+  g.fillStyle = '#f0c870'; g.fillRect(397, 101, 8, 12); g.fillStyle = '#fff0c0'; g.fillRect(399, 103, 3, 6);
+  // barrel and sacks by the wall
+  ell(g, 455, 180, 15, 4, '#7a4a2a'); g.fillStyle = '#8a5a34'; g.fillRect(440, 180, 30, 32); ell(g, 455, 212, 15, 3, '#6a3e22');
+  g.fillStyle = '#a06a3e'; g.fillRect(446, 182, 6, 30); g.fillStyle = '#4a4440'; g.fillRect(440, 186, 30, 3); g.fillRect(440, 204, 30, 3); ell(g, 455, 180, 13, 3, '#a8784a');
+  for (const [sx, sy] of [[436, 202], [470, 200]]) { poly(g, [[sx - 8, BACK], [sx - 7, sy], [sx - 2, sy - 6], [sx + 3, sy - 6], [sx + 7, sy], [sx + 9, BACK]], '#c8a870'); g.fillStyle = '#a88a58'; g.fillRect(sx - 2, sy - 3, 6, 2); g.fillRect(sx - 7, sy + 6, 3, 8); }
+
+  // the street: kerb shadow, big pale flagstones that grow toward the viewer
+  g.fillStyle = '#8a8272'; g.fillRect(0, BACK, W, 2);
+  let yy = BACK + 2;
+  [[10, 30], [14, 42], [18, 58], [22, 74]].forEach(([h, sw], row) => {
+    for (let xx = -((row * 17) % sw); xx < W; xx += sw) {
+      const col = pick(rng, ['#d6cebe', '#d0c8b6', '#dad2c4', '#ccc4b2']);
+      g.fillStyle = '#aaa090'; g.fillRect(xx, yy, sw, h);
       g.fillStyle = col; g.fillRect(xx + 1, yy + 1, sw - 2, h - 2);
-      g.fillStyle = shade(col, 1.2); g.fillRect(xx + 2, yy + 1, sw - 4, 1);
-      g.fillStyle = shade(col, 0.75); g.fillRect(xx + 1, yy + h - 2, sw - 2, 1);
+      g.fillStyle = '#e6dfd2'; g.fillRect(xx + 2, yy + 1, sw - 4, 1);
+      g.fillStyle = shade(col, 0.92); g.fillRect(xx + 1, yy + h - 3, sw - 2, 2);
+      if (rng() < 0.2) { g.fillStyle = '#b4aa98'; thick(g, xx + 6, yy + 3, xx + 12 + (rng() * 10 | 0), yy + h - 3, 1, '#b4aa98'); }
     }
     yy += h;
-  }
-  g.fillStyle = '#1d2a30'; ell(g, 170, 252, 22, 4, '#1d2a30'); ell(g, 170, 252, 18, 3, '#2a3f48'); g.fillStyle = '#6a8592'; g.fillRect(160, 251, 8, 1); // puddle
-  g.fillStyle = '#0d0b09'; g.fillRect(392, 222, 40, 9); g.fillStyle = '#4a4a50'; for (let gx = 393; gx < 432; gx += 4) g.fillRect(gx, 222, 2, 9); g.fillStyle = '#6a6a70'; g.fillRect(392, 222, 40, 1);
-  for (let i = 0; i < 30; i++) { g.fillStyle = pick(rng, ['#8c7438', '#a08648']); g.fillRect(rng() * W | 0, 224 + (rng() * 40 | 0), 3, 1); }
+  });
+  // the drain the rat escapes down, and a little straw and mud
+  g.fillStyle = '#3a3634'; g.fillRect(390, 222, 44, 11); g.fillStyle = '#1a1614'; g.fillRect(392, 224, 40, 7);
+  g.fillStyle = '#6a6460'; for (let gx = 393; gx < 432; gx += 5) g.fillRect(gx, 224, 2, 7); g.fillStyle = '#8a847e'; g.fillRect(390, 222, 44, 1);
+  for (let i = 0; i < 14; i++) { g.fillStyle = pick(rng, ['#c8a860', '#b8984e']); g.fillRect(rng() * W | 0, 226 + (rng() * 40 | 0), 3, 1); }
+  for (let i = 0; i < 5; i++) { g.globalAlpha = 0.18; ell(g, rng() * W, 230 + rng() * 35, 10 + rng() * 10, 2, '#7a6a50'); g.globalAlpha = 1; }
   return c;
 }
 function sewerBackdrop() {
-  const W = STAGE_W, H = STAGE_H, c = makeCanvas(W, H), g = c.getContext('2d'), rng = mulberry32(91);
-  g.fillStyle = '#141215'; g.fillRect(0, 0, W, H);
-  for (let y = 0; y < 196; y += 8) for (let x = ((y / 8) % 2) * 8 - 8; x < W; x += 16) {
-    const col = pick(rng, ['#2a2628', '#2f2a2b', '#262225', '#2b2729', '#312b2a']);
-    g.fillStyle = '#18151a'; g.fillRect(x, y, 16, 8);
-    g.fillStyle = col; g.fillRect(x + 1, y + 1, 14, 6);
-    g.fillStyle = shade(col, 1.18); g.fillRect(x + 1, y + 1, 14, 1);
-    g.fillStyle = shade(col, 0.8); g.fillRect(x + 1, y + 6, 14, 1);
+  const W = STAGE_W, H = STAGE_H, c = makeCanvas(W, H), g = c.getContext('2d'), rng = mulberry32(91), LEDGE = 192;
+  // back wall: tidy brickwork, warm in the middle and cooler toward the edges
+  g.fillStyle = '#2a2024'; g.fillRect(0, 0, W, H);
+  for (let y = 0; y < LEDGE; y += 10) for (let x = ((y / 10) % 2) * 10 - 10; x < W; x += 20) {
+    const base = rng() < 0.12 ? '#4a3a38' : rng() < 0.5 ? '#5e4844' : '#564240';
+    g.fillStyle = base; g.fillRect(x + 1, y + 1, 18, 8);
+    g.fillStyle = shade(base, 1.18); g.fillRect(x + 1, y + 1, 18, 1);
+    g.fillStyle = shade(base, 0.82); g.fillRect(x + 1, y + 8, 18, 1);
   }
-  // the arch: dark outside, a ring of radiating voussoirs
-  for (let y = 0; y < 196; y++) for (let x = 0; x < W; x++) {
-    const d = Math.hypot((x - 240) / 1.35, (y - 200) * 1.0);
-    if (d > 200) { g.fillStyle = '#08070a'; g.fillRect(x, y, 1, 1); }
-    else if (d > 186) { const a = Math.atan2(y - 200, x - 240), seg = Math.floor(a * 14); g.fillStyle = (a * 14) % 1 > 0.9 ? '#141215' : seg % 2 ? '#3a3436' : '#332e30'; g.fillRect(x, y, 1, 1); }
+  // a darker tunnel mouth going back into the gloom
+  ell(g, 200, 196, 70, 92, '#1e1820'); ell(g, 200, 196, 56, 80, '#161216'); ell(g, 200, 196, 40, 66, '#100c10');
+  for (let a = 0; a < 18; a++) { const t = Math.PI + a / 17 * Math.PI, x = 200 + Math.cos(t) * 74, y = 196 + Math.sin(t) * 96; g.fillStyle = a % 2 ? '#6a5650' : '#76605a'; g.fillRect(Math.round(x) - 5, Math.round(y) - 4, 10, 8); g.fillStyle = '#2a2024'; g.fillRect(Math.round(x) - 5, Math.round(y) + 4, 10, 1); }
+  // the great arch over everything, in pale dressed stone
+  for (let y = 0; y < LEDGE; y++) for (let x = 0; x < W; x++) {
+    const d = Math.hypot((x - 240) / 1.35, y - 200);
+    if (d > 204) { g.fillStyle = '#140f12'; g.fillRect(x, y, 1, 1); }
+    else if (d > 190) { const a = Math.atan2(y - 200, x - 240), seam = (a * 16) % 1; g.fillStyle = seam > 0.92 || d > 202.5 || d < 191.5 ? '#2a2024' : Math.floor(a * 16) % 2 ? '#8a7468' : '#7a665c'; g.fillRect(x, y, 1, 1); }
   }
-  const dark = g.createLinearGradient(0, 0, 0, 200); dark.addColorStop(0, 'rgba(0,0,0,.55)'); dark.addColorStop(1, 'rgba(0,0,0,0)');
-  g.fillStyle = dark; g.fillRect(0, 0, W, 200);
-  // slime streaks and moss where the damp gathers
-  for (let i = 0; i < 18; i++) { const x = rng() * W | 0, y = 80 + (rng() * 60 | 0), l = 10 + (rng() * 40 | 0); g.globalAlpha = 0.25; g.fillStyle = '#2f3a24'; g.fillRect(x, y, 2, l); g.globalAlpha = 1; }
-  for (let i = 0; i < 16; i++) { const x = rng() * W | 0; ell(g, x, 186, 6 + rng() * 6, 2.5, '#2f4424'); ell(g, x - 1, 185, 3, 1.5, '#4a6630'); }
-  // a pipe along the wall with brackets and rivets
-  g.fillStyle = '#3a3634'; g.fillRect(120, 70, W - 120, 10); g.fillStyle = '#56504a'; g.fillRect(120, 70, W - 120, 2); g.fillStyle = '#26221f'; g.fillRect(120, 79, W - 120, 1);
-  for (let x = 140; x < W; x += 60) { g.fillStyle = '#2a2a2e'; g.fillRect(x, 68, 4, 14); g.fillStyle = '#6a6a70'; g.fillRect(x + 1, 72, 1, 1); g.fillRect(x + 1, 77, 1, 1); }
-  // ladder up to the grate, and the grate itself
-  g.fillStyle = '#4a3a30'; g.fillRect(372, 0, 3, 192); g.fillRect(398, 0, 3, 192);
-  for (let y = 10; y < 190; y += 14) { g.fillStyle = '#5a4434'; g.fillRect(372, y, 29, 3); g.fillStyle = '#7a5a40'; g.fillRect(372, y, 29, 1); }
-  g.fillStyle = '#08070a'; g.fillRect(370, 0, 34, 8); g.fillStyle = '#5a5a60'; for (let x = 371; x < 404; x += 5) g.fillRect(x, 0, 2, 8);
+  // moss and damp, as clean shapes
+  for (let i = 0; i < 14; i++) { const x = 20 + rng() * (W - 40); ell(g, x, LEDGE - 2, 8 + rng() * 6, 3, '#3e5a2e'); ell(g, x - 2, LEDGE - 4, 5, 2, '#5a7a3a'); }
+  for (let i = 0; i < 8; i++) { const x = 30 + rng() * (W - 60) | 0, y = 60 + rng() * 70 | 0, l = 16 + rng() * 30 | 0; g.fillStyle = 'rgba(30,40,24,.35)'; g.fillRect(x, y, 3, l); g.fillRect(x + 1, y + l, 1, 3); }
+  // a pipe along the wall on brackets
+  g.fillStyle = INK; g.fillRect(118, 68, W - 118, 14);
+  g.fillStyle = '#5a6a62'; g.fillRect(118, 69, W - 118, 12); g.fillStyle = '#7a8c82'; g.fillRect(118, 70, W - 118, 3); g.fillStyle = '#44524a'; g.fillRect(118, 78, W - 118, 3);
+  for (let x = 140; x < W; x += 60) { g.fillStyle = INK; g.fillRect(x - 1, 65, 8, 20); g.fillStyle = '#3a3a40'; g.fillRect(x, 66, 6, 18); g.fillStyle = '#8a8a90'; g.fillRect(x + 2, 69, 2, 2); g.fillRect(x + 2, 78, 2, 2); }
+  // the ladder up to the street grate
+  for (const lx of [370, 398]) { g.fillStyle = INK; g.fillRect(lx - 1, 0, 6, LEDGE); g.fillStyle = '#7a5434'; g.fillRect(lx, 0, 4, LEDGE); g.fillStyle = '#9a6e44'; g.fillRect(lx, 0, 1, LEDGE); }
+  for (let y = 10; y < LEDGE - 4; y += 15) { g.fillStyle = INK; g.fillRect(372, y - 1, 28, 5); g.fillStyle = '#8a6040'; g.fillRect(373, y, 26, 3); g.fillStyle = '#a87a50'; g.fillRect(373, y, 26, 1); }
+  g.fillStyle = INK; g.fillRect(364, 0, 46, 10); g.fillStyle = '#e8e0c8'; g.fillRect(366, 0, 42, 7); g.fillStyle = '#4a4a50'; for (let x = 366; x < 408; x += 6) g.fillRect(x, 0, 3, 8);
   // the broken pipe the plague comes from
-  g.fillStyle = '#4a4440'; g.fillRect(0, 100, 66, 16); g.fillStyle = '#6a625a'; g.fillRect(0, 100, 66, 3); g.fillStyle = '#2a2624'; g.fillRect(0, 114, 66, 2);
-  g.fillStyle = '#3a3430'; g.fillRect(56, 98, 12, 20); g.fillStyle = '#5e5852'; g.fillRect(56, 98, 12, 2);
-  g.fillStyle = '#0d0b0a'; ell(g, 66, 108, 3, 6, '#0d0b0a');
-  for (const x of [8, 30, 48]) { g.fillStyle = '#7a6a5a'; g.fillRect(x, 103, 2, 2); }
-  // the ledge: stone slabs with a lit edge, some bones
-  g.fillStyle = '#3a3634'; g.fillRect(0, 192, W, 18); g.fillStyle = '#56504a'; g.fillRect(0, 192, W, 2); g.fillStyle = '#26221f'; g.fillRect(0, 208, W, 2);
-  for (let x = 0; x < W; x += 28) { g.fillStyle = '#2a2624'; g.fillRect(x, 194, 1, 14); }
-  g.fillStyle = '#cfc6b0'; g.fillRect(300, 194, 8, 2); g.fillRect(299, 193, 2, 4); g.fillRect(307, 193, 2, 4); g.fillRect(250, 195, 5, 1);
-  // water
-  bandSky(g, W, 210, H, ['#13201c', '#111c19', '#0f1916', '#0d1513']);
+  g.fillStyle = INK; g.fillRect(0, 98, 70, 20); g.fillStyle = '#6a5a4a'; g.fillRect(0, 100, 68, 16); g.fillStyle = '#8a7660'; g.fillRect(0, 101, 68, 4); g.fillStyle = '#4e4236'; g.fillRect(0, 112, 68, 4);
+  g.fillStyle = INK; g.fillRect(54, 94, 18, 28); g.fillStyle = '#5a4a3c'; g.fillRect(56, 96, 14, 24); g.fillStyle = '#7a6650'; g.fillRect(56, 96, 14, 3);
+  ell(g, 70, 108, 3, 7, '#0e0a0c'); for (const x of [10, 30, 46]) { g.fillStyle = '#a89070'; g.fillRect(x, 103, 2, 2); }
+  // the ledge: stone slabs
+  g.fillStyle = INK; g.fillRect(0, LEDGE, W, 20);
+  for (let x = 0; x < W; x += 32) { g.fillStyle = (x / 32) % 2 ? '#7a6e66' : '#84776e'; g.fillRect(x + 1, LEDGE + 1, 30, 17); g.fillStyle = '#9a8c82'; g.fillRect(x + 1, LEDGE + 1, 30, 2); g.fillStyle = '#5e544e'; g.fillRect(x + 1, LEDGE + 15, 30, 3); }
+  g.fillStyle = '#e8e0cc'; g.fillRect(300, LEDGE - 2, 9, 2); g.fillRect(299, LEDGE - 3, 2, 4); g.fillRect(308, LEDGE - 3, 2, 4); // an old bone
+  // the water: teal bands with pale ripple lines
+  bandSky(g, W, LEDGE + 20, H, ['#2a4a48', '#264442', '#223e3c', '#1e3836', '#1a3230']);
+  for (let i = 0; i < 26; i++) { g.fillStyle = 'rgba(150,200,190,.25)'; g.fillRect(rng() * W | 0, LEDGE + 24 + (rng() * 50 | 0), 8 + (rng() * 16 | 0), 1); }
   return c;
 }
 
-// ---- V10 hi-res scenes (stage 480x270) --------------------------------------
+// ---- V18 scenes (stage 480x270) ------------------------------------------------
 const STREET_PEOPLE = {
-  man: { cloth: '#7d3a33', legs: '#2c3340', legsD: '#22283a', skin: '#e2b48f', hair: '#3a2a1c', cap: '#4a3a28', stubble: true },
-  woman: { cloth: '#3d5677', skin: '#f0c9a8', hair: '#3a2a1c', apron: '#d8cdb0', dress: true },
+  man: { cloth: '#8a4a2a', legs: '#4e2c1c', hose: '#ece4cc', shoes: '#3a2418', skin: '#e8b48c', hair: '#6a3a22', hat: '#4a3020', beard: true },
+  woman: { cloth: '#4a6aa8', skin: '#f0c4a0', hair: '#5a3a24', shoes: '#3a2418', dress: true, cuffs: true },
+  drinker: { cloth: '#7a7034', legs: '#4a3a28', hose: '#d8d0b8', shoes: '#3a2418', skin: '#e0a882', hair: '#4a2e1c', beard: true, tankard: true },
+  cloak: { cloth: '#4a7a3a', skin: '#e8b898', hair: '#6a6a6a', shoes: '#2a2420', dress: true },
 };
+document.fonts?.ready.then(() => { cut.bg = {}; }); // redraw the shop signs once the pixel font has loaded
 function cutAssets() {
   if (cut.bg.street) return;
   cut.bg.street = streetBackdrop();
@@ -2756,39 +2821,42 @@ function cutAssets() {
 function drawSmoke(t, x, y) { // chimney smoke drifting off to the right
   for (let i = 0; i < 6; i++) {
     const k = ((t * 0.35 + i / 6) % 1), r = 3 + k * 7;
-    sc.globalAlpha = 0.28 * (1 - k); ell(sc, x + k * 26 + Math.sin(t + i) * 2, y - k * 40, r, r * 0.8, '#6e6a72');
+    sc.globalAlpha = 0.45 * (1 - k); ell(sc, x + k * 26 + Math.sin(t + i) * 2, y - k * 40, r, r * 0.8, '#e8e4de');
   }
   sc.globalAlpha = 1;
 }
 function sceneStreet(t) {
   sc.drawImage(cut.bg.street, 0, 0);
-  drawSmoke(t, 60, 26); drawSmoke(t + 1.3, 300, 22);
-  const fl = 0.75 + Math.random() * 0.25; // lantern flicker
-  sc.globalAlpha = 0.18 * fl; ell(sc, 107, 168, 22, 22, '#f4b84a'); sc.globalAlpha = 1;
-  sc.fillStyle = '#2a2a2e'; sc.fillRect(103, 162, 9, 11); sc.fillStyle = '#f4cc6a'; sc.fillRect(105, 164, 5, 7); sc.fillStyle = '#fff2c0'; sc.fillRect(106, 166, 2, 3);
-  const G = 236, P = STREET_PEOPLE;
+  drawSmoke(t, 264, 0);
+  sc.globalAlpha = 0.16 + Math.random() * 0.04; ell(sc, 401, 107, 12, 12, '#f8d080'); sc.globalAlpha = 1; // the lantern, faint by day
+  const G = 238, P = STREET_PEOPLE;
+  // townsfolk going about their day, nearer the houses
+  personHR(sc, 40, 222, 1, t, P.cloak, { scale: 0.8, arm: 0.2 + Math.sin(t * 1.5) * 0.05 });
+  personHR(sc, 74, 222, -1, t, P.drinker, { scale: 0.8, arm: 1.2 + Math.max(0, Math.sin(t * 1.3)) * 0.9 });
   const manX = lerp(-60, 144, span(t, 0.6, 1.9)), womanX = lerp(540, 320, span(t, 2.2, 3.0));
   let ratX = 200, hop = 0, dir = -1, run = 0, gone = false;
   if (t > 2.0 && t < 2.45) { const k = span(t, 2.0, 2.45); ratX = lerp(200, 264, k); hop = Math.sin(k * Math.PI) * 26; dir = 1; run = 1; }
   else if (t >= 2.45 && t < 3.15) { ratX = 264; }
   else if (t >= 3.15 && t < 3.5) { const k = span(t, 3.15, 3.5); ratX = lerp(264, 240, k); hop = Math.sin(k * Math.PI) * 12; dir = 1; }
   else if (t >= 3.5) { ratX = lerp(240, 412, span(t, 3.5, 4.5)); dir = 1; run = 1.4; gone = t > 4.5; }
-  if (t < 2.0) { sc.fillStyle = '#c9a26a'; sc.fillRect(186, G - 2, 3, 2); sc.fillRect(191, G - 1, 2, 1); sc.fillRect(181, G - 1, 2, 1); }
-  if (!gone) ratHR(sc, ratX, G, dir, t, { run, hop, nibble: t < 2.0 });
-  if ((t > 2.0 && t < 2.7) || (t > 3.15 && t < 3.7)) { sc.fillStyle = '#f2c14a'; sc.fillRect(Math.round(ratX) - 1, G - 44, 3, 9); sc.fillRect(Math.round(ratX) - 1, G - 32, 3, 3); }
+  if (t < 2.0) { sc.fillStyle = '#c9a26a'; sc.fillRect(186, G - 2, 3, 2); sc.fillRect(191, G - 1, 2, 1); sc.fillRect(181, G - 1, 2, 1); } // crumbs
+  if (!gone) ratHR(sc, ratX, G, dir, t, { run, hop });
+  if ((t > 2.0 && t < 2.7) || (t > 3.15 && t < 3.7)) { sc.fillStyle = '#c0302a'; sc.fillRect(Math.round(ratX) - 1, G - 40, 3, 9); sc.fillRect(Math.round(ratX) - 1, G - 28, 3, 3); }
   const stamp = t > 1.6 && t < 1.95 ? span(t, 1.6, 1.95) : t >= 1.95 && t < 2.05 ? 1 - span(t, 1.95, 2.05) : 0;
-  const fist = t > 4.6 ? Math.sin(t * 22) * 0.6 - 2.4 : undefined;
-  personHR(sc, manX, G + 2, 1, t, P.man, { walk: t > 0.6 && t < 1.6, stamp, dip: t > 1.98 && t < 2.15 ? 2 : 0, arm: fist });
+  const fist = t > 4.6 ? Math.sin(t * 22) * 0.3 + 2.7 : undefined;
+  personHR(sc, manX, G, 1, t, P.man, { walk: t > 0.6 && t < 1.6, stamp, dip: t > 1.98 && t < 2.15 ? 2 : 0, arm: fist });
   const sweep = t < 3.0 ? 0.6 : t < 3.15 ? lerp(0.6, -0.5, span(t, 3.0, 3.15)) : lerp(-0.5, 0.5, span(t, 3.15, 3.8));
-  const [hx, hy] = personHR(sc, womanX, G + 2, -1, t, P.woman, { walk: t > 2.2 && t < 3.0, arm: 0.6 + sweep * 0.3 });
-  // broom held in front of her, swinging low across the cobbles
-  const bx = hx - Math.sin(0.5 + sweep * 0.6) * 36, by = Math.min(G - 4, hy + Math.cos(0.5 + sweep * 0.6) * 36);
-  thick(sc, hx, hy, bx, by, 2, '#6b4f33');
-  for (let k = -5; k <= 5; k++) thick(sc, bx, by, bx + k * 1.2 - 3, by + 9, 1, k % 2 ? '#b8a060' : '#8c7438');
-  sc.fillStyle = '#5a4028'; sc.fillRect(Math.round(bx) - 4, Math.round(by) - 1, 8, 3);
-  if (t > 2.0 && !cut.s1a) { cut.s1a = 1; cutBurst(manX + 16, G, 14, ['#8b8173', '#6e655a'], 36, 0.5, 8); }
-  if (t > 3.15 && !cut.s1b) { cut.s1b = 1; cutBurst(ratX, G - 6, 10, ['#b8a060', '#8b8173'], 32, 0.5, 12); }
-  if (t > 4.5 && !cut.s1c) { cut.s1c = 1; cutBurst(412, 224, 8, ['#4a5a60', '#2c3438'], 20, 0.4, 8); }
+  const [hx, hy] = personHR(sc, womanX, G, -1, t, P.woman, { walk: t > 2.2 && t < 3.0, arm: 0.7 + sweep * 0.3 });
+  // her broom, swinging low across the flagstones
+  const bx = hx - 30 - sweep * 24, by = G - 9; // the head stays on the ground and swishes back and forth
+  thick(sc, hx, hy, bx, by, 3, '#3a2418'); thick(sc, hx, hy, bx, by, 1, '#8a6038');
+  poly(sc, [[bx - 6, by], [bx + 6, by], [bx + 9, by + 10], [bx - 9, by + 10]], '#7a5a28');
+  poly(sc, [[bx - 5, by + 1], [bx + 5, by + 1], [bx + 7, by + 9], [bx - 7, by + 9]], '#c8a048');
+  sc.fillStyle = '#9a7830'; for (let k = -5; k <= 5; k += 2) sc.fillRect(Math.round(bx + k * 1.2), Math.round(by) + 3, 1, 6);
+  sc.fillStyle = '#5a3a22'; sc.fillRect(Math.round(bx) - 6, Math.round(by) - 1, 12, 3);
+  if (t > 2.0 && !cut.s1a) { cut.s1a = 1; cutBurst(manX + 16, G, 14, ['#b0a898', '#8a8272'], 36, 0.5, 8); }
+  if (t > 3.15 && !cut.s1b) { cut.s1b = 1; cutBurst(ratX, G - 6, 10, ['#c8a048', '#b0a898'], 32, 0.5, 12); }
+  if (t > 4.5 && !cut.s1c) { cut.s1c = 1; cutBurst(412, 226, 8, ['#6a6460', '#3a3634'], 20, 0.4, 8); }
 }
 
 const HUDDLE = [[256, 0], [272, 2], [286, 0], [300, 2], [314, 0], [266, 6], [294, 6], [280, 10], [308, 8], [324, 4]];
@@ -2847,6 +2915,16 @@ function sceneTitle(t) {
   const glow = sc.createRadialGradient(240, 120, 6, 240, 120, 190);
   glow.addColorStop(0, `rgba(125,52,196,${(0.55 * span(t, 0.2, 1.2)).toFixed(2)})`); glow.addColorStop(1, 'rgba(125,52,196,0)');
   sc.fillStyle = glow; sc.fillRect(0, 0, STAGE_W, STAGE_H);
+  // the town the swarm is about to take, in silhouette, its windows glowing plague-purple one by one
+  const roofs = [[0, 60, 150], [60, 52, 168], [112, 70, 140], [182, 44, 176], [226, 64, 150], [290, 56, 162], [346, 70, 138], [416, 64, 158]];
+  roofs.forEach(([rx, rw, ry], i) => {
+    poly(sc, [[rx - 2, ry + 14], [rx + rw / 2, ry - 14], [rx + rw + 2, ry + 14]], '#120a18'); sc.fillStyle = '#120a18'; sc.fillRect(rx, ry + 12, rw, 230 - ry);
+    if (i % 3 === 1) { sc.fillRect(rx + rw - 16, ry - 18, 8, 18); }
+    for (let wy = ry + 22; wy < 220; wy += 22) for (let wx = rx + 8; wx < rx + rw - 10; wx += 18) {
+      const lit = span(t, 0.6 + ((wx * 7 + wy * 3) % 23) / 10, 1.4 + ((wx * 7 + wy * 3) % 23) / 10);
+      sc.fillStyle = lit > 0 ? `rgba(192,92,255,${(0.3 + lit * 0.6).toFixed(2)})` : '#2a1a2e'; sc.fillRect(wx, wy, 6, 8);
+    }
+  });
   for (let i = 0; i < 5; i++) { sc.globalAlpha = 0.12; ell(sc, ((t * (14 + i * 5) + i * 120) % 640) - 80, 200 + i * 12, 90, 4, PLAGUE_DARK); } // fog
   sc.globalAlpha = 1;
   for (let i = 0; i < 16; i++) {
