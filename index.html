@@ -298,7 +298,7 @@ button.secondary { background: var(--ink); color: var(--parch); border: 2px soli
     <p class="controls">WASD or arrow keys, or the joystick on touch screens. The corner map shows healthy townsfolk and hunters.</p>
     <div class="actions"><button id="introBtn" class="linkish" type="button">Watch the intro</button><button id="resetBtn" class="linkish" type="button">Reset progress</button></div>
     <div class="confirm" id="resetConfirm" hidden>
-      <p>Wipe your progress? Every district except the first will be locked again and your plague points go back to 0.</p>
+      <p>Wipe your progress? Every district except the first will be locked again and your plague points and powerups are lost.</p>
       <div class="actions"><button id="resetYes" type="button" class="danger">Yes, reset</button><button id="resetNo" type="button" class="secondary">Cancel</button></div>
     </div>
     <p class="note" id="resetNote" hidden></p>
@@ -3494,6 +3494,7 @@ $('resetNo').addEventListener('click', () => { $('resetConfirm').hidden = true; 
 $('resetYes').addEventListener('click', () => {
   unlocked = 1; selected = 0; // the next game starts from the first district
   plaguePoints = 0; savePoints(); // P1: a reset also empties the plague points
+  inventory = { bite: 0, boost: 0 }; saveInventory(); // ...and the owned powerups
   try { localStorage.setItem(SAVE_KEY, '1'); } catch (e) { /* storage blocked: progress was only in memory anyway */ }
   $('resetConfirm').hidden = true;
   $('resetNote').textContent = 'Progress reset. Only The Market District is open now.'; $('resetNote').hidden = false;
@@ -3526,6 +3527,11 @@ const PP_KEY = 'plague-rat-points';
 let plaguePoints = 0;
 try { plaguePoints = Math.max(0, parseInt(localStorage.getItem(PP_KEY), 10) || 0); } catch (e) { /* storage blocked */ }
 function savePoints() { try { localStorage.setItem(PP_KEY, String(plaguePoints)); } catch (e) { /* storage blocked */ } }
+// P2: powerups bought but not used are kept on this device for later attempts.
+const INV_KEY = 'plague-rat-powerups';
+let inventory = { bite: 0, boost: 0 };
+try { inventory = { ...inventory, ...JSON.parse(localStorage.getItem(INV_KEY) || '{}') }; } catch (e) { /* storage blocked or bad data */ }
+function saveInventory() { try { localStorage.setItem(INV_KEY, JSON.stringify(inventory)); } catch (e) { /* storage blocked */ } }
 function addPoints(n) { plaguePoints += n; if (game) game.pointsEarned = (game.pointsEarned || 0) + n; savePoints(); }
 
 const POWERS = {
@@ -3534,12 +3540,16 @@ const POWERS = {
   boost: { name: 'Speed boost', key: '2', cost: () => CONFIG.boostCost,
     desc: () => `${CONFIG.boostCharges} short dashes this level: ${CONFIG.boostTime} s at ${Math.round(CONFIG.boostMult * 100)}% speed.` },
 };
-const newPowers = () => ({ biteBought: false, bite: 0, biteArmed: false, boostBought: false, boost: 0, boostT: 0 });
+const newPowers = () => ({ // an attempt starts with whatever powerups are owned (P2)
+  biteBought: !!inventory.bite, bite: inventory.bite ? 1 : 0, biteArmed: false,
+  boostBought: !!inventory.boost, boost: inventory.boost ? CONFIG.boostCharges : 0, boostT: 0,
+});
 
 function buyPower(id) {
   const P = game.powers, cost = POWERS[id].cost();
   if (!game.card || P[id + 'Bought'] || plaguePoints < cost) return;
   plaguePoints -= cost; savePoints();
+  inventory[id] = 1; saveInventory();
   P[id + 'Bought'] = true;
   if (id === 'bite') P.bite = 1; else P.boost = CONFIG.boostCharges;
   sfx.buy(); renderShop();
@@ -3549,12 +3559,12 @@ function renderShop() {
   $('ppHave').textContent = `${plaguePoints} plague point${plaguePoints === 1 ? '' : 's'}`;
   $('shopList').innerHTML = Object.entries(POWERS).map(([id, pw]) => {
     const cost = pw.cost(), bought = P[id + 'Bought'], can = !bought && plaguePoints >= cost;
-    const label = bought ? 'Bought' : plaguePoints >= cost ? `Buy · ${cost}` : `${cost} pts`;
+    const label = bought ? 'Owned' : plaguePoints >= cost ? `Buy · ${cost}` : `${cost} pts`;
     return `<div class="item${bought ? ' bought' : ''}"><div><b>${pw.name}</b><span>${pw.desc()}</span></div><button type="button" data-buy="${id}" ${can ? '' : 'disabled'}>${label}</button></div>`;
   }).join('');
   $('shopNote').textContent = plaguePoints === 0 && !P.biteBought && !P.boostBought
     ? 'No plague points yet. Earn 1 for every person you infect and 3 for every hunter you eat.'
-    : 'Each powerup can be bought once per attempt and is gone when the attempt ends.';
+    : 'You can own one of each. Unused powerups are kept for next time; once you dash, the rest of that boost goes at the end of the level.';
 }
 $('shopList').addEventListener('click', e => { const b = e.target.closest('[data-buy]'); if (b && !b.disabled) buyPower(b.dataset.buy); });
 
@@ -3568,6 +3578,7 @@ function usePower(id) {
   } else {
     if (!P.boost || P.boostT > 0) return;
     P.boost--; P.boostT = CONFIG.boostTime; sfx.boost();
+    if (inventory.boost) { inventory.boost = 0; saveInventory(); } // P4: a started boost is spent at the end of this level
   }
   hudCache.pw = null;
 }
@@ -3579,6 +3590,7 @@ const SPREADER_COL = '#9cff3a';
 function makeSpreader(c) {
   const G = game;
   G.powers.biteArmed = false; G.powers.bite = 0; hudCache.pw = null;
+  inventory.bite = 0; saveInventory(); // P3: used up
   c.super = { t: 0, repath: 0, target: null };
   G.spreader = c;
   G.texts.push({ x: c.x - 22, y: c.y - 24, text: 'SUPER SPREADER', col: SPREADER_COL, life: 1.4 });
