@@ -2546,71 +2546,133 @@ function ratHR(g, x, y, dir, t, o = {}) {
   blit(g, c, x + (o.tremble ? Math.round(Math.sin(t * 50 + x)) : 0), y - (o.hop || 0), OX, OY, dir, k);
 }
 
-// A townsperson, three-quarter view (~120 px tall). Origin at the feet; dir 1 faces right.
-// P: look; o.walk, o.stamp (0-1 front foot raised), o.dip, o.arm (front arm angle, 0 = hanging), o.scale.
+// A townsperson in three-quarter view (~135 px tall), built like the reference art: tapered limbs
+// with light and shadow, shaped clothes with folds, and inner outlines where parts overlap.
+// Origin at the feet; dir 1 faces right. P: look; o.walk, o.stamp (0-1), o.dip, o.arm, o.scale.
+function capsule(g, x0, y0, x1, y1, r0, r1, col) { // a tapered limb with round ends
+  const a = Math.atan2(y1 - y0, x1 - x0), pts = [];
+  for (let i = 0; i <= 8; i++) { const t = a + Math.PI / 2 + i * Math.PI / 8; pts.push([x0 + Math.cos(t) * r0, y0 + Math.sin(t) * r0]); }
+  for (let i = 0; i <= 8; i++) { const t = a - Math.PI / 2 + i * Math.PI / 8; pts.push([x1 + Math.cos(t) * r1, y1 + Math.sin(t) * r1]); }
+  poly(g, pts, col);
+}
+const ramp = col => ({ k: shade(col, 0.5), d: shade(col, 0.72), b: col, l: shade(col, 1.18), h: shade(col, 1.34) });
+function limb(g, x0, y0, x1, y1, r0, r1, R, inked) { // outline (optional), shadow body, lit front
+  if (inked) capsule(g, x0, y0, x1, y1, r0 + 1, r1 + 1, INK);
+  capsule(g, x0, y0, x1, y1, r0, r1, R.d);
+  capsule(g, x0 + r0 * 0.3, y0 - r0 * 0.2, x1 + r1 * 0.3, y1 - r1 * 0.2, r0 * 0.7, r1 * 0.7, R.b);
+  capsule(g, x0 + r0 * 0.55, y0 - r0 * 0.3, x1 + r1 * 0.55, y1 - r1 * 0.3, Math.max(0.6, r0 * 0.25), Math.max(0.6, r1 * 0.25), R.l);
+}
 function personHR(g, x, y, dir, t, P, o = {}) {
-  const [c, f] = figCanvas(110, 160), OX = 50, OY = 150;
+  const [c, f] = figCanvas(120, 172), OX = 54, OY = 164;
   f.translate(OX, OY);
   const ph = t * 8, stride = o.walk ? Math.sin(ph) : 0, lift = o.stamp || 0, bob = o.walk ? Math.abs(Math.cos(ph)) * 1.5 : 0;
   f.translate(0, -Math.round(bob) + (o.dip || 0));
-  const [sD, sk, sL] = tone3(P.skin), [cD, cl, cL] = tone3(P.cloth);
-  const arm = (a, front) => { // shoulder at (2,-90); a = 0 hangs down, positive swings forward
-    const ex = 2 + Math.sin(a) * 15, ey = -90 + Math.cos(a) * 15, b = a + (front ? 0.55 : 0.35), hx = ex + Math.sin(b) * 14, hy = ey + Math.cos(b) * 14;
-    const sl = front ? cl : cD;
-    thick(f, 2, -90, ex, ey, 7, sl); thick(f, ex, ey, hx, hy, 6, sl);
-    if (P.cuffs) { f.fillStyle = '#f2ece0'; thick(f, ex + (hx - ex) * 0.8, ey + (hy - ey) * 0.8, hx, hy, 6, '#f2ece0'); }
-    ell(f, hx, hy + 1, 3, 3, front ? sk : sD);
+  const S = ramp(P.skin), C = ramp(P.cloth), L = ramp(P.legs || P.cloth), Hs = ramp(P.hose || '#e8e0c8'), Sh = ramp(P.shoes), Hr = ramp(P.hair), Wt = ramp('#f2eee4');
+  const HIP = -60, SH = -99;
+  const shoe = (ax, ay, R, inked) => {
+    if (inked) poly(f, [[ax - 5, ay - 4], [ax + 4, ay - 5], [ax + 12, ay - 1], [ax + 12, ay + 2], [ax - 5, ay + 2]], INK);
+    poly(f, [[ax - 4, ay - 3], [ax + 4, ay - 4], [ax + 11, ay - 1], [ax + 11, ay + 1], [ax - 4, ay + 1]], R.d);
+    poly(f, [[ax - 3, ay - 3], [ax + 4, ay - 3], [ax + 9, ay - 1], [ax - 3, ay - 1]], R.b);
+    f.fillStyle = R.l; f.fillRect(Math.round(ax + 2), Math.round(ay - 3), 4, 1);
+    f.fillStyle = '#d8c070'; f.fillRect(Math.round(ax + 3), Math.round(ay - 3), 2, 2);                    // buckle
+  };
+  const leg = (ang, bend, front, raise = 0) => {
+    const kx = Math.sin(ang) * 24, ky = HIP + 2 + Math.cos(ang) * 24 - raise, ax = kx + Math.sin(ang - bend) * 24, ay = Math.min(-5, ky + Math.cos(ang - bend) * 24);
+    const Lr = front ? L : ramp(shade(P.legs, 0.8)), Hr2 = front ? Hs : ramp(shade(P.hose, 0.82));
+    limb(f, kx, ky, ax, ay, 4.2, 3.2, Hr2, front);                                                     // stocking
+    shoe(ax, ay + 3, front ? Sh : ramp(shade(P.shoes, 0.8)), front);
+    limb(f, 0, HIP + 2, kx, ky, 7.5, 5.5, Lr, front);                                                   // full breeches
+    f.fillStyle = Lr.d; f.fillRect(Math.round(kx - 4), Math.round(ky + 2), 9, 2); f.fillStyle = '#d8c070'; f.fillRect(Math.round(kx + 2), Math.round(ky + 2), 2, 2); // knee band
+  };
+  const arm = (a, front) => { // shoulder near (3, SH+4); a = 0 hangs down, positive swings forward
+    const sx = front ? 4 : -2, sy = SH + 5, ex = sx + Math.sin(a) * 17, ey = sy + Math.cos(a) * 17, b = a + (front ? 0.5 : 0.3), hx = ex + Math.sin(b) * 15, hy = ey + Math.cos(b) * 15;
+    const R = front ? C : ramp(shade(P.cloth, 0.78)), sk = front ? S : ramp(shade(P.skin, 0.85));
+    if (front) { capsule(f, sx, sy, ex, ey, 6, 5, INK); capsule(f, ex, ey, hx, hy, 5, 4.5, INK); }
+    limb(f, sx, sy, ex, ey, 5.2, 4.4, R, false); limb(f, ex, ey, hx - Math.sin(b) * 3, hy - Math.cos(b) * 3, 4.4, 4, R, false);
+    ell(f, sx, sy - 1, 6.5, 5, R.b); ell(f, sx + 1, sy - 2, 4, 2.5, R.l);                               // puffed shoulder
+    const cx = hx - Math.sin(b) * 4, cy = hy - Math.cos(b) * 4;
+    capsule(f, cx - Math.sin(b), cy - Math.cos(b), cx + Math.sin(b) * 2, cy + Math.cos(b) * 2, 4.6, 4.6, P.cuffs || !P.dress ? Wt.b : R.d); // white cuff
+    if (front) ell(f, hx, hy + 1, 4, 4, INK);
+    ell(f, hx, hy + 1, 3.2, 3.4, sk.b); f.fillStyle = sk.l; f.fillRect(Math.round(hx), Math.round(hy - 1), 2, 2); f.fillStyle = sk.d; f.fillRect(Math.round(hx - 2), Math.round(hy + 2), 3, 1);
     return [hx, hy + 1];
   };
-  const leg = (ang, bend, front, raise = 0) => { // hip at (0,-52)
-    const kx = Math.sin(ang) * 22, ky = -52 + Math.cos(ang) * 22 - raise, ax = kx + Math.sin(ang - bend) * 21, ay = Math.min(-4, ky + Math.cos(ang - bend) * 21);
-    thick(f, 0, -52, kx, ky, 9, front ? P.legs : shade(P.legs, 0.78));
-    thick(f, kx, ky, ax, ay, 7, front ? P.hose : shade(P.hose, 0.85));
-    ell(f, ax + 4, ay + 1, 7, 3.5, front ? P.shoes : shade(P.shoes, 0.8)); f.fillStyle = shade(P.shoes, 1.4); f.fillRect(Math.round(ax + 1), Math.round(ay - 2), 4, 1);
-  };
-  if (!P.dress) leg(-stride * 0.42, Math.max(0, stride) * 0.5, false);
-  arm(-(o.walk ? stride * 0.45 : 0) - 0.15, false);
-  if (P.dress) { // long skirt and apron, swaying as she walks
+  // back arm and back leg first
+  arm(-(o.walk ? stride * 0.45 : 0) - 0.12, false);
+  if (P.dress) {
     const sw = stride * 3;
-    ell(f, 8 + sw, -2, 6, 3, P.shoes);
-    poly(f, [[-12, -62], [12, -62], [17 + sw, -3], [-17 + sw, -3]], cl);
-    poly(f, [[-12, -62], [-3, -62], [-6 + sw, -3], [-17 + sw, -3]], cD);
-    for (const fx of [-8, 4]) { f.fillStyle = cD; f.fillRect(fx + Math.round(sw * 0.6), -40, 1, 36); }
-    poly(f, [[1, -64], [12, -64], [15 + sw, -6], [3 + sw, -6]], '#f2ece0'); poly(f, [[1, -64], [4, -64], [6 + sw, -6], [3 + sw, -6]], '#d8cfbd');
+    ell(f, 9 + sw, -2, 7, 3, Sh.d); ell(f, 10 + sw, -3, 5, 2, Sh.b);                                   // a shoe peeping out
+    const skirt = [[-11, -66], [11, -66], [16, -40], [21 + sw, -3], [-19 + sw, -3], [-15, -40]];
+    poly(f, skirt.map(([px, py]) => [px + (px < 0 ? -1 : 1), py + 1]), INK); poly(f, skirt, C.b);
+    poly(f, [[-11, -66], [-3, -66], [-6 + sw, -3], [-19 + sw, -3], [-15, -40]], C.d);                  // shadow side
+    for (const [fx, w] of [[-10, 2], [-4, 2], [6, 2], [13, 1]]) poly(f, [[fx * 0.6, -60], [fx * 0.6 + w, -60], [fx + w + sw * 0.8, -4], [fx + sw * 0.8, -4]], fx < 0 ? C.k : C.d); // folds
+    f.fillStyle = C.l; f.fillRect(Math.round(15 + sw * 0.8), -30, 2, 26);
+    const apron = [[1, -68], [12, -68], [17 + sw, -6], [4 + sw, -6]];
+    poly(f, apron.map(([px, py]) => [px + (px < 6 ? -1 : 1), py]), INK); poly(f, apron, Wt.b);
+    poly(f, [[1, -68], [4, -68], [7 + sw, -6], [4 + sw, -6]], Wt.d); f.fillStyle = Wt.d; f.fillRect(Math.round(10 + sw * 0.5), -50, 1, 40);
   } else {
-    leg(stride * 0.42 + lift * 1.1, Math.max(0, -stride) * 0.5 + lift * 1.4, true, lift * 10);
-    poly(f, [[-12, -64], [12, -64], [14, -46], [-13, -46]], cl); poly(f, [[-12, -64], [-3, -64], [-4, -46], [-13, -46]], cD); // coat skirts
+    leg(-stride * 0.42, Math.max(0, stride) * 0.5, false);
+    leg(stride * 0.42 + lift * 1.1, Math.max(0, -stride) * 0.5 + lift * 1.4, true, lift * 12);
   }
-  // body: doublet or bodice, a white collar or kerchief
-  poly(f, [[-11, -94], [11, -94], [12, -62], [-12, -62]], cl);
-  poly(f, [[-11, -94], [-3, -94], [-4, -62], [-12, -62]], cD);
-  f.fillStyle = cL; f.fillRect(8, -90, 2, 24);
-  if (!P.dress) { f.fillStyle = '#4a2c1a'; f.fillRect(-12, -64, 25, 4); f.fillStyle = '#d8b050'; f.fillRect(5, -64, 3, 4); f.fillStyle = shade(P.cloth, 0.55); for (let by = -88; by < -66; by += 6) f.fillRect(6, by, 2, 2); }
-  poly(f, P.dress ? [[-12, -95], [12, -95], [9, -82], [3, -74], [-6, -82]] : [[-9, -96], [10, -96], [12, -89], [2, -87], [-10, -89]], '#f2ece0');
-  f.fillStyle = '#d8cfbd'; f.fillRect(-9, P.dress ? -84 : -90, 8, 1);
-  // head: rounded, with simple features
-  f.fillStyle = sD; f.fillRect(-1, -100, 6, 6);                                   // neck
-  if (P.dress) ell(f, 1, -110, 12, 13, '#f2ece0');                                 // coif behind the head
-  ell(f, 3, -109, 10, 11, sk); f.fillStyle = sD; f.fillRect(-7, -112, 2, 9); f.fillRect(-6, -103, 3, 3); // face, shadow down the back edge
-  ell(f, -3, -108, 2, 3, sD); f.fillStyle = shade(P.skin, 0.6); f.fillRect(-3, -108, 1, 2);      // ear
-  f.fillStyle = '#e8988a'; f.fillRect(9, -105, 3, 2);                               // a ruddy cheek
-  if (P.dress) { poly(f, [[-8, -118], [13, -118], [11, -114], [-6, -112]], '#f2ece0'); f.fillStyle = P.hair; f.fillRect(-1, -114, 12, 2); }
-  else { f.fillStyle = P.hair; f.fillRect(-8, -112, 7, 10); }
-  f.fillStyle = '#fff'; f.fillRect(4, -110, 3, 3); f.fillRect(9, -110, 3, 3); f.fillStyle = INK; f.fillRect(5, -110, 2, 3); f.fillRect(10, -110, 2, 3); // eyes
-  f.fillStyle = shade(P.hair, 0.9); f.fillRect(4, -113, 3, 1); f.fillRect(9, -113, 4, 1); // brows
-  f.fillStyle = sD; f.fillRect(12, -107, 2, 3);                                    // nose
-  f.fillStyle = sL; f.fillRect(6, -116, 4, 2);                                     // light on the brow
-  if (P.beard) { poly(f, [[-1, -104], [13, -104], [11, -98], [5, -95], [0, -99]], P.hair); f.fillStyle = shade(P.hair, 0.75); f.fillRect(6, -104, 6, 1); }
-  else { f.fillStyle = shade(P.skin, 0.6); f.fillRect(7, -102, 4, 1); }
-  if (P.hat) { // a wide-brimmed felt hat
-    poly(f, [[-7, -118], [-6, -130], [11, -131], [12, -118]], P.hat); f.fillStyle = shade(P.hat, 0.7); f.fillRect(-7, -121, 19, 3);
-    ell(f, 3, -118, 16, 2.5, shade(P.hat, 1.15)); f.fillStyle = shade(P.hat, 1.3); f.fillRect(-3, -130, 8, 1);
+  // body: a doublet with a skirted hem and a belt, or a laced bodice; a white collar or kerchief
+  const torso = P.dress ? [[-10, SH], [11, SH], [13, -88], [10, -68], [-9, -68], [-12, -88]] : [[-11, SH], [12, SH + 1], [14, -88], [11, -70], [14, -58], [-12, -58], [-10, -70], [-13, -88]];
+  poly(f, torso.map(([px, py]) => [px + (px < 0 ? -1 : 1), py + (py > -62 ? 1 : 0)]), INK); poly(f, torso, C.b);
+  poly(f, P.dress ? [[-10, SH], [-2, SH], [-3, -68], [-9, -68], [-12, -88]] : [[-11, SH], [-2, SH], [-3, -58], [-12, -58], [-10, -70], [-13, -88]], C.d);
+  f.fillStyle = C.l; f.fillRect(9, SH + 4, 3, 22); f.fillStyle = C.h; f.fillRect(10, SH + 6, 1, 12);
+  if (P.dress) { // stomacher with lacing
+    poly(f, [[2, SH + 4], [9, SH + 4], [7, -68], [4, -68]], shade(P.cloth, 1.3));
+    f.fillStyle = Wt.l; for (let ly = SH + 8; ly < -70; ly += 4) f.fillRect(4, ly, 4, 1);
+  } else {
+    f.fillStyle = C.k; for (let by = SH + 6; by < -72; by += 5) f.fillRect(8, by, 2, 2);                // buttons
+    f.fillStyle = C.d; f.fillRect(-1, -66, 1, 8); f.fillRect(7, -66, 1, 8);                             // skirt tabs
+    f.fillStyle = INK; f.fillRect(-12, -72, 26, 5); f.fillStyle = '#5a3a22'; f.fillRect(-11, -71, 24, 3); f.fillStyle = '#7a5234'; f.fillRect(-11, -71, 24, 1);
+    f.fillStyle = '#e0c870'; f.fillRect(6, -72, 4, 5); f.fillStyle = '#5a3a22'; f.fillRect(7, -71, 2, 3);
+  }
+  const collar = P.dress ? [[-12, SH - 1], [13, SH - 1], [11, -88], [4, -80], [-3, -86], [-11, -90]] : [[-10, SH - 2], [11, SH - 2], [13, SH + 5], [3, SH + 7], [-11, SH + 4]];
+  poly(f, collar.map(([px, py]) => [px + (px < 0 ? -1 : 1), py + 1]), INK); poly(f, collar, Wt.b);
+  f.fillStyle = Wt.d; f.fillRect(-10, P.dress ? -91 : SH + 3, 10, 1); f.fillRect(2, P.dress ? -84 : SH + 5, 7, 1);
+  // head: rounded skull, jaw and chin, a nose that breaks the outline
+  const HX = 3, HY = -116;
+  f.fillStyle = S.d; f.fillRect(HX - 3, HY + 10, 7, 7);                                               // neck
+  if (P.dress) { ell(f, HX - 1, HY - 1, 14, 14, INK); ell(f, HX - 1, HY - 1, 13, 13, Wt.b); ell(f, HX - 4, HY + 1, 8, 10, Wt.d); } // coif behind
+  if (!P.dress && !P.hat) { ell(f, HX - 1, HY - 3, 11, 11, Hr.b); }
+  poly(f, [[HX - 9, HY - 2], [HX - 8, HY - 9], [HX - 2, HY - 13], [HX + 6, HY - 12], [HX + 11, HY - 6], [HX + 12, HY + 1], [HX + 11, HY + 6], [HX + 7, HY + 11], [HX + 1, HY + 12], [HX - 5, HY + 8], [HX - 8, HY + 3]], S.b);
+  poly(f, [[HX - 9, HY - 2], [HX - 8, HY - 9], [HX - 4, HY - 12], [HX - 2, HY - 2], [HX - 1, HY + 10], [HX - 5, HY + 8], [HX - 8, HY + 3]], S.d); // cheek in shade
+  poly(f, [[HX + 11, HY - 3], [HX + 15, HY + 2], [HX + 14, HY + 4], [HX + 11, HY + 4]], S.b); f.fillStyle = S.d; f.fillRect(HX + 11, HY + 3, 3, 1); // nose
+  f.fillStyle = S.l; f.fillRect(HX + 3, HY - 10, 6, 2); f.fillRect(HX + 9, HY - 2, 2, 4);              // lit brow and cheekbone
+  ell(f, HX - 5, HY + 1, 2.5, 3.5, S.d); f.fillStyle = S.k; f.fillRect(HX - 5, HY, 1, 3);              // ear
+  f.fillStyle = S.d; f.fillRect(HX + 2, HY - 4, 4, 1); f.fillRect(HX + 8, HY - 4, 3, 1);               // eye sockets
+  f.fillStyle = '#f4f0e8'; f.fillRect(HX + 2, HY - 3, 3, 2); f.fillRect(HX + 8, HY - 3, 3, 2);
+  f.fillStyle = INK; f.fillRect(HX + 3, HY - 3, 2, 2); f.fillRect(HX + 9, HY - 3, 2, 2);               // eyes
+  f.fillStyle = shade(P.hair, 0.8); f.fillRect(HX + 1, HY - 6, 5, 1); f.fillRect(HX + 8, HY - 6, 4, 1); // brows
+  f.fillStyle = '#e09080'; f.fillRect(HX + 7, HY + 2, 3, 2);                                          // cheek
+  if (P.beard) { // full beard and moustache with a few strands
+    poly(f, [[HX - 3, HY + 1], [HX - 1, HY + 4], [HX + 6, HY + 5], [HX + 12, HY + 5], [HX + 11, HY + 9], [HX + 7, HY + 14], [HX + 1, HY + 15], [HX - 4, HY + 10], [HX - 5, HY + 4]], Hr.b);
+    poly(f, [[HX - 3, HY + 1], [HX - 1, HY + 4], [HX + 1, HY + 15], [HX - 4, HY + 10], [HX - 5, HY + 4]], Hr.d);
+    f.fillStyle = Hr.l; for (const [bx, by] of [[4, 8], [7, 10], [2, 11], [9, 7]]) f.fillRect(HX + bx, HY + by, 1, 3);
+    f.fillStyle = S.k; f.fillRect(HX + 7, HY + 7, 4, 1);                                                // mouth in the beard
+  } else { f.fillStyle = shade(P.skin, 0.55); f.fillRect(HX + 6, HY + 7, 4, 1); f.fillStyle = S.d; f.fillRect(HX + 5, HY + 9, 4, 1); }
+  if (P.dress) { // coif framing the face, a fringe of hair
+    poly(f, [[HX - 10, HY - 4], [HX - 8, HY - 13], [HX, HY - 17], [HX + 9, HY - 15], [HX + 13, HY - 8], [HX + 9, HY - 10], [HX + 1, HY - 11], [HX - 4, HY - 6], [HX - 6, HY + 6], [HX - 10, HY + 8]], Wt.b);
+    f.fillStyle = Wt.d; f.fillRect(HX - 8, HY - 2, 2, 9); f.fillRect(HX - 2, HY - 14, 9, 1);
+    f.fillStyle = Hr.b; f.fillRect(HX - 2, HY - 10, 11, 2); f.fillStyle = Hr.l; f.fillRect(HX + 2, HY - 10, 4, 1);
+  } else { // hair over the ear and at the nape
+    poly(f, [[HX - 10, HY - 6], [HX - 4, HY - 13], [HX + 4, HY - 13], [HX - 2, HY - 8], [HX - 3, HY + 2], [HX - 9, HY + 4]], Hr.b);
+    f.fillStyle = Hr.l; f.fillRect(HX - 7, HY - 7, 1, 7); f.fillRect(HX - 4, HY - 10, 1, 6); f.fillStyle = Hr.d; f.fillRect(HX - 9, HY, 4, 3);
+  }
+  if (P.hat) { // a felt hat: tapered crown, band, and a brim lit on top and dark beneath
+    const Ht = ramp(P.hat);
+    poly(f, [[HX - 9, HY - 10], [HX - 7, HY - 26], [HX + 9, HY - 27], [HX + 12, HY - 10]], INK);
+    poly(f, [[HX - 8, HY - 10], [HX - 6, HY - 25], [HX + 8, HY - 26], [HX + 11, HY - 10]], Ht.b);
+    poly(f, [[HX - 8, HY - 10], [HX - 6, HY - 25], [HX - 1, HY - 25], [HX, HY - 10]], Ht.d);
+    f.fillStyle = Ht.l; f.fillRect(HX + 4, HY - 24, 3, 12);
+    f.fillStyle = Ht.k; f.fillRect(HX - 8, HY - 15, 20, 3); f.fillStyle = '#c8a050'; f.fillRect(HX + 6, HY - 15, 3, 3);
+    ell(f, HX + 2, HY - 10, 20, 4.5, INK); ell(f, HX + 2, HY - 10, 19, 3.5, Ht.d); ell(f, HX + 2, HY - 11, 18, 2.2, Ht.b); f.fillStyle = Ht.l; f.fillRect(HX + 6, HY - 13, 10, 1);
   }
   const hand = arm(o.arm !== undefined ? o.arm : (o.walk ? stride * 0.45 : 0.1), true);
-  if (P.tankard) { f.fillStyle = '#b0a898'; f.fillRect(Math.round(hand[0]) - 3, Math.round(hand[1]) - 8, 7, 9); f.fillStyle = '#f0e8d0'; f.fillRect(Math.round(hand[0]) - 3, Math.round(hand[1]) - 9, 7, 2); }
+  if (P.tankard) { const tx = Math.round(hand[0]) - 4, ty = Math.round(hand[1]) - 10; f.fillStyle = INK; f.fillRect(tx - 1, ty - 1, 10, 13); f.fillStyle = '#9a9488'; f.fillRect(tx, ty, 8, 11); f.fillStyle = '#c8c2b4'; f.fillRect(tx + 1, ty + 1, 2, 9); f.fillStyle = '#f2ead0'; f.fillRect(tx, ty - 2, 8, 3); }
   inkOutline(c, f);
   const k = o.scale || 1;
-  g.fillStyle = 'rgba(40,30,20,.25)'; ell(g, x, y, 16 * k, 2, 'rgba(40,30,20,.25)');
+  ell(g, x, y, 17 * k, 2.5, 'rgba(40,30,20,.25)');
   blit(g, c, x, y, OX, OY, dir, k);
   return [x + dir * hand[0] * k, y + (hand[1] - bob + (o.dip || 0)) * k];
 }
@@ -2843,7 +2905,7 @@ function sceneStreet(t) {
   if (!gone) ratHR(sc, ratX, G, dir, t, { run, hop });
   if ((t > 2.0 && t < 2.7) || (t > 3.15 && t < 3.7)) { sc.fillStyle = '#c0302a'; sc.fillRect(Math.round(ratX) - 1, G - 40, 3, 9); sc.fillRect(Math.round(ratX) - 1, G - 28, 3, 3); }
   const stamp = t > 1.6 && t < 1.95 ? span(t, 1.6, 1.95) : t >= 1.95 && t < 2.05 ? 1 - span(t, 1.95, 2.05) : 0;
-  const fist = t > 4.6 ? Math.sin(t * 22) * 0.3 + 2.7 : undefined;
+  const fist = t > 4.6 ? Math.sin(t * 22) * 0.15 + 2.15 : undefined; // shaking his fist up in front of him
   personHR(sc, manX, G, 1, t, P.man, { walk: t > 0.6 && t < 1.6, stamp, dip: t > 1.98 && t < 2.15 ? 2 : 0, arm: fist });
   const sweep = t < 3.0 ? 0.6 : t < 3.15 ? lerp(0.6, -0.5, span(t, 3.0, 3.15)) : lerp(-0.5, 0.5, span(t, 3.15, 3.8));
   const [hx, hy] = personHR(sc, womanX, G, -1, t, P.woman, { walk: t > 2.2 && t < 3.0, arm: 0.7 + sweep * 0.3 });
