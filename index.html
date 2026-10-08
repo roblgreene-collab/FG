@@ -61,6 +61,49 @@ body.framed { background: #0b0907; }
 #barHint { margin: 0; font-size: 12px; line-height: 1.6; letter-spacing: .06em; text-transform: uppercase; color: var(--dim); text-align: center; }
 #stick:not([hidden]) + #barHint { display: none; }
 @media (max-height: 560px) { #hud { height: 92px; } #bottomBar { height: 118px; } #stick { width: 96px; height: 96px; } }
+/* P3, P4: powerup buttons, top of the bar's right column (the sound button sits below them) */
+.powers { grid-column: 3; justify-self: end; align-self: start; display: flex; gap: 6px; }
+.pw { width: 52px; height: 48px; padding: 2px; display: grid; place-content: center; gap: 1px; box-shadow: 3px 3px 0 #000; font-size: 11px; line-height: 1.1; }
+.pw b { font-size: 12px; }
+.pw span { font-size: 10px; font-weight: 400; }
+#pwBite { background: #9cff3a; color: #120f0c; }
+#pwBoost { background: #e9dcbc; color: #120f0c; }
+.pw:disabled { filter: grayscale(1) brightness(.55); cursor: default; }
+.pw.armed { filter: none; outline: 2px solid var(--plague); animation: pulse .5s steps(2) infinite; }
+/* V16 landscape: the two bars stand at the sides of the level instead */
+body.land #hud {
+  top: calc(env(safe-area-inset-top, 0px) + 6px); bottom: calc(env(safe-area-inset-bottom, 0px) + 6px); left: calc(env(safe-area-inset-left, 0px) + 6px); right: auto;
+  width: clamp(170px, 21vw, 240px); height: auto; padding: 14px;
+  flex-direction: column; flex-wrap: nowrap; justify-content: flex-start; align-content: stretch; gap: 16px;
+}
+body.land #hud .meter { flex: none; width: 100%; max-width: none; }
+body.land #hud .swarm { text-align: left; min-width: 0; }
+body.land #hud .swarm .label { justify-content: flex-start !important; }
+body.land .status { flex-basis: auto; flex-direction: column; gap: 6px; }
+body.land .hazLine { text-align: left; }
+body.land #bottomBar {
+  top: calc(env(safe-area-inset-top, 0px) + 6px); bottom: calc(env(safe-area-inset-bottom, 0px) + 6px); right: calc(env(safe-area-inset-right, 0px) + 6px); left: auto;
+  width: clamp(170px, 21vw, 240px); height: auto; padding: 14px 14px 50px;
+  grid-template-columns: 1fr; grid-template-rows: auto 1fr auto; justify-items: center;
+}
+body.land #minimap { grid-column: 1; grid-row: 1; justify-self: center; width: 100%; }
+body.land .barMid { grid-column: 1; grid-row: 2; }
+body.land .powers { grid-column: 1; grid-row: 3; justify-self: center; }
+body.land .frame::after { left: auto; right: auto; top: 10px; bottom: 10px; width: 4px; height: auto; background: repeating-linear-gradient(180deg, var(--edge) 0 4px, transparent 4px 10px); }
+body.land #hud::after { right: -8px; bottom: 10px; }
+body.land #bottomBar::after { left: -8px; top: 10px; }
+/* P2: the powerup shop on the level title card */
+.shop { border: 2px solid var(--edge); padding: 10px 12px; display: grid; gap: 8px; }
+.shopHead { display: flex; justify-content: space-between; align-items: baseline; }
+.shopHead b { font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: #9cff3a; }
+.shopHead span { font-size: 14px; color: var(--parch); font-variant-numeric: tabular-nums; }
+.shop .item { display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: center; }
+.shop .item b { display: block; font-size: 14px; }
+.shop .item span { display: block; font-size: 12px; line-height: 1.35; color: var(--dim); }
+.shop .item button { font-size: 13px; padding: 8px 10px; white-space: nowrap; }
+.shop .item button:disabled { background: var(--ink); color: var(--dim); border: 2px solid var(--edge); box-shadow: none; cursor: default; transform: none; }
+.shop .item.bought button:disabled { color: #9cff3a; border-color: #9cff3a; }
+.shopNote { font-size: 12px !important; color: var(--dim) !important; }
 .label { font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--dim); display: flex; justify-content: space-between; gap: 8px; }
 .meter { flex: 1; max-width: 360px; min-width: 0; }
 .meter .label b { color: var(--plague); font-weight: 600; font-variant-numeric: tabular-nums; }
@@ -255,7 +298,7 @@ button.secondary { background: var(--ink); color: var(--parch); border: 2px soli
     <p class="controls">WASD or arrow keys, or the joystick on touch screens. The corner map shows healthy townsfolk and hunters.</p>
     <div class="actions"><button id="introBtn" class="linkish" type="button">Watch the intro</button><button id="resetBtn" class="linkish" type="button">Reset progress</button></div>
     <div class="confirm" id="resetConfirm" hidden>
-      <p>Wipe your progress? Every district except the first will be locked again.</p>
+      <p>Wipe your progress? Every district except the first will be locked again and your plague points go back to 0.</p>
       <div class="actions"><button id="resetYes" type="button" class="danger">Yes, reset</button><button id="resetNo" type="button" class="secondary">Cancel</button></div>
     </div>
     <p class="note" id="resetNote" hidden></p>
@@ -291,8 +334,13 @@ button.secondary { background: var(--ink); color: var(--parch); border: 2px soli
       <div><dt>Rat hunters</dt><dd id="lcHunters"></dd></div>
     </dl>
     <div class="lcList" id="lcList"></div>
+    <div class="shop">
+      <div class="shopHead"><b>Powerups</b><span id="ppHave"></span></div>
+      <div id="shopList"></div>
+      <p class="shopNote" id="shopNote"></p>
+    </div>
     <button id="lcGo" type="button">Start</button>
-    <p class="controls">Tap Start or press any key</p>
+    <p class="controls">Tap Start or press Enter</p>
   </div>
 </div>
 
@@ -300,8 +348,9 @@ button.secondary { background: var(--ink); color: var(--parch); border: 2px soli
   <canvas id="minimap" hidden></canvas>
   <div class="barMid">
     <div id="stick" hidden aria-hidden="true"><div id="knob"></div></div>
-    <p id="barHint">WASD or arrow keys to run<br>M mutes the sound</p>
+    <p id="barHint">WASD or arrow keys to run<br>1 bite · 2 boost · M mute</p>
   </div>
+  <div class="powers"><button id="pwBite" class="pw" type="button" hidden><b>Bite</b><span>1</span></button><button id="pwBoost" class="pw" type="button" hidden><b>Boost</b><span>3</span></button></div>
 </div>
 
 <button id="mute" type="button">Sound: on</button>
@@ -347,6 +396,17 @@ const CONFIG = {
   gateCycle: 7,            // R19: seconds per gate cycle: open, lowering, shut
   gateWarn: 3.6,           // R19: ...open until this point, then the bars start to drop
   gateShut: 4.2,           // R19: ...shut from this point to the end of the cycle
+  pointsPerInfection: 1,   // P1: plague points for each person infected
+  pointsPerHunter: 3,      // P1: plague points for each hunter eaten
+  biteCost: 40,            // P3: price of the super spreader bite
+  boostCost: 25,           // P4: price of the speed boost
+  spreaderSpeed: 30,       // P3: px/s, the super spreader staggering to a crowd
+  spreaderFuse: 8,         // P3: seconds before the super spreader bursts wherever they are
+  blastRadius: 30,         // P3: px, reach of the burst
+  spreaderAvoid: 64,       // P3: px, hunters back away from a super spreader this close
+  boostCharges: 3,         // P4: dashes per purchase
+  boostTime: 3,            // P4: seconds per dash
+  boostMult: 1.6,          // P4: speed multiplier during a dash
 };
 
 const BASE_CONFIG = { ...CONFIG };
@@ -1901,6 +1961,10 @@ const sfx = {
   lose() { [330, 262, 196, 131].forEach((f, i) => tone(f, f * 0.97, i * 0.16, 0.22, 'triangle', 0.08)); },
   clank() { tone(140, 90, 0, 0.12, 'square', 0.06); tone(620, 560, 0, 0.05, 'triangle', 0.04); tone(300, 280, 0.06, 0.08, 'square', 0.03); }, // R19 portcullis drops
   key() { [988, 1319, 1976].forEach((f, i) => tone(f, f, i * 0.07, 0.12, 'square', 0.04)); },                                        // R16 key found
+  buy() { [660, 880, 1320].forEach((f, i) => tone(f, f, i * 0.05, 0.08, 'square', 0.04)); },                                        // P2
+  arm() { tone(300, 900, 0, 0.18, 'sawtooth', 0.05); tone(905, 905, 0.18, 0.1, 'square', 0.04); },                                   // P3
+  blast() { tone(160, 40, 0, 0.45, 'sawtooth', 0.1); tone(900, 200, 0, 0.25, 'square', 0.05); },                                      // P3
+  boost() { tone(400, 1600, 0, 0.2, 'square', 0.04); },                                                                               // P4
   sewer() { tone(500, 120, 0, 0.22, 'sawtooth', 0.05); tone(160, 700, 0.2, 0.2, 'triangle', 0.06); },                               // R16 down one grate, up another
 };
 
@@ -2178,7 +2242,11 @@ function updateHunters(dt) {
     if (mode === 'chase' && h.mode !== 'chase') { sfx.alert(); G.texts.push({ x: h.x - 1, y: h.y - 26, text: '!', col: HUNTER_DANGER, life: 0.9 }); }
     h.mode = mode; h.danger = danger;
     const ox = h.x, oy = h.y;
-    if (mode === 'wander') {
+    const SP = G.spreader; // P3: hunters keep clear of a super spreader
+    if (SP && Math.hypot(SP.x - h.x, SP.y - h.y) < CONFIG.spreaderAvoid) {
+      const ax = h.x - SP.x, ay = h.y - SP.y, ad = Math.hypot(ax, ay) || 1, sp = CONFIG.hunterSpeed * slowAt(h.x, h.y) * dt;
+      moveWithSlide(h, ax / ad * sp, ay / ad * sp, 3, 3, true);
+    } else if (mode === 'wander') {
       h.t -= dt;
       const sp = CONFIG.hunterWanderSpeed * slowAt(h.x, h.y) * dt;
       if (h.dx || h.dy) moveWithSlide(h, h.dx * sp, h.dy * sp, 3, 3, false);
@@ -2253,7 +2321,7 @@ function updateFeast(dt) {
   }
   stepFx(dt);
   if (F.t >= T) { // the skeleton is gone: back to the game, with the bounty
-    h.alive = false; h.dying = false; G.huntersKilled++;
+    h.alive = false; h.dying = false; G.huntersKilled++; addPoints(CONFIG.pointsPerHunter); // P1
     for (let i = 0; i < CONFIG.hunterBounty; i++) G.rats.push(newRat(h.x + (Math.random() - .5) * 8, h.y + (Math.random() - .5) * 8));
     G.peak = Math.max(G.peak, G.rats.length);
     G.texts.push({ x: h.x - 3, y: h.y - 18, text: '+' + CONFIG.hunterBounty, col: PLAGUE, life: 1.1 });
@@ -2973,7 +3041,7 @@ function newGame() {
     citizens, rats, trail: [{ x: START.x, y: START.y }],
     infected: 0, time: 0, decayTimer: 0, peak: rats.length,
     particles: [], texts: [], cam: { x: 0, y: 0 },
-    hunters: spawnHunters(), huntersKilled: 0, caughtBy: null, flowT: 0, flow: null, feast: null, intro: null,
+    hunters: spawnHunters(), huntersKilled: 0, powers: newPowers(), spreader: null, blasts: [], pointsEarned: 0, caughtBy: null, flowT: 0, flow: null, feast: null, intro: null,
   };
   setupHazards(game, rng);
   setupIntro(game);
@@ -3046,7 +3114,9 @@ function update(dt) {
   // R1: lead rat follows the player's input
   const L = G.rats[0], dir = inputDir();
   const ox = L.x, oy = L.y;
-  const lsp = CONFIG.ratSpeed * slowAt(L.x, L.y) * dt; // R18: wading through floodwater
+  const P = G.powers; if (P.boostT > 0) { P.boostT = Math.max(0, P.boostT - dt); if (!P.boostT) hudCache.pw = null; }
+  const lsp = CONFIG.ratSpeed * slowAt(L.x, L.y) * (P.boostT > 0 ? CONFIG.boostMult : 1) * dt; // R18 floodwater, P4 boost
+  if (P.boostT > 0 && Math.random() < dt * 30) G.particles.push({ x: L.x + Math.random() * 6 - 3, y: L.y + Math.random() * 4, vx: 0, vy: -4, life: 0.35, max: 0.35, col: '#e9dcbc', size: 1 });
   moveWithSlide(L, dir.x * lsp, dir.y * lsp, 3, 3, true);
   L.moving = Math.hypot(L.x - ox, L.y - oy) > 0.01;
   L.face = faceOf(L.x - ox, L.y - oy, L.face);
@@ -3076,6 +3146,7 @@ function update(dt) {
 
   // R9: townsfolk wander, ignoring the rats
   for (const c of G.citizens) {
+    if (c.super) { if (!c.gone) updateSpreader(c, dt); continue; } // P3
     c.t -= dt;
     const sp = CONFIG.citizenSpeed * (c.infected ? CONFIG.infectedSpeedMult : 1) * slowAt(c.x, c.y) * dt;
     let stuck = false;
@@ -3096,6 +3167,8 @@ function update(dt) {
       G.particles.push({ x: c.x + (Math.random() * 6 - 3), y: c.y - 14, vx: 0, vy: -8, life: 0.9, max: 0.9, col: PLAGUE, size: 1 });
     }
   }
+
+  if (G.citizens.some(c => c.gone)) G.citizens = G.citizens.filter(c => !c.gone);
 
   // R3 + R4: a rat touching a healthy townsperson infects them and breeds rats
   const r2 = CONFIG.infectRadius * CONFIG.infectRadius;
@@ -3160,6 +3233,8 @@ function infect(c) {
   }
   G.texts.push({ x: c.x - 3, y: c.y - 16, text: '+' + CONFIG.ratsPerInfection, col: PLAGUE, life: 0.8 });
   sfx.infect();
+  addPoints(CONFIG.pointsPerInfection); // P1
+  if (G.powers.biteArmed) makeSpreader(c); // P3
 }
 
 // ---------------------------------------------------------------------------
@@ -3198,6 +3273,7 @@ function render() {
   for (const c of G.citizens) ents.push({ y: c.y, c });
   for (const h of G.hunters) if (h.alive) ents.push({ y: h.y, h });
   for (const c of G.carts || []) ents.push({ y: cartPos(c)[1] + 6, cart: c });
+  drawSpreaderFx(G, ox, oy);
   if (G.feast) drawFeast(ox, oy);
   ents.sort((a, b) => a.y - b.y);
   for (const e of ents) {
@@ -3321,14 +3397,16 @@ function setFramed(on) {
   resize();
 }
 function resize() {
-  const W = window.innerWidth, H = window.innerHeight, framed = !$('bottomBar').hidden;
-  const top = framed ? Math.round($('hud').getBoundingClientRect().bottom) + 6 : 0;
-  const bottom = framed ? Math.round($('bottomBar').getBoundingClientRect().top) - 6 : H;
-  const PH = Math.max(60, bottom - top);
-  const scale = Math.max(1, Math.round(Math.min(W, PH) / 190));
-  view = { w: Math.ceil(W / scale), h: Math.ceil(PH / scale), scale };
+  const W = window.innerWidth, H = window.innerHeight, framed = !$('bottomBar').hidden, land = framed && W > H * 1.2;
+  document.body.classList.toggle('land', land); // landscape: the bars stand at the sides
+  let top = 0, bottom = H, left = 0, right = W;
+  if (land) { left = Math.round($('hud').getBoundingClientRect().right) + 6; right = Math.round($('bottomBar').getBoundingClientRect().left) - 6; }
+  else if (framed) { top = Math.round($('hud').getBoundingClientRect().bottom) + 6; bottom = Math.round($('bottomBar').getBoundingClientRect().top) - 6; }
+  const PW = Math.max(60, right - left), PH = Math.max(60, bottom - top);
+  const scale = Math.max(1, Math.round(Math.min(PW, PH) / 190));
+  view = { w: Math.ceil(PW / scale), h: Math.ceil(PH / scale), scale };
   canvas.width = view.w; canvas.height = view.h;
-  canvas.style.top = top + 'px'; canvas.style.left = Math.round((W - view.w * scale) / 2) + 'px';
+  canvas.style.top = top + 'px'; canvas.style.left = left + 'px';
   canvas.style.width = view.w * scale + 'px'; canvas.style.height = view.h * scale + 'px';
   ctx.imageSmoothingEnabled = false;
   vignette = makeVignette();
@@ -3358,6 +3436,15 @@ function updateHud() {
   // R16-R20: the district's obstacle tip for the first seconds, then the sewer key status
   const F = LEVEL.features || {}, hz = !F.sewers ? '' : G.hasKey ? 'Sewers open \u00b7 step on a grate' : 'Find the sewer key';
   if (hudCache.hz !== hz) { hudCache.hz = hz; const el = $('hazLine'); el.hidden = !hz; el.textContent = hz; el.classList.toggle('open', !!G.hasKey); }
+  const P = G.powers, pw = [P.bite, P.biteArmed, P.boost, P.boostT > 0, P.biteBought, P.boostBought, !!G.spreader].join();
+  if (hudCache.pw !== pw) { // P3, P4: powerup buttons in the bottom bar
+    hudCache.pw = pw;
+    const b = $('pwBite'), o = $('pwBoost');
+    b.hidden = !P.biteBought; b.disabled = !P.bite || P.biteArmed; b.classList.toggle('armed', P.biteArmed);
+    b.querySelector('span').textContent = P.biteArmed ? 'ready' : P.bite ? '1' : 'used';
+    o.hidden = !P.boostBought; o.disabled = !P.boost || P.boostT > 0; o.classList.toggle('armed', P.boostT > 0);
+    o.querySelector('span').textContent = P.boostT > 0 ? 'go!' : P.boost + ' left';
+  }
   const di = decayIntervalFor(G.rats.length);
   $('decayFill').style.width = Math.max(0, 100 - G.decayTimer / di * 100) + '%';
   if (hudCache.di !== di) { $('decaySecs').textContent = di.toFixed(1) + 's'; hudCache.di = di; }
@@ -3388,7 +3475,7 @@ function renderLevelList() {
     return `<button class="lvl${i === selected ? ' on' : ''}" data-i="${i}" ${locked ? 'disabled' : ''}><span class="n">${i + 1}</span><span>${lv.name}</span><span class="meta">${meta}</span></button>`;
   }).join('');
   $('playBtn').textContent = `Play ${LEVELS[selected].name}`;
-  $('progressLine').innerHTML = `<b>${unlocked} of ${LEVELS.length}</b> districts unlocked · next up: <b>${LEVELS[selected].name}</b>`;
+  $('progressLine').innerHTML = `<b>${unlocked} of ${LEVELS.length}</b> districts unlocked · next up: <b>${LEVELS[selected].name}</b> · <b>${plaguePoints}</b> plague points`;
 }
 $('levelList').addEventListener('click', e => {
   const b = e.target.closest('.lvl'); if (!b || b.disabled) return;
@@ -3406,6 +3493,7 @@ $('resetBtn').addEventListener('click', () => { $('resetNote').hidden = true; $(
 $('resetNo').addEventListener('click', () => { $('resetConfirm').hidden = true; $('resetBtn').focus(); });
 $('resetYes').addEventListener('click', () => {
   unlocked = 1; selected = 0; // the next game starts from the first district
+  plaguePoints = 0; savePoints(); // P1: a reset also empties the plague points
   try { localStorage.setItem(SAVE_KEY, '1'); } catch (e) { /* storage blocked: progress was only in memory anyway */ }
   $('resetConfirm').hidden = true;
   $('resetNote').textContent = 'Progress reset. Only The Market District is open now.'; $('resetNote').hidden = false;
@@ -3427,6 +3515,150 @@ function startLevel(i) {
   if (loadedLevel === i) go();
   else { $('startBtn').textContent = 'Preparing the district…'; $('playBtn').textContent = 'Preparing the district…'; $('retryBtn').textContent = 'Preparing…'; setTimeout(go, 30); }
 }
+// ---------------------------------------------------------------------------
+// P1-P4: plague points and powerups.
+//   P1 plague points: 1 per infection, 3 per hunter eaten, kept between levels and after a loss
+//   P2 the shop on the level title card: each powerup can be bought once per attempt
+//   P3 super spreader bite: the next person bitten walks to the nearest crowd and bursts
+//   P4 speed boost: three short dashes per attempt
+// ---------------------------------------------------------------------------
+const PP_KEY = 'plague-rat-points';
+let plaguePoints = 0;
+try { plaguePoints = Math.max(0, parseInt(localStorage.getItem(PP_KEY), 10) || 0); } catch (e) { /* storage blocked */ }
+function savePoints() { try { localStorage.setItem(PP_KEY, String(plaguePoints)); } catch (e) { /* storage blocked */ } }
+function addPoints(n) { plaguePoints += n; if (game) game.pointsEarned = (game.pointsEarned || 0) + n; savePoints(); }
+
+const POWERS = {
+  bite: { name: 'Super spreader bite', key: '1', cost: () => CONFIG.biteCost,
+    desc: () => `Your next bite makes a super spreader. They stagger to the nearest crowd and burst, infecting everyone close by. Hunters keep clear of them.` },
+  boost: { name: 'Speed boost', key: '2', cost: () => CONFIG.boostCost,
+    desc: () => `${CONFIG.boostCharges} short dashes this level: ${CONFIG.boostTime} s at ${Math.round(CONFIG.boostMult * 100)}% speed.` },
+};
+const newPowers = () => ({ biteBought: false, bite: 0, biteArmed: false, boostBought: false, boost: 0, boostT: 0 });
+
+function buyPower(id) {
+  const P = game.powers, cost = POWERS[id].cost();
+  if (!game.card || P[id + 'Bought'] || plaguePoints < cost) return;
+  plaguePoints -= cost; savePoints();
+  P[id + 'Bought'] = true;
+  if (id === 'bite') P.bite = 1; else P.boost = CONFIG.boostCharges;
+  sfx.buy(); renderShop();
+}
+function renderShop() {
+  const P = game.powers;
+  $('ppHave').textContent = `${plaguePoints} plague point${plaguePoints === 1 ? '' : 's'}`;
+  $('shopList').innerHTML = Object.entries(POWERS).map(([id, pw]) => {
+    const cost = pw.cost(), bought = P[id + 'Bought'], can = !bought && plaguePoints >= cost;
+    const label = bought ? 'Bought' : plaguePoints >= cost ? `Buy · ${cost}` : `${cost} pts`;
+    return `<div class="item${bought ? ' bought' : ''}"><div><b>${pw.name}</b><span>${pw.desc()}</span></div><button type="button" data-buy="${id}" ${can ? '' : 'disabled'}>${label}</button></div>`;
+  }).join('');
+  $('shopNote').textContent = plaguePoints === 0 && !P.biteBought && !P.boostBought
+    ? 'No plague points yet. Earn 1 for every person you infect and 3 for every hunter you eat.'
+    : 'Each powerup can be bought once per attempt and is gone when the attempt ends.';
+}
+$('shopList').addEventListener('click', e => { const b = e.target.closest('[data-buy]'); if (b && !b.disabled) buyPower(b.dataset.buy); });
+
+function usePower(id) {
+  const G = game, P = G.powers;
+  if (state !== 'playing' || G.card || G.intro || G.feast || !G.rats[0]) return;
+  if (id === 'bite') {
+    if (!P.bite || P.biteArmed || G.spreader) return;
+    P.biteArmed = true; sfx.arm();
+    G.texts.push({ x: G.rats[0].x - 14, y: G.rats[0].y - 14, text: 'BITE READY', col: SPREADER_COL, life: 1.2 });
+  } else {
+    if (!P.boost || P.boostT > 0) return;
+    P.boost--; P.boostT = CONFIG.boostTime; sfx.boost();
+  }
+  hudCache.pw = null;
+}
+$('pwBite').addEventListener('click', e => { usePower('bite'); e.currentTarget.blur(); });
+$('pwBoost').addEventListener('click', e => { usePower('boost'); e.currentTarget.blur(); });
+
+// P3: the super spreader
+const SPREADER_COL = '#9cff3a';
+function makeSpreader(c) {
+  const G = game;
+  G.powers.biteArmed = false; G.powers.bite = 0; hudCache.pw = null;
+  c.super = { t: 0, repath: 0, target: null };
+  G.spreader = c;
+  G.texts.push({ x: c.x - 22, y: c.y - 24, text: 'SUPER SPREADER', col: SPREADER_COL, life: 1.4 });
+  sfx.arm();
+}
+let spreadDist = null;
+function pickCrowd(c) { // the healthy person with the most healthy neighbours, favouring nearby crowds
+  const healthy = game.citizens.filter(p => !p.infected), R = CONFIG.blastRadius;
+  let best = null, bestScore = 0;
+  for (const p of healthy) {
+    let n = 0; for (const q of healthy) if (Math.abs(q.x - p.x) < R && Math.abs(q.y - p.y) < R && Math.hypot(q.x - p.x, q.y - p.y) < R) n++;
+    const score = n / (1 + Math.hypot(p.x - c.x, p.y - c.y) / 160);
+    if (score > bestScore) { bestScore = score; best = p; }
+  }
+  return best;
+}
+function distFrom(tx, ty) { // tile distances along the streets from one tile
+  const n = MAP_W * MAP_H;
+  if (!spreadDist || spreadDist.length !== n) spreadDist = new Int16Array(n);
+  const d = spreadDist, q = new Int32Array(n); d.fill(-1);
+  const s = ty * MAP_W + tx; let qh = 0, qt = 0; q[qt++] = s; d[s] = 0;
+  while (qh < qt) {
+    const i = q[qh++], x = i % MAP_W, y = (i / MAP_W) | 0;
+    for (const [dx, dy] of DIRS4) {
+      const nx = x + dx, ny = y + dy; if (nx < 0 || ny < 0 || nx >= MAP_W || ny >= MAP_H) continue;
+      const j = ny * MAP_W + nx; if (d[j] !== -1 || tileSolidIdx(j)) continue;
+      d[j] = d[i] + 1; q[qt++] = j;
+    }
+  }
+}
+function updateSpreader(c, dt) {
+  const S = c.super;
+  S.t += dt; S.repath -= dt;
+  if (S.repath <= 0) {
+    S.repath = 0.5; S.target = pickCrowd(c);
+    if (S.target) distFrom((S.target.x / TILE) | 0, (S.target.y / TILE) | 0);
+  }
+  const T = S.target;
+  if (!T || S.t >= CONFIG.spreaderFuse || Math.hypot(T.x - c.x, T.y - c.y) < 9) { explodeSpreader(c); return; }
+  let tx = T.x, ty = T.y;
+  if (Math.hypot(T.x - c.x, T.y - c.y) > 20) {
+    const cx = (c.x / TILE) | 0, cy = (c.y / TILE) | 0;
+    let bestD = spreadDist[cy * MAP_W + cx];
+    for (const [dx, dy] of DIRS4) { const v = spreadDist[(cy + dy) * MAP_W + cx + dx]; if (v >= 0 && (v < bestD || bestD < 0)) { bestD = v; tx = (cx + dx) * TILE + 8; ty = (cy + dy) * TILE + 8; } }
+  }
+  const dx = tx - c.x, dy = ty - c.y, d = Math.hypot(dx, dy) || 1, sp = Math.min(d, CONFIG.spreaderSpeed * slowAt(c.x, c.y) * dt);
+  moveWithSlide(c, dx / d * sp, dy / d * sp, 3, 3, true);
+  if (Math.abs(dx) > 0.5) c.flip = dx < 0;
+  c.anim += dt; if (c.anim > 0.12) { c.anim = 0; c.frame = c.frame ? 0 : 1; }
+  if (Math.random() < dt * 14) game.particles.push({ x: c.x + Math.random() * 8 - 4, y: c.y - 10, vx: Math.random() * 6 - 3, vy: -10, life: 0.7, max: 0.7, col: Math.random() < .5 ? SPREADER_COL : PLAGUE, size: 1 });
+}
+function explodeSpreader(c) {
+  const G = game, R = CONFIG.blastRadius;
+  c.gone = true; G.spreader = null;
+  const hit = G.citizens.filter(p => !p.infected && !p.gone && Math.hypot(p.x - c.x, p.y - (c.y)) < R);
+  for (const p of hit) infect(p);
+  for (let k = 0; k < 60; k++) {
+    const a = Math.random() * Math.PI * 2, s = 20 + Math.random() * 70;
+    G.particles.push({ x: c.x, y: c.y - 6, vx: Math.cos(a) * s, vy: Math.sin(a) * s, life: 0.7, max: 0.7, col: pick(Math.random, [SPREADER_COL, PLAGUE, PLAGUE_DARK, '#e9dcbc']), size: 1 + (Math.random() < .4) });
+  }
+  G.blasts = (G.blasts || []).concat({ x: c.x, y: c.y, t: 0 });
+  G.texts.push({ x: c.x - 10, y: c.y - 26, text: hit.length ? `+${hit.length} BURST` : 'FIZZLE', col: SPREADER_COL, life: 1.3 });
+  sfx.blast();
+}
+function drawSpreaderFx(G, ox, oy) {
+  const c = G.spreader;
+  if (c) { // pulsing aura and the reach of the coming burst
+    const sx = Math.round(c.x + ox), sy = Math.round(c.y + oy), pulse = Math.sin(G.time * 10);
+    ctx.globalAlpha = 0.18 + 0.1 * pulse; disc(ctx, sx, sy, CONFIG.blastRadius, SPREADER_COL);
+    ctx.globalAlpha = 0.35 + 0.15 * pulse; disc(ctx, sx, sy, 9, PLAGUE); ctx.globalAlpha = 1;
+  }
+  G.blasts = (G.blasts || []).filter(b => (b.t += 1 / 60) < 0.45);
+  for (const b of G.blasts) { // expanding shock ring
+    const r = Math.round(CONFIG.blastRadius * (0.3 + b.t / 0.45)), sx = Math.round(b.x + ox), sy = Math.round(b.y + oy);
+    ctx.globalAlpha = 1 - b.t / 0.45; ctx.fillStyle = SPREADER_COL;
+    for (let a = 0; a < 48; a++) { const t = a / 48 * Math.PI * 2; ctx.fillRect(Math.round(sx + Math.cos(t) * r), Math.round(sy + Math.sin(t) * r * 0.75), 2, 2); }
+    ctx.globalAlpha = 1;
+  }
+}
+
 const startGame = () => startLevel(selected);
 
 // R21: after the swarm climbs out of the well, a title card sums up the district.
@@ -3453,6 +3685,7 @@ function showLevelCard() {
   $('lcTarget').textContent = `${CONFIG.targetPercent}% of ${CONFIG.population}`;
   $('lcHunters').innerHTML = lv.hunters.length ? `${lv.hunters.length}<br>${lv.hunters.map(n => `<span class="hnum">${n}</span>`).join('')}` : 'None';
   $('lcList').innerHTML = levelBriefing(lv);
+  renderShop();
   stickEl.hidden = true;
   $('levelCard').hidden = false; $('lcGo').focus();
 }
@@ -3482,7 +3715,7 @@ function endGame(won, reason) {
       ? `His number was ${G.caughtBy.number} and your swarm was only ${G.rats.length}. Grow past a hunter's number before you let him near your lead rat.`
       : short <= 0 ? `You hit the ${CONFIG.targetPercent}% target, but ${huntersLeft(G)} hunter${huntersLeft(G) > 1 ? 's' : ''} still walked the streets.`
       : `You reached ${pct}% of the ${CONFIG.targetPercent}% needed. ${short} more infections would have done it.`;
-  const facts = [['Spread', pct + '%'], ['Time', fmtTime(G.time)], ['Biggest swarm', G.peak], ['Hunters eaten', `${G.huntersKilled} of ${G.hunters.length}`]];
+  const facts = [['Spread', pct + '%'], ['Time', fmtTime(G.time)], ['Biggest swarm', G.peak], ['Hunters eaten', `${G.huntersKilled} of ${G.hunters.length}`], ['Plague points', `+${G.pointsEarned} (${plaguePoints})`]];
   $('endFacts').innerHTML = facts.map(([k, v]) => `<div><dt>${k}</dt><dd>${v}</dd></div>`).join('');
   const bill = billOfMortality(G.infected);
   $('bill').hidden = !bill.length;
@@ -3504,7 +3737,11 @@ window.addEventListener('keydown', e => {
   if (state === 'splash' && !e.repeat) { e.preventDefault(); beginLogo(); return; }
   if (state === 'logo' && !e.repeat) { e.preventDefault(); finishLogo(); return; }
   if (state === 'cutscene' && !e.repeat) { e.preventDefault(); endCutscene(true); return; }
-  if (state === 'playing' && game.card && !e.repeat) { e.preventDefault(); dismissLevelCard(); return; }
+  if (state === 'playing' && game.card && !e.repeat) { // R21 + P2: 1 / 2 buy, Enter or Space starts
+    e.preventDefault();
+    if (e.code === 'Digit1') buyPower('bite'); else if (e.code === 'Digit2') buyPower('boost'); else if (e.code === 'Enter' || e.code === 'Space') dismissLevelCard();
+    return;
+  }
   keys.add(e.code);
   if (state !== 'playing' && (e.code === 'Enter' || e.code === 'Space') && !e.repeat) {
     if (!$('endScreen').hidden && endAction) { e.preventDefault(); endAction(); }
@@ -3512,6 +3749,8 @@ window.addEventListener('keydown', e => {
     else if (!$('levelScreen').hidden) { e.preventDefault(); startLevel(selected); }
   }
   if (e.code === 'KeyM') toggleMute();
+  if (state === 'playing' && !e.repeat && (e.code === 'Digit1' || e.code === 'KeyQ')) usePower('bite');   // P3
+  if (state === 'playing' && !e.repeat && (e.code === 'Digit2' || e.code === 'KeyE')) usePower('boost');  // P4
 });
 window.addEventListener('keyup', e => keys.delete(e.code));
 window.addEventListener('blur', () => keys.clear());
