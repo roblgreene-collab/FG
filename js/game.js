@@ -340,17 +340,6 @@ function render() {
   drawHunterArrows(G, -G.cam.x, -G.cam.y);
 }
 
-function pixArrow(cx, cy, ux, uy, col, grow) { // filled triangle: tip ahead along (ux, uy)
-  const L = 4 + grow, W = 4 + grow, px = -uy, py = ux;
-  const tri = [[cx + ux * L, cy + uy * L], [cx - ux * L + px * W, cy - uy * L + py * W], [cx - ux * L - px * W, cy - uy * L - py * W]];
-  const side = (a, b, x, y) => (b[0] - a[0]) * (y - a[1]) - (b[1] - a[1]) * (x - a[0]);
-  ctx.fillStyle = col;
-  for (let y = Math.floor(cy - 9); y <= cy + 9; y++) for (let x = Math.floor(cx - 9); x <= cx + 9; x++) {
-    const s1 = side(tri[0], tri[1], x + .5, y + .5), s2 = side(tri[1], tri[2], x + .5, y + .5), s3 = side(tri[2], tri[0], x + .5, y + .5);
-    if ((s1 >= 0 && s2 >= 0 && s3 >= 0) || (s1 <= 0 && s2 <= 0 && s3 <= 0)) ctx.fillRect(x, y, 1, 1);
-  }
-}
-
 // V22: screen shake and phone vibration for big moments (catches, feasts, bursts, deaths), if switched on.
 const shake = { t: 0, dur: 1, amp: 0 };
 function jolt(amp, dur, buzz) {
@@ -412,8 +401,8 @@ function drawHunterArrows(G, ox, oy) {
     const dx = hx - cx, dy = hy - cy, k = Math.min((cx - M) / Math.abs(dx || 1e-6), (cy - M) / Math.abs(dy || 1e-6));
     const d = Math.hypot(dx, dy) || 1, ux = dx / d, uy = dy / d;
     const ax = Math.round(cx + dx * k + ux * bob), ay = Math.round(cy + dy * k + uy * bob), col = hunterCol(h);
-    pixArrow(ax, ay, ux, uy, '#120f0c', 2); pixArrow(ax, ay, ux, uy, col, 0); // a pixel arrowhead pointing at him, outlined in black
-    const t = String(h.number), tx = Math.round(ax - ux * 11 - (t.length * 4 - 1) / 2), ty = Math.round(ay - uy * 11 - 2);
+    const spr = arrowSprite(Math.atan2(uy, ux), col); ctx.drawImage(spr, ax - (spr.width >> 1), ay - (spr.height >> 1)); // pixel-art arrowhead (js/icons.js)
+    const t = String(h.number), tx = Math.round(ax - ux * 12 - (t.length * 4 - 1) / 2), ty = Math.round(ay - uy * 12 - 2);
     pixText(ctx, t, tx, ty, col);
   }
 }

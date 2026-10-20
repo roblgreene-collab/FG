@@ -55,21 +55,56 @@ const ICON_INK = '#120f0c';
 
 const iconCache = new Map();
 const ICON_SYM = { star: 'x', gear: 'xy', skull: 'x', target: 'xy', grate: 'xy', crown: 'x', pause: 'xy', close: 'xy', lock: 'x', film: 'xy', scroll: 'x', play: 'y', fire: 'x', cart: '', moon: '' };
-// A pixel-art settings cog, built from blocks like a hand-drawn one: a round body, square teeth straight
-// up, down, left and right, square teeth on the diagonals, and a round hole. Symmetrical both ways.
+// A pixel-art settings cog, drawn the way pixel artists draw one: a ring-shaped body with a wide hole
+// and a small diamond hub in the middle, square teeth straight up, down, left and right, and diagonal
+// teeth that step out at 45° like staircases. Symmetrical both ways.
 function gearPixels(M, S, grid) {
   M.fill(0);
-  const c = (S - 1) / 2, R = grid / 2, body = R * 0.63, hole = Math.max(1.6, R * 0.28);
-  const tw = Math.max(1, Math.round(R * 0.18)), dHalf = Math.max(1, Math.round(R * 0.16)), dAt = Math.round(R * 0.6);
+  const c = (S - 1) / 2, R = grid / 2;
+  const ringOut = R * 0.62, ringIn = R * 0.36, hub = Math.max(1, Math.round(R * 0.14));
+  const tw = Math.max(1, Math.round(R * 0.2)), dw = R * 0.24, dReach = R * 0.98;
   for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) {
-    const X = x - c, Y = y - c, r = Math.hypot(X, Y);
-    const ortho = (Math.abs(X) <= tw && Math.abs(Y) <= R) || (Math.abs(Y) <= tw && Math.abs(X) <= R);
-    const diag = Math.abs(Math.abs(X) - dAt) <= dHalf && Math.abs(Math.abs(Y) - dAt) <= dHalf;
-    if ((r <= body + 0.6 || ortho || diag) && r > hole) M[y * S + x] = 1;
+    const X = x - c, Y = y - c, r = Math.hypot(X, Y), u = Math.abs(X - Y) / Math.SQRT2, v = Math.abs(X + Y) / Math.SQRT2;
+    const ring = r <= ringOut + 0.35 && r > ringIn;
+    const ortho = (Math.abs(X) <= tw && Math.abs(Y) <= R - 0.5 && Math.abs(Y) >= ringIn) || (Math.abs(Y) <= tw && Math.abs(X) <= R - 0.5 && Math.abs(X) >= ringIn);
+    const diag = (u <= dw && v <= dReach && v >= ringIn) || (v <= dw && u <= dReach && u >= ringIn); // rotated 45°: stair-stepped
+    const centre = Math.abs(X) + Math.abs(Y) <= hub;
+    if (ring || ortho || diag || centre) M[y * S + x] = 1;
   }
+}
+// The same outline-and-shading finish for any mask, painting pixel by pixel with put(x, y, colour).
+function shadePixels(M, S, col, put, flat) {
+  const on = (x, y) => x >= 0 && y >= 0 && x < S && y < S && M[y * S + x] === 1;
+  const hi = mixHex(col, '#ffffff', 0.45), lo = mixHex(col, '#000000', 0.35);
+  for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) {
+    if (on(x, y)) put(x, y, flat ? (!on(x, y - 1) ? hi : col) : !on(x, y - 1) || !on(x - 1, y) ? hi : !on(x, y + 1) || !on(x + 1, y) || !on(x + 1, y + 1) ? lo : col);
+    else if (on(x - 1, y) || on(x + 1, y) || on(x, y - 1) || on(x, y + 1)) put(x, y, ICON_INK);
+  }
+}
+// H8: the in-game hunter arrows, in the icon style: a notched arrowhead pointing at the hunter, rasterised
+// for 32 directions so each one stays crisp pixel art, with an ink outline, a lit edge and a shaded edge.
+const arrowCache = new Map();
+function arrowSprite(angle, col) {
+  const dir = ((Math.round(angle / (Math.PI * 2) * 32) % 32) + 32) % 32, key = dir + col;
+  if (arrowCache.has(key)) return arrowCache.get(key);
+  const grid = 13, S = grid + 2, cv = document.createElement('canvas'); cv.width = cv.height = S;
+  const g = cv.getContext('2d');
+  g.translate(S / 2, S / 2); g.rotate(dir / 32 * Math.PI * 2); g.fillStyle = '#fff';
+  g.beginPath(); g.moveTo(6.4, 0); g.lineTo(-4.6, -5.8); g.lineTo(-3.2, 0); g.lineTo(-4.6, 5.8); g.closePath(); g.fill();
+  const a = g.getImageData(0, 0, S, S).data, M = new Uint8Array(S * S);
+  for (let i = 0; i < S * S; i++) M[i] = a[i * 4 + 3] > 115 ? 1 : 0;
+  for (let pass = 0; pass < 2; pass++) for (let y = 1; y < S - 1; y++) for (let x = 1; x < S - 1; x++) { // trim one-pixel spikes
+    const i = y * S + x; if (M[i] && M[i - 1] + M[i + 1] + M[i - S] + M[i + S] <= 1) M[i] = 0;
+  }
+  const out = document.createElement('canvas'); out.width = out.height = S;
+  const o = out.getContext('2d');
+  shadePixels(M, S, col, (x, y, c) => { o.fillStyle = c; o.fillRect(x, y, 1, 1); }, false);
+  arrowCache.set(key, out);
+  return out;
 }
 function iconPixel(name, col, size) {
   let grid = Math.max(11, Math.min(19, Math.round(size / 1.6))); if (grid % 2 === 0) grid--; // odd, so the middle is a pixel
+  if (name === 'gear') grid = size >= 20 ? 19 : 15; // the cog needs enough pixels for its teeth
   const S = grid + 2, cv = document.createElement('canvas'); cv.width = cv.height = S;
   const g = cv.getContext('2d');
   g.translate(1, 1); g.scale(grid / 24, grid / 24); g.fillStyle = g.strokeStyle = '#fff'; g.lineCap = g.lineJoin = 'round';
@@ -85,19 +120,16 @@ function iconPixel(name, col, size) {
   const isStar = name === 'star', k = 24 / grid;
   let svg = '';
   const px = (x, y, c) => { svg += `<rect x="${x}" y="${y}" width="1" height="1" fill="${c}"/>`; };
-  for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) {
-    if (on(x, y)) {
-      let c = col;
-      if (isStar) { // bevel: the left half of each point is lit, the right half shaded, a bright rim on top
-        const X = (x + 0.5 - 1) * k - 12, Y = (y + 0.5 - 1) * k - 13.2;
-        let ang = Math.atan2(Y, X) * 180 / Math.PI + 90; ang = ((ang % 72) + 72 + 36) % 72 - 36; // -36..36 around the nearest point
-        c = Math.hypot(X, Y) < 1.2 ? col : ang < -1 ? hi : ang > 1 ? lo : col;
-        if (!on(x, y - 1)) c = mixHex(col, '#ffffff', 0.7);
-      } else if (flat) c = !on(x, y - 1) ? hi : col;
-      else c = !on(x, y - 1) || !on(x - 1, y) ? hi : !on(x, y + 1) || !on(x + 1, y) || !on(x + 1, y + 1) ? lo : col;
+  if (isStar) for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) {
+    if (on(x, y)) { // bevel: the left half of each point is lit, the right half shaded, a bright rim on top
+      const X = (x + 0.5 - 1) * k - 12, Y = (y + 0.5 - 1) * k - 13.2;
+      let ang = Math.atan2(Y, X) * 180 / Math.PI + 90; ang = ((ang % 72) + 72 + 36) % 72 - 36; // -36..36 around the nearest point
+      let c = Math.hypot(X, Y) < 1.2 ? col : ang < -1 ? hi : ang > 1 ? lo : col;
+      if (!on(x, y - 1)) c = mixHex(col, '#ffffff', 0.7);
       px(x, y, c);
     } else if (on(x - 1, y) || on(x + 1, y) || on(x, y - 1) || on(x, y + 1)) px(x, y, ICON_INK);
   }
+  if (!isStar) shadePixels(M, S, col, px, flat);
   return `<svg class="px" width="${size}" height="${size}" viewBox="0 0 ${S} ${S}" shape-rendering="crispEdges" aria-hidden="true">${svg}</svg>`;
 }
 function drawIcon(name, col, s = 3) { // s is the size step the menus use (about 10.5 px each)
