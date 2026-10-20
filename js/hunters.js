@@ -148,6 +148,7 @@ function updateHunters(dt) {
 function killHunter(h) {
   const G = game;
   h.dying = true;
+  jolt(2, 0.3, 40); // V22
   G.feast = {
     h, t: 0, crunch: 0,
     from: G.rats.map(r => ({ x: r.x, y: r.y })),
@@ -182,7 +183,8 @@ function updateFeast(dt) {
   }
   stepFx(dt);
   if (F.t >= T) { // the skeleton is gone: back to the game, with the bounty
-    h.alive = false; h.dying = false; G.huntersKilled++; addPoints(CONFIG.pointsPerHunter); // P1
+    h.alive = false; h.dying = false; G.huntersKilled++; awardPoints(CONFIG.pointsPerHunter); // P1
+    G.decayTimer = 0; // R5: eating a hunter restarts the die-off countdown, like an infection
     for (let i = 0; i < CONFIG.hunterBounty; i++) G.rats.push(newRat(h.x + (Math.random() - .5) * 8, h.y + (Math.random() - .5) * 8));
     G.peak = Math.max(G.peak, G.rats.length);
     G.texts.push({ x: h.x - 3, y: h.y - 18, text: '+' + CONFIG.hunterBounty, col: PLAGUE, life: 1.1 });

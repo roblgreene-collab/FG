@@ -5,35 +5,36 @@
 // Levels (L1-L10). Each level is a district with its own look and difficulty.
 // `features` switches on the movement obstacles (R16-R20) for the later districts.
 // `tune` overrides CONFIG for that level; `hunters` lists each rat hunter's number (H1).
+// `stars` are the time goals in seconds for 2 and 3 stars (R23).
 // ---------------------------------------------------------------------------
 const LEVELS = [
   { name: 'The Market District', theme: 'market', seed: 1347, blocksX: 7, blocksY: 5, parkChance: 0.12, alleyChance: 0.35,
-    tune: { population: 90, targetPercent: 60, startRats: 8 }, hunters: [] },
+    tune: { population: 90, targetPercent: 60, startRats: 8 }, stars: [75, 55], hunters: [] },
   { name: 'The Docks', theme: 'docks', seed: 2203, blocksX: 7, blocksY: 5, parkChance: 0.06, alleyChance: 0.3, canalBand: 3,
-    tune: { population: 95, targetPercent: 60, startRats: 8 }, hunters: [12, 16] },
+    tune: { population: 95, targetPercent: 60, startRats: 8 }, stars: [120, 90], hunters: [12, 16] },
   { name: 'The Shambles', theme: 'slums', seed: 3517, blocksX: 7, blocksY: 5, parkChance: 0.08, alleyChance: 0.8,
-    tune: { population: 100, targetPercent: 65, startRats: 8 }, hunters: [14, 18, 22],
+    tune: { population: 100, targetPercent: 65, startRats: 8 }, stars: [150, 110], hunters: [14, 18, 22],
     features: { sewers: true } },
   { name: 'Frostgate', theme: 'winter', seed: 4441, blocksX: 7, blocksY: 5, parkChance: 0.12, alleyChance: 0.4,
-    tune: { population: 100, targetPercent: 65, startRats: 12, decayInterval: 1.4 }, hunters: [14, 18, 22, 26],
+    tune: { population: 100, targetPercent: 65, startRats: 12, decayInterval: 1.4 }, stars: [160, 120], hunters: [14, 18, 22, 26],
     features: { sewers: true } },
   { name: 'The Palace Ward', theme: 'night', seed: 5903, blocksX: 7, blocksY: 5, parkChance: 0.1, alleyChance: 0.3,
-    tune: { population: 120, targetPercent: 70, startRats: 12, decayInterval: 1.3 }, hunters: [16, 20, 24, 28, 32],
+    tune: { population: 120, targetPercent: 70, startRats: 12, decayInterval: 1.3 }, stars: [180, 135], hunters: [16, 20, 24, 28, 32],
     features: { sewers: true } },
   { name: 'The Burning Quarter', theme: 'ash', seed: 6131, blocksX: 7, blocksY: 5, parkChance: 0.06, alleyChance: 0.35,
-    tune: { population: 125, targetPercent: 70, startRats: 14, decayInterval: 1.3 }, hunters: [16, 20, 24, 28, 32],
+    tune: { population: 125, targetPercent: 70, startRats: 14, decayInterval: 1.3 }, stars: [180, 135], hunters: [16, 20, 24, 28, 32],
     features: { sewers: true, fires: 26 } },
   { name: 'The Drowned Ward', theme: 'flood', seed: 7177, blocksX: 7, blocksY: 5, parkChance: 0.08, alleyChance: 0.35,
-    tune: { population: 130, targetPercent: 70, startRats: 14, decayInterval: 1.35 }, hunters: [14, 18, 22, 26, 28],
+    tune: { population: 130, targetPercent: 70, startRats: 14, decayInterval: 1.35 }, stars: [210, 160], hunters: [14, 18, 22, 26, 28],
     features: { sewers: true, flood: 0.4 } },
   { name: 'The Walled Quarter', theme: 'fort', seed: 8209, blocksX: 7, blocksY: 5, parkChance: 0.06, alleyChance: 0.2,
-    tune: { population: 140, targetPercent: 72, startRats: 14, decayInterval: 1.25 }, hunters: [14, 18, 22, 26, 30, 34],
+    tune: { population: 140, targetPercent: 72, startRats: 14, decayInterval: 1.25 }, stars: [210, 160], hunters: [14, 18, 22, 26, 30, 34],
     features: { sewers: true, gates: 0.5 } },
   { name: 'The Midsummer Fair', theme: 'fair', seed: 9293, blocksX: 7, blocksY: 5, parkChance: 0.14, alleyChance: 0.25,
-    tune: { population: 140, targetPercent: 72, startRats: 14, decayInterval: 1.25 }, hunters: [14, 18, 22, 26, 30, 34],
+    tune: { population: 140, targetPercent: 72, startRats: 14, decayInterval: 1.25 }, stars: [210, 160], hunters: [14, 18, 22, 26, 30, 34],
     features: { sewers: true, carts: 4 } },
   { name: 'The Cathedral Close', theme: 'cathedral', seed: 10331, blocksX: 7, blocksY: 5, parkChance: 0.14, alleyChance: 0.3,
-    tune: { population: 160, targetPercent: 75, startRats: 14, decayInterval: 1.25 }, hunters: [14, 18, 22, 26, 28, 32],
+    tune: { population: 160, targetPercent: 75, startRats: 14, decayInterval: 1.25 }, stars: [220, 170], hunters: [14, 18, 22, 26, 28, 32],
     features: { sewers: true, gates: 0.3, fires: 14, carts: 2 } },
 ];
 
@@ -260,7 +261,7 @@ function hurtRat(i, cols, cause) {
   const dead = G.rats.splice(i, 1)[0] || r;
   G.hazardKills = (G.hazardKills || 0) + 1; G.lostTo = cause;
   for (let k = 0; k < 7; k++) G.particles.push({ x: dead.x, y: dead.y, vx: (Math.random() - .5) * 26, vy: -10 - Math.random() * 16, life: 0.6, max: 0.6, col: pick(Math.random, cols), size: 1 });
-  sfx.die();
+  sfx.die(); jolt(1, 0.15, 15); // V22
 }
 
 function updateHazards(dt) {

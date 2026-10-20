@@ -27,7 +27,8 @@ const sfx = {
   buy() { [660, 880, 1320].forEach((f, i) => tone(f, f, i * 0.05, 0.08, 'square', 0.04)); },                                        // P2
   arm() { tone(300, 900, 0, 0.18, 'sawtooth', 0.05); tone(905, 905, 0.18, 0.1, 'square', 0.04); },                                   // P3
   blast() { tone(160, 40, 0, 0.45, 'sawtooth', 0.1); tone(900, 200, 0, 0.25, 'square', 0.05); },                                      // P3
-  boost() { tone(400, 1600, 0, 0.2, 'square', 0.04); },                                                                               // P4
+  boost() { tone(400, 1600, 0, 0.2, 'square', 0.04); },
+  heart() { tone(90, 50, 0, 0.12, 'sine', 0.35); tone(80, 45, 0.16, 0.14, 'sine', 0.28); },                                         // V22 low-swarm warning                                                                               // P4
   sewer() { tone(500, 120, 0, 0.22, 'sawtooth', 0.05); tone(160, 700, 0.2, 0.2, 'triangle', 0.06); },                               // R16 down one grate, up another
 };
 

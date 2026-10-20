@@ -136,18 +136,18 @@ function update(dt) {
     if (r.moving && r.anim > 0.08) { r.anim = 0; r.frame ^= 1; }
   }
 
-  // R9: townsfolk wander, ignoring the rats
+  // R9: townsfolk wander, ignoring the rats, but scatter for a moment when someone near them falls sick
   for (const c of G.citizens) {
     if (c.super) { if (!c.gone) updateSpreader(c, dt); continue; } // P3
-    c.t -= dt;
-    const sp = CONFIG.citizenSpeed * (c.infected ? CONFIG.infectedSpeedMult : 1) * slowAt(c.x, c.y) * dt;
+    c.t -= dt; if (c.scare > 0) c.scare -= dt;
+    const sp = CONFIG.citizenSpeed * (c.infected ? CONFIG.infectedSpeedMult : c.scare > 0 ? CONFIG.scatterSpeedMult : 1) * slowAt(c.x, c.y) * dt;
     let stuck = false;
     if (c.dx || c.dy) {
       const bx = c.x, by = c.y;
       moveWithSlide(c, c.dx * sp, c.dy * sp, 3, 3, false);
       stuck = bx === c.x && by === c.y;
       c.anim += dt;
-      if (c.anim > 0.22) { c.anim = 0; c.frame = c.frame ? 0 : 1; }
+      if (c.anim > (c.scare > 0 ? 0.09 : 0.22)) { c.anim = 0; c.frame = c.frame ? 0 : 1; }
       if (c.dx) c.flip = c.dx < 0;
     }
     if (c.t <= 0 || stuck) {
@@ -181,6 +181,9 @@ function update(dt) {
     G.texts.push({ x: dead.x, y: dead.y - 6, text: '-1', col: '#d04a32', life: 0.8 });
     sfx.die();
   }
+
+  const wk = warningLevel(G); // V22: a heartbeat as the countdown passes halfway with few rats left
+  if (wk >= 0.5 && !G.beat) { G.beat = true; sfx.heart(); } else if (wk < 0.5) G.beat = false;
 
   updateHazards(dt);
   updateHunters(dt);
@@ -225,8 +228,28 @@ function infect(c) {
   }
   G.texts.push({ x: c.x - 3, y: c.y - 16, text: '+' + CONFIG.ratsPerInfection, col: PLAGUE, life: 0.8 });
   sfx.infect();
-  addPoints(CONFIG.pointsPerInfection); // P1
+  awardPoints(CONFIG.pointsPerInfection); // P1
   if (G.powers.biteArmed) makeSpreader(c); // P3
+  scatterFrom(c); // R9
+}
+// R9: healthy townsfolk near a new infection run away from it for a moment.
+function scatterFrom(src) {
+  const R = CONFIG.scatterRadius;
+  for (const c of game.citizens) {
+    if (c.infected || c.super || c.gone) continue;
+    const ax = c.x - src.x, ay = c.y - src.y, d = Math.hypot(ax, ay);
+    if (d > R) continue;
+    let best = null, bestDot = -2;
+    for (const [x, y] of DIRS4) {
+      if (blocked(c.x + x * 6, c.y + y * 6, 3, 3)) continue;
+      const dot = (x * ax + y * ay) / (d || 1);
+      if (dot > bestDot) { bestDot = dot; best = [x, y]; }
+    }
+    if (!best) continue;
+    if (!(c.scare > 0)) game.texts.push({ x: c.x - 1, y: c.y - 22, text: '!', col: '#e9dcbc', life: 0.5 });
+    [c.dx, c.dy] = best; c.t = c.scare = CONFIG.scatterTime;
+    if (c.dx) c.flip = c.dx < 0;
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -238,7 +261,7 @@ function render() {
   const cx = mw <= view.w ? (mw - view.w) / 2 : Math.max(0, Math.min(mw - view.w, L.x - view.w / 2));
   const cy = mh <= view.h ? (mh - view.h) / 2 : Math.max(0, Math.min(mh - view.h, L.y - view.h / 2));
   G.cam.x = Math.round(cx); G.cam.y = Math.round(cy);
-  const ox = -G.cam.x, oy = -G.cam.y;
+  const sh = shakeOffset(), ox = -G.cam.x + sh.x, oy = -G.cam.y + sh.y; // V22: screen shake moves the picture, not the camera
 
   ctx.fillStyle = '#120f0c'; ctx.fillRect(0, 0, view.w, view.h);
   ctx.drawImage(mapCanvas, ox, oy);
@@ -309,6 +332,71 @@ function render() {
   for (const h of G.hunters) if (h.alive && !h.dying) drawHunterNumber(h, ox, oy);
   for (const t of G.texts) pixText(ctx, t.text, Math.round(t.x + ox), Math.round(t.y + oy), t.col);
   if (vignette) ctx.drawImage(vignette, 0, 0);
+  drawWarning(G);
+  drawHunterArrows(G, -G.cam.x, -G.cam.y);
+}
+
+function pixArrow(cx, cy, ux, uy, col, grow) { // filled triangle: tip ahead along (ux, uy)
+  const L = 4 + grow, W = 4 + grow, px = -uy, py = ux;
+  const tri = [[cx + ux * L, cy + uy * L], [cx - ux * L + px * W, cy - uy * L + py * W], [cx - ux * L - px * W, cy - uy * L - py * W]];
+  const side = (a, b, x, y) => (b[0] - a[0]) * (y - a[1]) - (b[1] - a[1]) * (x - a[0]);
+  ctx.fillStyle = col;
+  for (let y = Math.floor(cy - 9); y <= cy + 9; y++) for (let x = Math.floor(cx - 9); x <= cx + 9; x++) {
+    const s1 = side(tri[0], tri[1], x + .5, y + .5), s2 = side(tri[1], tri[2], x + .5, y + .5), s3 = side(tri[2], tri[0], x + .5, y + .5);
+    if ((s1 >= 0 && s2 >= 0 && s3 >= 0) || (s1 <= 0 && s2 <= 0 && s3 <= 0)) ctx.fillRect(x, y, 1, 1);
+  }
+}
+
+// V22: screen shake and phone vibration for big moments (catches, feasts, bursts, deaths), if switched on.
+const shake = { t: 0, dur: 1, amp: 0 };
+function jolt(amp, dur, buzz) {
+  if (!shakeOn) return;
+  if (amp >= shake.amp * (shake.t / shake.dur)) { shake.amp = amp; shake.t = shake.dur = dur; }
+  if (buzz && navigator.vibrate) try { navigator.vibrate(buzz); } catch (e) { /* not allowed */ }
+}
+function shakeOffset() {
+  if (shake.t <= 0) return { x: 0, y: 0 };
+  const a = shake.amp * (shake.t / shake.dur);
+  return { x: Math.round((Math.random() * 2 - 1) * a), y: Math.round((Math.random() * 2 - 1) * a) };
+}
+
+// V22: low-swarm warning. With only a few rats left, a red glow pulses in from the edges,
+// faster as the die-off countdown runs down, with a heartbeat each time it passes halfway.
+let warnCanvas = null, warnOn = false;
+function setWarn(on) { if (warnOn !== on) { warnOn = on; $('swarmBox').classList.toggle('warn', on); } }
+function warningLevel(G) {
+  if (G.intro || G.card || G.feast || !G.rats.length || G.rats.length > CONFIG.warnRats) return 0;
+  return G.decayTimer / decayIntervalFor(G.rats.length);
+}
+function drawWarning(G) {
+  const on = state === 'playing' && G.rats.length > 0 && G.rats.length <= CONFIG.warnRats && !G.intro && !G.card && !G.feast;
+  setWarn(on); if (!on) return;
+  const k = warningLevel(G);
+  if (!warnCanvas || warnCanvas.width !== view.w || warnCanvas.height !== view.h) {
+    warnCanvas = makeCanvas(view.w, view.h); const g = warnCanvas.getContext('2d');
+    const gr = g.createRadialGradient(view.w / 2, view.h / 2, Math.min(view.w, view.h) * 0.3, view.w / 2, view.h / 2, Math.max(view.w, view.h) * 0.7);
+    gr.addColorStop(0, 'rgba(208,40,30,0)'); gr.addColorStop(1, 'rgba(220,30,20,.9)'); g.fillStyle = gr; g.fillRect(0, 0, view.w, view.h);
+  }
+  const rate = 3 + k * 9;
+  ctx.globalAlpha = (0.4 + 0.5 * k) * (0.6 + 0.4 * Math.sin(G.time * rate)); ctx.drawImage(warnCanvas, 0, 0); ctx.globalAlpha = 1;
+}
+
+// H8: in the endgame, arrows at the edge of the view point to hunters off screen.
+function drawHunterArrows(G, ox, oy) {
+  const left = huntersLeft(G);
+  if (!left || (left > CONFIG.hunterArrowsAt && !targetMet(G)) || !G.rats[0]) return;
+  const cx = view.w / 2, cy = view.h / 2, M = 8, bob = Math.round(Math.sin(G.time * 6));
+  for (const h of G.hunters) {
+    if (!h.alive || h.dying) continue;
+    const hx = h.x + ox, hy = h.y - 8 + oy;
+    if (hx > 0 && hx < view.w && hy > 0 && hy < view.h) continue; // on screen: no arrow needed
+    const dx = hx - cx, dy = hy - cy, k = Math.min((cx - M) / Math.abs(dx || 1e-6), (cy - M) / Math.abs(dy || 1e-6));
+    const d = Math.hypot(dx, dy) || 1, ux = dx / d, uy = dy / d;
+    const ax = Math.round(cx + dx * k + ux * bob), ay = Math.round(cy + dy * k + uy * bob), col = h.danger ? HUNTER_DANGER : HUNTER_PREY;
+    pixArrow(ax, ay, ux, uy, '#120f0c', 2); pixArrow(ax, ay, ux, uy, col, 0); // a pixel arrowhead pointing at him, outlined in black
+    const t = String(h.number), tx = Math.round(ax - ux * 11 - (t.length * 4 - 1) / 2), ty = Math.round(ay - uy * 11 - 2);
+    pixText(ctx, t, tx, ty, col);
+  }
 }
 
 // A soft two-row oval shadow under a standing figure.
@@ -395,7 +483,8 @@ function makeVignette() {
 // V16: while playing, the level fills only the space between the top and bottom HUD bars.
 function setFramed(on) {
   $('hud').hidden = !on; $('bottomBar').hidden = !on;
-  (on ? $('muteSlot') : document.body).appendChild($('mute')); // the sound button lives in the bar while playing
+  (on ? $('muteSlot') : document.body).appendChild($('mute'));
+  if (!on) $('tip').hidden = true; // the sound button lives in the bar while playing
   document.body.classList.toggle('framed', on);
   resize();
 }

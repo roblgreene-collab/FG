@@ -14,6 +14,11 @@ window.addEventListener('keydown', e => {
     if (e.code === 'Digit1') buyPower('bite'); else if (e.code === 'Digit2') buyPower('boost'); else if (e.code === 'Enter' || e.code === 'Space') dismissLevelCard();
     return;
   }
+  if (paused) { // V22: Escape, P or Enter resumes
+    if (!e.repeat && ['Escape', 'KeyP', 'Enter', 'Space'].includes(e.code)) { e.preventDefault(); resumeGame(); }
+    return;
+  }
+  if (state === 'playing' && !e.repeat && (e.code === 'Escape' || e.code === 'KeyP')) { pauseGame(); return; }
   keys.add(e.code);
   if (state !== 'playing' && e.code === 'Escape' && !e.repeat) {
     if (!$('howScreen').hidden || !$('settingsScreen').hidden) closePanels(); else if (!$('levelScreen').hidden) showTitle();
@@ -58,6 +63,36 @@ $('startBtn').addEventListener('click', startGame);
 $('retryBtn').addEventListener('click', () => endAction && endAction());
 $('menuBtn').addEventListener('click', () => { selected = levelIndex; showLevels(); });
 $('homeBtn').addEventListener('click', () => { selected = Math.min(unlocked - 1, levelIndex + (state === 'won' ? 1 : 0)); showTitle(); });
+// V22: pause. The pause button (or Escape / P) stops everything and shows a small menu;
+// the game also pauses itself when the phone switches app or the tab is hidden.
+let paused = false;
+function pauseGame() {
+  if (state !== 'playing' || paused || game.card || !$('endScreen').hidden) return;
+  paused = true; keys.clear();
+  stick.id = null; stick.x = stick.y = 0; knobEl.style.transform = ''; stickEl.classList.remove('active');
+  if (actx && actx.state === 'running') actx.suspend().catch(() => {});
+  $('pauseEyebrow').textContent = `District ${levelIndex + 1} · ${LEVEL.name}`;
+  $('pauseScreen').hidden = false; $('tip').hidden = true; hudCache.tip = null; focusKb($('resumeBtn'));
+}
+function resumeGame() {
+  if (!paused) return;
+  paused = false; $('pauseScreen').hidden = true; last = performance.now();
+  if (actx && actx.state !== 'running') actx.resume().catch(() => {});
+}
+function leavePaused(then) { paused = false; $('pauseScreen').hidden = true; if (actx && actx.state !== 'running') actx.resume().catch(() => {}); state = 'lost'; then(); }
+$('pauseBtn').addEventListener('click', e => { pauseGame(); e.currentTarget.blur(); });
+$('resumeBtn').addEventListener('click', resumeGame);
+$('restartBtn').addEventListener('click', () => leavePaused(() => startLevel(levelIndex)));
+$('pauseLevelsBtn').addEventListener('click', () => leavePaused(() => { selected = levelIndex; showLevels(); }));
+$('pauseHomeBtn').addEventListener('click', () => leavePaused(() => { selected = levelIndex; showTitle(); }));
+$('pauseScreen').addEventListener('click', e => { if (e.target === $('pauseScreen')) resumeGame(); });
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) { // switched app or tab: pause a level in progress and silence everything
+    if (state === 'playing' && game && !game.card) pauseGame();
+    else if (actx && actx.state === 'running') actx.suspend().catch(() => {});
+  } else if (!paused && actx && actx.state !== 'running') actx.resume().catch(() => {}); // back: sound returns (a paused level waits for Resume)
+});
+
 function toggleMute() {
   muted = !muted; $('mute').textContent = 'Sound: ' + (muted ? 'off' : 'on');
   $('sndOn').setAttribute('aria-pressed', String(!muted)); $('sndOff').setAttribute('aria-pressed', String(muted));
@@ -80,7 +115,8 @@ window.addEventListener('resize', resize);
 let last = performance.now();
 function frame(now) {
   const dt = Math.min(0.05, (now - last) / 1000); last = now;
-  if (state === 'playing') {
+  if (shake.t > 0 && !paused) shake.t = Math.max(0, shake.t - dt);
+  if (state === 'playing' && !paused) {
     const steps = Math.max(1, Math.round(dbg.timeScale));
     for (let i = 0; i < steps && state === 'playing'; i++) update(dt);
     updateHud();

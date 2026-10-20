@@ -14,7 +14,7 @@
 
 <div id="hud" class="frame" hidden>
   <div class="meter">
-    <div class="label"><span><i data-px="target" data-c="#c05cff" data-s="2"></i>Plague spread</span><b id="pct">0%</b></div>
+    <div class="label"><span><i data-px="target" data-c="#c05cff" data-s="2"></i><span class="lw">Plague&nbsp;</span>spread</span><span class="clock" id="clock" title="Finish faster for more stars"></span><b id="pct">0%</b></div>
     <div class="bar"><div id="pctFill"></div><div id="target"></div></div>
   </div>
   <div class="swarm" id="swarmBox">
@@ -89,6 +89,7 @@
       <div class="m-eyebrow">Settings</div><h2 class="m-h" style="margin:4px 0 12px">Options</h2>
       <div class="m-row"><span><i data-px="sound" data-c="#efe2c0" data-s="3"></i>Sound</span><div class="m-seg" role="group" aria-label="Sound"><button id="sndOn" type="button" aria-pressed="true">On</button><button id="sndOff" type="button" aria-pressed="false">Off</button></div></div>
       <div class="m-row"><span><i data-px="hand" data-c="#efe2c0" data-s="3"></i>Powerup buttons</span><div class="m-seg" role="group" aria-label="Powerup buttons side"><button id="handR" type="button" aria-pressed="true">Left</button><button id="handL" type="button" aria-pressed="false">Right</button></div></div>
+      <div class="m-row"><span><i data-px="shake" data-c="#efe2c0" data-s="3"></i>Shake &amp; buzz</span><div class="m-seg" role="group" aria-label="Screen shake and vibration"><button id="fxOn" type="button" aria-pressed="true">On</button><button id="fxOff" type="button" aria-pressed="false">Off</button></div></div>
       <div class="m-row"><span><i data-px="film" data-c="#efe2c0" data-s="3"></i>Opening story</span><button id="introBtn2" class="m-pill" type="button">Watch</button></div>
       <div class="m-row" style="padding-bottom:6px"><span style="color:var(--blood)">Reset progress</span><button id="resetBtn" class="m-pill m-danger" type="button">Reset</button></div>
       <div class="m-confirm" id="resetConfirm" hidden>
@@ -102,7 +103,7 @@
 
 <div class="screen m-screen" id="levelScreen" hidden>
   <div class="m-wrap">
-    <div class="m-head"><button id="backBtn" class="m-back" type="button" aria-label="Back"><i data-px="back" data-c="#efe2c0" data-s="3"></i></button><h2 class="m-h" style="font-size:40px">Districts</h2><div class="m-gap"></div><span class="m-chip" title="Plague points"><img data-ico="pp" alt=""><span id="ppLevels">0</span></span></div>
+    <div class="m-head"><button id="backBtn" class="m-back" type="button" aria-label="Back"><i data-px="back" data-c="#efe2c0" data-s="3"></i></button><h2 class="m-h" style="font-size:40px">Districts</h2><div class="m-gap"></div><span class="m-chip" title="Stars"><i data-px="star" data-c="#ffd75a" data-s="2"></i><span id="starsLevels">0</span></span><span class="m-chip" title="Plague points"><img data-ico="pp" alt=""><span id="ppLevels">0</span></span></div>
     <div class="m-list" id="levelList"></div>
     <div class="m-foot"><button id="playBtn" class="m-btn m-btnP" type="button"><span>Play</span><small id="playSub"></small></button></div>
   </div>
@@ -113,6 +114,7 @@
     <div class="m-panel teeth m-pad m-scroll">
       <div class="m-eyebrow" id="lcEyebrow"></div><h2 class="m-h" id="lcName" style="margin:4px 0 14px"></h2>
       <div class="m-stats" id="lcStats"></div>
+      <div class="m-goals" id="lcGoals"></div>
       <div class="m-tags" id="lcList"></div>
       <div class="m-info" id="lcInfo" hidden></div>
       <div class="m-sub"><span class="m-eyebrow" style="color:#9cff3a">Powerups</span><span class="m-chip" title="Plague points"><img data-ico="pp" alt=""><span id="ppHave">0</span></span></div>
@@ -129,6 +131,7 @@
     <div class="m-panel teeth m-pad m-scroll" style="text-align:center">
       <div id="endCrown" hidden style="display:flex;justify-content:center;margin-bottom:6px"><i data-px="crown" data-c="#e0b040" data-s="7"></i></div>
       <div class="m-eyebrow" id="endEyebrow"></div><h2 class="m-h" id="endTitle" style="margin:4px 0 14px"></h2>
+      <div class="m-starsBig" id="endStars" hidden></div><p class="m-goalNote" id="endGoal" hidden></p>
       <div class="m-bar"><i id="endFill"></i><b id="endMark"></b></div>
       <div class="m-barcap"><span id="endCapL"></span><span id="endCapR"></span></div>
       <div class="m-stats" id="endFacts"></div>
@@ -143,8 +146,23 @@
   </div>
 </div>
 
+<div class="screen m-screen m-dim" id="pauseScreen" hidden style="justify-content:center">
+  <div class="m-wrap" style="flex:none">
+    <div class="m-panel teeth m-pad" style="text-align:center">
+      <div class="m-eyebrow" id="pauseEyebrow"></div><h2 class="m-h" style="margin:4px 0 14px">Paused</h2>
+      <button id="resumeBtn" class="m-btn m-btnP" type="button"><span>Resume</span></button>
+      <div style="height:12px"></div>
+      <button id="restartBtn" class="m-btn m-btnS sm" type="button" style="width:100%">Restart district</button>
+      <div style="height:10px"></div>
+      <div class="m-two"><button id="pauseLevelsBtn" class="m-btn m-btnS sm" type="button"><i data-px="scroll" data-c="#a08a64" data-s="2"></i>Districts</button><button id="pauseHomeBtn" class="m-btn m-btnS sm" type="button">Menu</button></div>
+    </div>
+  </div>
+</div>
+
+<div id="tip" hidden aria-live="polite"></div>
+
 <div id="bottomBar" class="frame" hidden>
-  <div class="barSide"><canvas id="minimap" hidden></canvas><span id="muteSlot"></span></div>
+  <div class="barSide"><canvas id="minimap" hidden></canvas><div class="barBtns"><button id="pauseBtn" type="button" aria-label="Pause"><i data-px="pause" data-c="#efe2c0" data-s="2"></i></button><span id="muteSlot"></span></div></div>
   <div class="barMid">
     <div class="pwGroup">
     <button id="pwBite" class="pw" type="button" tabindex="-1" data-state="none" aria-label="Super spreader bite"><img class="ico" data-ico="bite" alt=""><b>Bite</b><span class="st"></span><i class="key">1</i></button>

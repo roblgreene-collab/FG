@@ -25,6 +25,9 @@ function updateHud() {
   // R16-R20: the district's obstacle tip for the first seconds, then the sewer key status
   const F = LEVEL.features || {}, hz = !F.sewers ? '' : G.hasKey ? 'Sewers open' : 'Find the key';
   if (hudCache.hz !== hz) { hudCache.hz = hz; const el = $('hazLine'); el.hidden = !hz; el.innerHTML = pxIcon('grate', G.hasKey ? '#c05cff' : '#e8c860', 2) + hz; el.classList.toggle('open', !!G.hasKey); }
+  const clk = fmtTime(G.time) + '|' + starsFor(levelIndex, G.time); // R23: the clock and the stars still in reach
+  if (hudCache.clk !== clk) { hudCache.clk = clk; const n = starsFor(levelIndex, G.time); $('clock').innerHTML = [0, 1, 2].map(i => `<span class="${i < n ? '' : 'lost'}">${pxIcon('star', '#ffd75a', 1)}</span>`).join('') + '&nbsp;' + fmtTime(G.time); }
+  updateTips(G);
   const P = G.powers, pw = [P.bite, P.biteArmed, P.boost, P.boostT > 0, P.biteBought, P.boostBought, !!G.spreader].join();
   if (hudCache.pw !== pw) { // P3, P4: powerup buttons in the bottom bar
     hudCache.pw = pw;
@@ -45,6 +48,44 @@ function updateHud() {
   if (hudCache.di !== di) { $('decaySecs').textContent = di.toFixed(1) + 's'; hudCache.di = di; }
 }
 const fmtTime = s => Math.floor(s / 60) + ':' + String(Math.floor(s % 60)).padStart(2, '0');
+
+// R24: District 1 teaches as you play: one short tip at a time at the top of the play area,
+// until District 1 has been won once.
+const TIPS = [
+  { text: () => isTouch() ? 'Push the <b>joystick</b> to run' : '<b>WASD</b> or <b>arrows</b> to run', done: (G, T) => Math.hypot(G.rats[0].x - START.x, G.rats[0].y - START.y) > 40 },
+  { text: () => 'Run into <b>townsfolk</b> to infect them', done: G => G.infected > 0 },
+  { text: () => 'Each one adds a <b>rat</b> to your swarm', done: (G, T) => T > 3.5 },
+  { text: () => 'Keep biting! When the <b>timer</b> runs out a rat dies', done: (G, T) => T > 4.5 },
+  { text: () => `Infect <b>${Math.ceil(CONFIG.targetPercent * CONFIG.population / 100)}</b> people to take the district`, done: (G, T) => T > 4.5 },
+];
+function updateTips(G) {
+  const el = $('tip');
+  const on = levelIndex === 0 && unlocked <= 1 && state === 'playing' && !paused && !G.card && !G.intro && !G.feast && G.rats[0];
+  if (on && G.tip === undefined) { G.tip = 0; G.tipT = 0; }
+  const tip = on ? TIPS[G.tip] : null;
+  if (tip) {
+    G.tipT += 1 / 60; // updateHud runs once a frame
+    if (tip.done(G, G.tipT)) { G.tip++; G.tipT = 0; hudCache.tip = null; return; }
+    if (hudCache.tip !== G.tip) { hudCache.tip = G.tip; el.innerHTML = tip.text(); el.style.top = (parseFloat(canvas.style.top) || 0) + 8 + 'px'; el.hidden = false; }
+  } else if (!el.hidden) { el.hidden = true; hudCache.tip = null; }
+}
+
+// R23: stars. Winning a district earns 1 star, 2 within its first time goal, 3 within the second.
+// The best result for each district is kept on this device.
+const BEST_KEY = 'plague-rat-best';
+let best = {};
+try { best = JSON.parse(localStorage.getItem(BEST_KEY) || '{}') || {}; } catch (e) { best = {}; }
+const saveBest = () => { try { localStorage.setItem(BEST_KEY, JSON.stringify(best)); } catch (e) { /* storage blocked */ } };
+const starsFor = (i, t) => 1 + (t < LEVELS[i].stars[0]) + (t < LEVELS[i].stars[1]);
+const totalStars = () => Object.values(best).reduce((n, b) => n + (b.stars || 0), 0);
+const starRow = (n, size, dim = '#4a3e30') => [0, 1, 2].map(i => `<i>${pxIcon('star', i < n ? '#ffd75a' : dim, size)}</i>`).join('');
+function recordWin(i, t) { // returns { stars, newBest }
+  const stars = starsFor(i, t), b = best[i], newBest = !b || t < b.time;
+  if (newBest) best[i] = { stars: Math.max(stars, b ? b.stars : 0), time: Math.round(t * 10) / 10 };
+  else if (stars > b.stars) best[i].stars = stars;
+  saveBest();
+  return { stars, newBest: newBest && !!b };
+}
 
 // ---------------------------------------------------------------------------
 // Levels: progress, loading and the level list (L-rules)
@@ -77,6 +118,9 @@ const PX_ICONS = {
   close: ['##....##', '.##..##.', '..####..', '...##...', '..####..', '.##..##.', '##....##'],
   sound: ['....#...', '...##.#.', '####.#.#', '####.#.#', '####.#.#', '...##.#.', '....#...'],
   scroll: ['.######.', '#......#', '.#.##.#.', '.#....#.', '.#.##.#.', '.#....#.', '#......#', '.######.'],
+  pause: ['##..##', '##..##', '##..##', '##..##', '##..##', '##..##', '##..##'],
+  shake: ['#.####.#', '#.#..#.#', '..#..#..', '#.#..#.#', '#.####.#'],
+  star: ['...#...', '..###..', '#######', '.#####.', '..###..', '.##.##.', '##...##'],
   maze: ['########', '#.....##', '#.###..#', '#.#.#.##', '#.#...##', '#.#####.', '#.......', '########'],
   timer: ['..####..', '.#..#.#.', '#...#..#', '#...##.#', '#......#', '.#....#.', '..####..'],
   hand: ['...#.#..', '..#.#.#.', '..#####.', '.######.', '.######.', '..####..', '..####..'],
@@ -159,7 +203,7 @@ function renderLevelList() {
     const meta = locked
       ? `<span>${pxIcon('lock', '#a8987a', 2)}Take ${LEVELS[i - 1].name.replace(/^The /, '')}</span>`
       : `<span>${pxIcon('target', '#c05cff', 2)}${t.targetPercent}%</span><span>${nh ? pxIcon('skull', '#e0482c', 2) + nh : 'No hunters'}</span>` + levelObstacles(lv).map(([ic, nm]) => `<span>${pxIcon(ic, '#a8987a', 2)}${nm}</span>`).join('');
-    const end = done ? pxIcon('check', '#9cff3a', 3) : i === selected && !locked ? pxIcon('play', '#c05cff', 4) : locked ? pxIcon('lock', '#6a5a4a', 3) : '';
+    const end = best[i] ? `<span class="stars">${starRow(best[i].stars, 2)}</span>` : done ? pxIcon('check', '#9cff3a', 3) : i === selected && !locked ? pxIcon('play', '#c05cff', 4) : locked ? pxIcon('lock', '#6a5a4a', 3) : '';
     return `<button class="m-card m-panel${i === selected ? ' on' : ''}" type="button" data-i="${i}" ${locked ? 'disabled' : ''}>
       <span class="m-thumb" style="${thumbs[i] ? `background-image:url(${thumbs[i]})` : ''}"><span class="num">${i + 1}</span></span>
       <span><span class="nm">${lv.name}</span><span class="meta">${meta}</span></span><span>${end}</span></button>`;
@@ -168,6 +212,7 @@ function renderLevelList() {
   $('startSub').textContent = `District ${selected + 1} · ${LEVELS[selected].name}`;
   $('levelsCount').textContent = `${unlocked} / ${LEVELS.length}`;
   $('ppTitle').textContent = $('ppLevels').textContent = plaguePoints;
+  $('starsLevels').textContent = `${totalStars()}/${LEVELS.length * 3}`;
 }
 $('levelList').addEventListener('click', e => {
   const b = e.target.closest('.m-card'); if (!b || b.disabled) return;
@@ -175,7 +220,7 @@ $('levelList').addEventListener('click', e => {
   selected = +b.dataset.i; renderLevelList(); $('levelList').scrollTop = top;
 });
 
-const SCREENS = ['titleScreen', 'levelScreen', 'endScreen', 'splash', 'levelCard', 'howScreen', 'settingsScreen'];
+const SCREENS = ['titleScreen', 'levelScreen', 'endScreen', 'splash', 'levelCard', 'howScreen', 'settingsScreen', 'pauseScreen'];
 function hideScreens() { for (const id of SCREENS) $(id).hidden = true; showMenuBg(false); }
 function enterMenu() { state = 'title'; stopMusic(); hideScreens(); setFramed(false); mini.hidden = true; stickEl.hidden = true; }
 const focusKb = el => { if (!isTouch()) el.focus(); };
@@ -209,12 +254,22 @@ function setHand(left) { leftHanded = left; try { localStorage.setItem(HAND_KEY,
 $('handR').addEventListener('click', () => setHand(false));
 $('handL').addEventListener('click', () => setHand(true));
 applyHand();
+// V22: screen shake and vibration, on unless the device asks for reduced motion; remembered on this device
+const FX_KEY = 'plague-rat-shake';
+let shakeOn = !(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
+try { const v = localStorage.getItem(FX_KEY); if (v) shakeOn = v === 'on'; } catch (e) { /* storage blocked */ }
+function applyFx() { $('fxOn').setAttribute('aria-pressed', String(shakeOn)); $('fxOff').setAttribute('aria-pressed', String(!shakeOn)); }
+function setFx(on) { shakeOn = on; try { localStorage.setItem(FX_KEY, on ? 'on' : 'off'); } catch (e) { /* storage blocked */ } applyFx(); if (on) jolt(3, 0.3, 40); }
+$('fxOn').addEventListener('click', () => setFx(true));
+$('fxOff').addEventListener('click', () => setFx(false));
+applyFx();
 $('sndOn').addEventListener('click', () => { if (muted) toggleMute(); });
 $('sndOff').addEventListener('click', () => { if (!muted) toggleMute(); });
 $('resetYes').addEventListener('click', () => {
   unlocked = 1; selected = 0; // the next game starts from the first district
   plaguePoints = 0; savePoints(); // P1: a reset also empties the plague points
   inventory = { bite: 0, boost: 0 }; saveInventory(); // ...and the owned powerups
+  best = {}; saveBest(); // R23: ...and the stars
   try { localStorage.setItem(SAVE_KEY, '1'); } catch (e) { /* storage blocked: progress was only in memory anyway */ }
   $('resetConfirm').hidden = true;
   $('resetNote').textContent = 'Progress reset. Only The Market District is open now.'; $('resetNote').hidden = false;
@@ -251,6 +306,13 @@ const INV_KEY = 'plague-rat-powerups';
 let inventory = { bite: 0, boost: 0 };
 try { inventory = { ...inventory, ...JSON.parse(localStorage.getItem(INV_KEY) || '{}') }; } catch (e) { /* storage blocked or bad data */ }
 function saveInventory() { try { localStorage.setItem(INV_KEY, JSON.stringify(inventory)); } catch (e) { /* storage blocked */ } }
+// P1: later districts pay more; fractions carry over so nothing is lost to rounding.
+const pointsMult = () => CONFIG.pointsBaseMult + CONFIG.pointsPerDistrict * levelIndex;
+function awardPoints(base) {
+  game.ppFrac = (game.ppFrac || 0) + base * pointsMult();
+  const whole = Math.floor(game.ppFrac + 1e-9); game.ppFrac -= whole;
+  if (whole) addPoints(whole);
+}
 function addPoints(n) { plaguePoints += n; if (game) game.pointsEarned = (game.pointsEarned || 0) + n; savePoints(); }
 
 const POWERS = {
@@ -289,7 +351,7 @@ $('shopList').addEventListener('click', e => { const b = e.target.closest('[data
 
 function usePower(id) {
   const G = game, P = G.powers;
-  if (state !== 'playing' || G.card || G.intro || G.feast || !G.rats[0]) return;
+  if (state !== 'playing' || paused || G.card || G.intro || G.feast || !G.rats[0]) return;
   if (id === 'bite') {
     if (!P.bite || P.biteArmed || G.spreader) return;
     P.biteArmed = true; sfx.arm();
@@ -388,7 +450,7 @@ function explodeSpreader(c) {
   }
   G.blasts = (G.blasts || []).concat({ x: c.x, y: c.y, t: 0 });
   G.texts.push({ x: c.x - 10, y: c.y - 26, text: hit.length ? `+${hit.length} BURST` : 'FIZZLE', col: SPREADER_COL, life: 1.3 });
-  sfx.blast();
+  sfx.blast(); jolt(3, 0.35, 60); // V22
 }
 function drawSpreaderFx(G, ox, oy) {
   const c = G.spreader;
@@ -420,6 +482,9 @@ function showLevelCard() {
   $('lcStats').innerHTML = tile(`${pxIcon('target', '#c05cff', 3)}${CONFIG.targetPercent}%`, `Infect ${Math.ceil(CONFIG.targetPercent * CONFIG.population / 100)}`)
     + tile(`${pxIcon('skull', nh ? '#e0482c' : '#6a5a4a', 3)}${nh}`, nh ? lv.hunters.join(' · ') : 'No hunters')
     + (F.sewers ? tile(pxIcon('grate', '#c05cff', 3), 'Sewers') : tile(`${pxIcon('rats', '#a8987a', 3)}${CONFIG.startRats}`, 'Rats'));
+  const [g2, g3] = lv.stars, B = best[levelIndex]; // R23: the time goals for the stars, and the best so far
+  $('lcGoals').innerHTML = `<span>${starRow(2, 2)} under <b>${fmtTime(g2)}</b></span><span>${starRow(3, 2)} under <b>${fmtTime(g3)}</b></span>`
+    + (B ? `<span>Best <b>${fmtTime(B.time)}</b></span>` : '');
   const obs = levelObstacles(lv);
   $('lcList').innerHTML = obs.length
     ? obs.map(([ic, nm], i) => `<button class="m-tag2" type="button" data-ob="${i}" aria-expanded="false">${pxIcon(ic, ic === 'grate' ? '#c05cff' : '#f0884a', 2)}${nm === 'Sewers' ? 'Find the key' : nm === 'Maze' ? 'Maze of alleys' : nm}<span class="i">i</span></button>`).join('')
@@ -451,9 +516,17 @@ function endGame(won, reason) {
   state = won ? 'won' : 'lost';
   mini.hidden = true;
   stickEl.hidden = true; stick.id = null; stick.x = stick.y = 0; knobEl.style.transform = '';
-  updateHud();
+  updateHud(); setWarn(false);
+  jolt(won ? 2 : 4, won ? 0.25 : 0.45, won ? 0 : reason === 'caught' ? [90, 50, 140] : [60, 40, 60]); // V22
   const pct = Math.floor(G.infected * 100 / CONFIG.population), last = levelIndex === LEVELS.length - 1, left = huntersLeft(G);
   if (won) unlock(levelIndex + 2);
+  const W = won ? recordWin(levelIndex, G.time) : null; // R23
+  $('endStars').hidden = !won; $('endGoal').hidden = !won;
+  if (won) {
+    $('endStars').innerHTML = starRow(W.stars, 6);
+    const [g2, g3] = LEVEL.stars;
+    $('endGoal').innerHTML = W.newBest ? '<b>New best time!</b>' : W.stars === 3 ? 'All three stars' : `${W.stars + 1} stars: under <b>${fmtTime(W.stars === 1 ? g2 : g3)}</b>`;
+  }
   // V3 + V21: headline, a progress bar against the target, three tiles, the Bill of Mortality folded away
   $('endCrown').hidden = !won;
   $('endEyebrow').textContent = `District ${levelIndex + 1} · ${LEVEL.name}`;
