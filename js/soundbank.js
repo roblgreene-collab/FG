@@ -6,7 +6,7 @@
 // play picks one at random with a slight speed change, so nothing repeats exactly.
 'use strict';
 
-const BANK = { sr: 0, ctx: null, sets: {}, rnd: {} };
+const BANK = { sr: 0, ctx: null, sets: {}, rnd: {}, last: {} };
 
 // ---- small DSP kit (works on plain Float32Arrays) -------------------------------------------
 function bqCoefs(type, f, q, sr, gainDb = 0) { // RBJ cookbook biquads
@@ -96,24 +96,49 @@ function makeShout(sr, rnd) { // the hunter: "Oi!" or "Hey!"
   if (hey) { const h = Math.floor(0.05 * sr); for (let i = 0; i < h; i++) v[i] += (rnd() * 2 - 1) * 0.25 * (i / h); } // the breathy "h"
   return normalise(v);
 }
-function makeCough(sr, rnd) { // one to three wet, chesty coughs
-  const count = 1 + Math.floor(rnd() * 3), gap = 0.16 + rnd() * 0.08, out = new Float32Array(Math.floor((count * gap + 0.35) * sr));
-  for (let c = 0; c < count; c++) {
-    const dur = 0.16 + rnd() * 0.1, n = Math.floor(dur * sr), x = new Float32Array(n), env = curve([[0, 0], [0.006, 1], [0.04, 0.55], [dur, 0]]);
-    const rattle = smoothNoise(n, 35 + rnd() * 25, sr, rnd);
-    for (let i = 0; i < n; i++) x[i] = (rnd() * 2 - 1) * env(i / sr) * (0.75 + 0.25 * rattle[i]);
-    const f1 = 450 + rnd() * 200, f2 = 1000 + rnd() * 300;
-    const a = dspFilt(Float32Array.from(x), 'bp', f1, 3, sr), b = dspFilt(Float32Array.from(x), 'bp', f2, 4, sr), l = dspFilt(Float32Array.from(x), 'lp', 180, 0.9, sr);
-    const y = new Float32Array(n); for (let i = 0; i < n; i++) y[i] = a[i] + b[i] * 0.6 + l[i] * 1.6 + x[i] * 0.05;
-    const vo = synthVoice(sr, { rnd, dur: Math.min(dur, 0.09), pitch: () => 110 + rnd() * 60, vowel: 'uh', breath: 0.6, rough: 0.6, amp: curve([[0, 0], [0.01, 1], [0.09, 0]]) });
-    mixInto(y, vo, 0, 0.25);
-    mixInto(out, y, Math.floor(c * gap * sr), 1 - c * 0.2);
+// A13: the cry a person gives when the plague gets them. Seven kinds, each in several voices.
+const CRY_VOICES = { // pitch range (Hz), formant scale, tremble (old voices shake)
+  man: [105, 150, 1, 0], woman: [195, 265, 1.17, 0], child: [280, 360, 1.3, 0], oldMan: [95, 135, 0.97, 1], oldWoman: [180, 235, 1.12, 1],
+};
+const CRY_KINDS = ['ow', 'aah', 'ugh', 'ohno', 'whimper', 'gasp', 'sob'];
+function makeCry(sr, rnd, kind, who) {
+  const [lo, hi, scale, old] = CRY_VOICES[who], p0 = lo + rnd() * (hi - lo);
+  const shake = f => old ? t => f(t) * (1 + 0.05 * Math.sin(2 * Math.PI * (5 + rnd() * 2) * t)) : f; // an old, quavering voice
+  const base = { rnd, scale, breath: 0.35 + old * 0.2, rough: 0.3 + old * 0.2, jitter: 0.03 + old * 0.02 };
+  if (kind === 'ow') { // a sharp, pained "Ow!"
+    const dur = 0.24 + rnd() * 0.1;
+    return synthVoice(sr, { ...base, dur, drive: 1.8, pitch: shake(curve([[0, p0 * 1.1], [0.05, p0 * 1.45], [dur, p0 * 0.8]])), amp: curve([[0, 0], [0.015, 1], [dur * 0.5, 0.8], [dur, 0]]), vowel: t => blendV('a', 'u')(t / dur) });
+  }
+  if (kind === 'aah') { // a short, startled cry
+    const dur = 0.32 + rnd() * 0.15;
+    return synthVoice(sr, { ...base, dur, drive: 2, breath: base.breath + 0.15, pitch: shake(curve([[0, p0 * 1.3], [0.04, p0 * 1.6], [dur, p0 * 1.05]])), amp: curve([[0, 0], [0.02, 1], [dur * 0.6, 0.7], [dur, 0]]), vowel: 'a' });
+  }
+  if (kind === 'ugh') { // a sick, falling groan
+    const dur = 0.35 + rnd() * 0.25;
+    return synthVoice(sr, { ...base, dur, breath: 0.45, rough: 0.5, pitch: shake(curve([[0, p0 * 0.95], [0.05, p0], [dur, p0 * 0.68]])), amp: curve([[0, 0], [0.04, 1], [dur * 0.5, 0.8], [dur, 0]]), vowel: t => blendV('uh', 'o')(t / dur) });
+  }
+  if (kind === 'ohno') { // "Oh no!": two syllables, the second higher, with a hummed n between
+    const dur = 0.55 + rnd() * 0.1, m = dur * 0.42;
+    return synthVoice(sr, { ...base, dur, drive: 1.4, pitch: shake(curve([[0, p0], [m, p0 * 0.95], [m + 0.05, p0 * 1.35], [dur, p0 * 0.9]])),
+      amp: curve([[0, 0], [0.03, 1], [m - 0.04, 0.8], [m, 0.25], [m + 0.05, 0.3], [m + 0.09, 1], [dur * 0.85, 0.7], [dur, 0]]),
+      vowel: t => t < m - 0.03 ? VOWELS.o : t < m + 0.06 ? VOWELS.u : blendV('o', 'u')((t - m) / (dur - m)) });
+  }
+  if (kind === 'whimper') { // a thin, trembling whine
+    const dur = 0.45 + rnd() * 0.2, rate = 7 + rnd() * 4;
+    return synthVoice(sr, { ...base, dur, breath: 0.6, rough: 0.15, pitch: t => p0 * 1.45 * (1 - 0.25 * t / dur) * (1 + 0.06 * Math.sin(2 * Math.PI * rate * t)), amp: t => Math.min(1, t / 0.05) * Math.min(1, (dur - t) / 0.12) * (0.75 + 0.25 * Math.sin(2 * Math.PI * rate * t)), vowel: t => blendV('i', 'u')(t / dur) });
+  }
+  if (kind === 'gasp') { // a sharp, breathy intake: mostly air
+    const dur = 0.2 + rnd() * 0.08;
+    return synthVoice(sr, { ...base, dur, breath: 2.2, rough: 0.1, pitch: curve([[0, p0 * 1.2], [dur, p0 * 1.5]]), amp: curve([[0, 0], [0.04, 1], [dur * 0.7, 0.9], [dur, 0]]), vowel: t => blendV('ae', 'a')(t / dur) });
+  }
+  // 'sob': two or three catching "uh-huh"s, falling
+  const parts = 2 + Math.floor(rnd() * 2), gap = 0.17, out = new Float32Array(Math.floor((parts * gap + 0.25) * sr));
+  for (let k = 0; k < parts; k++) {
+    const d = 0.13 + rnd() * 0.06, p = p0 * (1.25 - k * 0.12);
+    const v = synthVoice(sr, { ...base, dur: d, breath: 0.7, pitch: shake(curve([[0, p * 1.1], [d, p * 0.85]])), amp: curve([[0, 0], [0.02, 1], [d, 0]]), vowel: k ? 'uh' : 'u' });
+    mixInto(out, v, Math.floor(k * gap * sr), 1 - k * 0.15);
   }
   return dspFade(normalise(out), sr);
-}
-function makeGroan(sr, rnd) { // a sick, falling "uhhh"
-  const dur = 0.35 + rnd() * 0.25, p0 = 95 + rnd() * 90;
-  return synthVoice(sr, { rnd, dur, breath: 0.45, rough: 0.5, scale: p0 > 150 ? 1.12 : 1, pitch: curve([[0, p0 * 1.1], [0.05, p0 * 1.15], [dur, p0 * 0.75]]), amp: curve([[0, 0], [0.04, 1], [dur * 0.5, 0.8], [dur, 0]]), vowel: t => blendV('uh', 'o')(t / dur) });
 }
 
 // ---- rats -----------------------------------------------------------------------------------
@@ -208,8 +233,7 @@ const BANK_RECIPES = {
   screamF: [4, (sr, r) => makeScream(sr, r, true)],
   screamM: [4, (sr, r) => makeScream(sr, r, false)],
   shout: [4, makeShout],
-  cough: [6, makeCough],
-  groan: [5, makeGroan],
+  cry: [21, (sr, r, v) => makeCry(sr, r, CRY_KINDS[v % 7], ['man', 'woman', 'child', 'oldMan', 'oldWoman', 'woman', 'man'][(v + Math.floor(v / 7) * 2) % 7])], // A13: every kind in three voices
   chew: [12, makeChew],
   splatter: [2, makeSplatter],
   splash: [3, makeSplash],
@@ -220,7 +244,7 @@ function buildOne(name) { // adds the next variant of one sound
   const [count, make] = BANK_RECIPES[name], list = BANK.sets[name] || (BANK.sets[name] = []);
   if (list.length >= count) return;
   if (!BANK.rnd[name]) BANK.rnd[name] = mulberry32(7331 + name.length * 97 + name.charCodeAt(0));
-  const data = make(BANK.sr, BANK.rnd[name]), buf = actx.createBuffer(1, data.length, BANK.sr);
+  const data = make(BANK.sr, BANK.rnd[name], list.length), buf = actx.createBuffer(1, data.length, BANK.sr);
   buf.getChannelData(0).set(data); list.push(buf);
 }
 function bankReady() { // a new audio context (or rate) starts the bank afresh
@@ -240,7 +264,9 @@ function playBank(name, opts = {}) {
   bankReady(); if (!BANK.sets[name] || !BANK.sets[name].length) buildOne(name); // not warmed up yet: make one now
   const set = BANK.sets[name];
   const src = actx.createBufferSource(), g = actx.createGain(), t = actx.currentTime + (opts.at || 0) + 0.005;
-  src.buffer = set[Math.floor(Math.random() * set.length)];
+  let pick = Math.floor(Math.random() * set.length);
+  if (set.length > 1 && pick === BANK.last[name]) pick = (pick + 1 + Math.floor(Math.random() * (set.length - 1))) % set.length; // never the same one twice running
+  BANK.last[name] = pick; src.buffer = set[pick];
   src.playbackRate.value = (opts.rate || 1) * (0.94 + Math.random() * 0.12);
   g.gain.value = opts.vol ?? 0.3;
   let node = src;

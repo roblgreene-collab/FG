@@ -45,7 +45,7 @@ const sfx = {
   clank() { if (REAL()) playBank('clank', { vol: 0.3 }); else OLD_SFX.clank(); },
   key() { if (REAL()) playBank('keys', { vol: 0.35 }); else OLD_SFX.key(); },
   sewer() { if (REAL()) playBank('splash', { vol: 0.4 }); else OLD_SFX.sewer(); },
-  blast() { if (REAL()) { playBank('splatter', { vol: 0.45 }); playBank('cough', { vol: 0.25, at: 0.5 }); playBank('cough', { vol: 0.22, at: 0.8, rate: 1.15 }); } else OLD_SFX.blast(); },
+  blast() { if (REAL()) { playBank('splatter', { vol: 0.45 }); playBank('cry', { vol: 0.28, at: 0.35 }); playBank('cry', { vol: 0.24, at: 0.6 }); playBank('cry', { vol: 0.2, at: 0.9 }); } else OLD_SFX.blast(); },
 };
 
 // A10: infection sounds. Each infection is a rat squeak plus a short sick groan from the victim.
@@ -83,9 +83,9 @@ function infectSfx(step) { // step = how many infections in a row came quickly (
   if (t - sfxLastInfect < 0.045) return; // a burst infecting many at once sounds once, not as a wall of noise
   sfxLastInfect = t;
   const k = Math.min(step, STREAK_NOTES.length - 1);
-  if (REAL()) { // A12: a real squeak, raised by the same scale steps, and a cough or a groan
+  if (REAL()) { // A12 + A13: a real squeak, raised by the same scale steps, and the person's cry
     playBank('squeak', { vol: 0.22, rate: STREAK_NOTES[k] / STREAK_NOTES[0] });
-    playBank(Math.random() < 0.55 ? 'cough' : 'groan', { vol: 0.3, at: 0.04 });
+    playBank('cry', { vol: 0.3, at: 0.04 });
     return;
   }
   const f = STREAK_NOTES[k] * (1 + (Math.random() - 0.5) * 0.02);
