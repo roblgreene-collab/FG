@@ -48,6 +48,10 @@ const HUNTER_FRAMES = [
 ];
 const HUNTER_PAL = { a: '#2e2620', h: '#3a2a1e', s: '#c99470', S: '#a87a5a', e: '#1d1712', k: '#3a3026', c: '#5a4a32', C: '#463a28', r: '#a8322c', d: '#2a2018', D: '#b89a50', g: '#6e5b4c', b: '#2c2620', B: '#221d18', f: '#1d1712' };
 const HUNTER_DANGER = '#e0482c', HUNTER_PREY = '#3fd8f0'; // H1, H2: red = dangerous, cyan = prey
+// H9: a prey hunter the swarm is only just big enough for flashes red and cyan, as a warning.
+const hunterWarning = h => !h.danger && game.rats.length - h.number <= CONFIG.hunterWarnMargin;
+const hunterRed = h => h.danger || (hunterWarning(h) && Math.floor(game.time * 6) % 2 === 0);
+const hunterCol = h => hunterRed(h) ? HUNTER_DANGER : HUNTER_PREY;
 const hunterSprites = {
   danger: HUNTER_FRAMES.map(f => spriteFrom(f, HUNTER_PAL, HUNTER_DANGER)),
   prey: HUNTER_FRAMES.map(f => spriteFrom(f, HUNTER_PAL, HUNTER_PREY)),
@@ -183,7 +187,7 @@ function updateFeast(dt) {
   }
   stepFx(dt);
   if (F.t >= T) { // the skeleton is gone: back to the game, with the bounty
-    h.alive = false; h.dying = false; G.huntersKilled++; awardPoints(CONFIG.pointsPerHunter); // P1
+    h.alive = false; h.dying = false; G.huntersKilled++; hunterBanner(G); // R26 awardPoints(CONFIG.pointsPerHunter); // P1
     G.decayTimer = 0; // R5: eating a hunter restarts the die-off countdown, like an infection
     for (let i = 0; i < CONFIG.hunterBounty; i++) G.rats.push(newRat(h.x + (Math.random() - .5) * 8, h.y + (Math.random() - .5) * 8));
     G.peak = Math.max(G.peak, G.rats.length);
@@ -218,7 +222,7 @@ function drawHunter(h, ox, oy) {
     if (k >= FEAST.gather * 0.6) return; // devoured: only the skeleton remains
     shake = Math.round(Math.sin(game.feast.t * 60) * 1.5);
   }
-  const s = (h.danger ? hunterSprites.danger : hunterSprites.prey)[h.frame];
+  const s = (hunterRed(h) ? hunterSprites.danger : hunterSprites.prey)[h.frame];
   const W = s.width, H = s.height, x = Math.round(h.x - W / 2 + ox) + shake, y = Math.round(h.y - H + 2 + oy);
   drawFootShadow(x, y + H - 2, W);
   // catch-pole with a net over his shoulder
@@ -233,5 +237,5 @@ function drawHunter(h, ox, oy) {
 }
 function drawHunterNumber(h, ox, oy) { // H1: his number floats over his head
   const t = String(h.number), x = Math.round(h.x + ox - (t.length * 4 - 1) / 2), y = Math.round(h.y - 23 + oy);
-  pixText(ctx, t, x, y, h.danger ? HUNTER_DANGER : HUNTER_PREY);
+  pixText(ctx, t, x, y, hunterCol(h));
 }

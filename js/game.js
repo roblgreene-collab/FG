@@ -411,7 +411,7 @@ function drawHunterArrows(G, ox, oy) {
     if (hx > 0 && hx < view.w && hy > 0 && hy < view.h) continue; // on screen: no arrow needed
     const dx = hx - cx, dy = hy - cy, k = Math.min((cx - M) / Math.abs(dx || 1e-6), (cy - M) / Math.abs(dy || 1e-6));
     const d = Math.hypot(dx, dy) || 1, ux = dx / d, uy = dy / d;
-    const ax = Math.round(cx + dx * k + ux * bob), ay = Math.round(cy + dy * k + uy * bob), col = h.danger ? HUNTER_DANGER : HUNTER_PREY;
+    const ax = Math.round(cx + dx * k + ux * bob), ay = Math.round(cy + dy * k + uy * bob), col = hunterCol(h);
     pixArrow(ax, ay, ux, uy, '#120f0c', 2); pixArrow(ax, ay, ux, uy, col, 0); // a pixel arrowhead pointing at him, outlined in black
     const t = String(h.number), tx = Math.round(ax - ux * 11 - (t.length * 4 - 1) / 2), ty = Math.round(ay - uy * 11 - 2);
     pixText(ctx, t, tx, ty, col);
@@ -473,7 +473,7 @@ function renderMinimap() {
     if (!h.alive || h.dying) continue;
     const px = Math.floor(h.x / cell) * 2, py = Math.floor(h.y / cell) * 2;
     mctx.fillStyle = '#120f0c'; mctx.fillRect(px - 3, py - 3, 8, 8);
-    mctx.fillStyle = h.danger ? HUNTER_DANGER : HUNTER_PREY; mctx.fillRect(px - 2, py - 2, 6, 6);
+    mctx.fillStyle = hunterCol(h); mctx.fillRect(px - 2, py - 2, 6, 6);
   }
   if (G.key && !G.hasKey && Math.floor(G.time * 2) % 2 === 0) { // R16: the key blinks gold until found
     const px = Math.floor(G.key.x / cell) * 2, py = Math.floor(G.key.y / cell) * 2;
@@ -503,7 +503,7 @@ function makeVignette() {
 function setFramed(on) {
   $('hud').hidden = !on; $('bottomBar').hidden = !on;
   (on ? $('muteSlot') : document.body).appendChild($('mute'));
-  if (!on) $('tip').hidden = true; // the sound button lives in the bar while playing
+  if (!on) { $('tip').hidden = true; clearBanners(); } // the sound button lives in the bar while playing
   document.body.classList.toggle('framed', on);
   resize();
 }

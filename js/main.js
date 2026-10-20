@@ -72,14 +72,15 @@ function pauseGame() {
   stick.id = null; stick.x = stick.y = 0; knobEl.style.transform = ''; stickEl.classList.remove('active');
   if (actx && actx.state === 'running') actx.suspend().catch(() => {});
   $('pauseEyebrow').textContent = `District ${levelIndex + 1} · ${LEVEL.name}`;
+  document.body.classList.add('paused');
   $('pauseScreen').hidden = false; $('tip').hidden = true; hudCache.tip = null; focusKb($('resumeBtn'));
 }
 function resumeGame() {
   if (!paused) return;
-  paused = false; $('pauseScreen').hidden = true; last = performance.now();
+  paused = false; $('pauseScreen').hidden = true; last = performance.now(); document.body.classList.remove('paused');
   if (actx && actx.state !== 'running') actx.resume().catch(() => {});
 }
-function leavePaused(then) { paused = false; $('pauseScreen').hidden = true; if (actx && actx.state !== 'running') actx.resume().catch(() => {}); state = 'lost'; then(); }
+function leavePaused(then) { paused = false; document.body.classList.remove('paused'); $('pauseScreen').hidden = true; if (actx && actx.state !== 'running') actx.resume().catch(() => {}); state = 'lost'; then(); }
 $('pauseBtn').addEventListener('click', e => { pauseGame(); e.currentTarget.blur(); });
 $('resumeBtn').addEventListener('click', resumeGame);
 $('restartBtn').addEventListener('click', () => leavePaused(() => startLevel(levelIndex)));

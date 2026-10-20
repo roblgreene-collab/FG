@@ -27,7 +27,7 @@ function updateHud() {
   if (hudCache.hz !== hz) { hudCache.hz = hz; const el = $('hazLine'); el.hidden = !hz; el.innerHTML = pxIcon('grate', G.hasKey ? '#c05cff' : '#e8c860', 2) + hz; el.classList.toggle('open', !!G.hasKey); }
   const clk = fmtTime(G.time) + '|' + starsFor(levelIndex, G.time); // R23: the clock and the stars still in reach
   if (hudCache.clk !== clk) { hudCache.clk = clk; const n = starsFor(levelIndex, G.time); $('clock').innerHTML = [0, 1, 2].map(i => `<span class="${i < n ? '' : 'lost'}">${pxIcon('star', '#ffd75a', 1)}</span>`).join('') + '&nbsp;' + fmtTime(G.time); }
-  updateTips(G);
+  updateTips(G); checkSwarmMilestones(G);
   const P = G.powers, pw = [P.bite, P.biteArmed, P.boost, P.boostT > 0, P.biteBought, P.boostBought, !!G.spreader].join();
   if (hudCache.pw !== pw) { // P3, P4: powerup buttons in the bottom bar
     hudCache.pw = pw;
@@ -58,6 +58,31 @@ const TIPS = [
   { text: () => 'Keep biting! When the <b>timer</b> runs out a rat dies', done: (G, T) => T > 4.5 },
   { text: () => `Infect <b>${Math.ceil(CONFIG.targetPercent * CONFIG.population / 100)}</b> people to take the district`, done: (G, T) => T > 4.5 },
 ];
+// R25, R26: big banners in the middle of the play area, one at a time (later ones wait their turn).
+const bannerQ = [];
+function banner(text, sub, cls) { bannerQ.push([text, sub, cls]); if ($('banner').hidden) nextBanner(); }
+function nextBanner() {
+  const el = $('banner'), b = bannerQ.shift();
+  if (!b || state !== 'playing') { el.hidden = true; bannerQ.length = 0; return; }
+  el.querySelector('b').textContent = b[0]; el.querySelector('small').textContent = b[1] || '';
+  el.className = b[2] || ''; el.style.top = ((parseFloat(canvas.style.top) || 0) + parseFloat(canvas.style.height || 0) * 0.38) + 'px';
+  el.style.left = ((parseFloat(canvas.style.left) || 0) + parseFloat(canvas.style.width || 0) / 2) + 'px';
+  el.hidden = false; el.style.animation = 'none'; void el.offsetWidth; el.style.animation = '';
+}
+$('banner').addEventListener('animationend', nextBanner);
+function clearBanners() { bannerQ.length = 0; $('banner').hidden = true; }
+const SWARM_NAMES = ['Big swarm!', 'Huge swarm!', 'Mega swarm!'];
+function checkSwarmMilestones(G) { // R25: the first time each size is reached in a round
+  CONFIG.swarmMilestones.forEach((n, i) => {
+    if (G.rats.length >= n && !(G.milestones || (G.milestones = new Set())).has(n)) { G.milestones.add(n); banner(SWARM_NAMES[i] || `${n} rats!`, `${n} rats`); }
+  });
+}
+function hunterBanner(G) { // R26: after each hunter is eaten
+  const left = huntersLeft(G);
+  if (!left) banner('All hunters eaten!', targetMet(G) ? '' : 'Now spread the plague', 'all');
+  else banner('Hunter eaten!', `${left} hunter${left > 1 ? 's' : ''} left`, 'hunt');
+}
+
 function updateTips(G) {
   const el = $('tip');
   const on = levelIndex === 0 && unlocked <= 1 && state === 'playing' && !paused && !G.card && !G.intro && !G.feast && G.rats[0];
@@ -280,7 +305,7 @@ function startLevel(i) {
   if (state === 'playing') return;
   if (!actx) { try { actx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { actx = null; } }
   const go = () => {
-    stopJingle(); loadLevel(i); newGame(); hudCache = {};
+    stopJingle(); clearBanners(); loadLevel(i); newGame(); hudCache = {};
     state = 'playing';
     startMusic();
     hideScreens(); mini.hidden = false; setFramed(true);
@@ -516,7 +541,7 @@ function endGame(won, reason) {
   state = won ? 'won' : 'lost';
   mini.hidden = true;
   stickEl.hidden = true; stick.id = null; stick.x = stick.y = 0; knobEl.style.transform = '';
-  updateHud(); setWarn(false);
+  updateHud(); setWarn(false); clearBanners();
   jolt(won ? 3 : reason === 'caught' ? 7 : 5, won ? 0.35 : 0.6, won ? 0 : reason === 'caught' ? [90, 50, 140] : [60, 40, 60]); // V22
   const pct = Math.floor(G.infected * 100 / CONFIG.population), last = levelIndex === LEVELS.length - 1, left = huntersLeft(G);
   if (won) unlock(levelIndex + 2);
