@@ -261,7 +261,7 @@ function hurtRat(i, cols, cause) {
   const dead = G.rats.splice(i, 1)[0] || r;
   G.hazardKills = (G.hazardKills || 0) + 1; G.lostTo = cause;
   for (let k = 0; k < 7; k++) G.particles.push({ x: dead.x, y: dead.y, vx: (Math.random() - .5) * 26, vy: -10 - Math.random() * 16, life: 0.6, max: 0.6, col: pick(Math.random, cols), size: 1 });
-  sfx.die(); jolt(1, 0.15, 15); // V22
+  sfx.die(); jolt(2, 0.18, 20); // V22
 }
 
 function updateHazards(dt) {

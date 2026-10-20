@@ -450,7 +450,7 @@ function explodeSpreader(c) {
   }
   G.blasts = (G.blasts || []).concat({ x: c.x, y: c.y, t: 0 });
   G.texts.push({ x: c.x - 10, y: c.y - 26, text: hit.length ? `+${hit.length} BURST` : 'FIZZLE', col: SPREADER_COL, life: 1.3 });
-  sfx.blast(); jolt(3, 0.35, 60); // V22
+  sfx.blast(); jolt(5, 0.45, 60); // V22
 }
 function drawSpreaderFx(G, ox, oy) {
   const c = G.spreader;
@@ -517,7 +517,7 @@ function endGame(won, reason) {
   mini.hidden = true;
   stickEl.hidden = true; stick.id = null; stick.x = stick.y = 0; knobEl.style.transform = '';
   updateHud(); setWarn(false);
-  jolt(won ? 2 : 4, won ? 0.25 : 0.45, won ? 0 : reason === 'caught' ? [90, 50, 140] : [60, 40, 60]); // V22
+  jolt(won ? 3 : reason === 'caught' ? 7 : 5, won ? 0.35 : 0.6, won ? 0 : reason === 'caught' ? [90, 50, 140] : [60, 40, 60]); // V22
   const pct = Math.floor(G.infected * 100 / CONFIG.population), last = levelIndex === LEVELS.length - 1, left = huntersLeft(G);
   if (won) unlock(levelIndex + 2);
   const W = won ? recordWin(levelIndex, G.time) : null; // R23

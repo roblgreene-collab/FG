@@ -44,7 +44,6 @@ const CONFIG = {
   pointsBaseMult: 0.6,     // P1: District 1 pays this share of the points above...
   pointsPerDistrict: 0.15, // P1: ...and each later district pays this much more (District 10: x1.95)
   warnRats: 3,             // V22: the low-swarm warning shows at this many rats or fewer
-  hunterArrowsAt: 2,       // H8: edge arrows to off-screen hunters once this few are left (or the target is reached)
   scatterRadius: 32,       // R9: px, healthy townsfolk this close to a new infection run off
   scatterTime: 1.0,        // R9: seconds they run for
   scatterSpeedMult: 2.5,   // R9: their speed while running, x citizenSpeed

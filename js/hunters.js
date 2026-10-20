@@ -148,7 +148,7 @@ function updateHunters(dt) {
 function killHunter(h) {
   const G = game;
   h.dying = true;
-  jolt(2, 0.3, 40); // V22
+  jolt(4, 0.4, 40); // V22
   G.feast = {
     h, t: 0, crunch: 0,
     from: G.rats.map(r => ({ x: r.x, y: r.y })),

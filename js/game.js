@@ -355,12 +355,28 @@ const shake = { t: 0, dur: 1, amp: 0 };
 function jolt(amp, dur, buzz) {
   if (!shakeOn) return;
   if (amp >= shake.amp * (shake.t / shake.dur)) { shake.amp = amp; shake.t = shake.dur = dur; }
-  if (buzz && navigator.vibrate) try { navigator.vibrate(buzz); } catch (e) { /* not allowed */ }
+  if (buzz) buzzPhone(buzz);
 }
-function shakeOffset() {
+function shakeOffset() { // a fast wobble that dies away, in game pixels
   if (shake.t <= 0) return { x: 0, y: 0 };
-  const a = shake.amp * (shake.t / shake.dur);
-  return { x: Math.round((Math.random() * 2 - 1) * a), y: Math.round((Math.random() * 2 - 1) * a) };
+  const a = shake.amp * (shake.t / shake.dur) ** 1.5, t = shake.t * 60;
+  return { x: Math.round(Math.sin(t * 0.9) * a), y: Math.round(Math.cos(t * 1.13) * a * 0.8) };
+}
+// Vibration where the browser allows it (Android). iPhones have no vibration for web pages; on iOS 18+
+// tapping a hidden switch control gives a small haptic tick, so that is used instead (best effort).
+let hapticLabel = null;
+function buzzPhone(pattern) {
+  try {
+    if (navigator.vibrate && navigator.vibrate(pattern)) return;
+    if (!hapticLabel) {
+      hapticLabel = document.createElement('label'); hapticLabel.setAttribute('aria-hidden', 'true');
+      hapticLabel.style.cssText = 'position:fixed;left:-99px;top:0;width:1px;height:1px;overflow:hidden;opacity:0;pointer-events:none';
+      const sw = document.createElement('input'); sw.type = 'checkbox'; sw.setAttribute('switch', ''); sw.tabIndex = -1;
+      hapticLabel.appendChild(sw); document.body.appendChild(hapticLabel);
+    }
+    const n = Array.isArray(pattern) ? Math.ceil(pattern.length / 2) : 1; // one tick per pulse
+    for (let i = 0; i < n; i++) setTimeout(() => hapticLabel.click(), i * 120);
+  } catch (e) { /* no haptics here */ }
 }
 
 // V22: low-swarm warning. With only a few rats left, a red glow pulses in from the edges,
@@ -384,10 +400,9 @@ function drawWarning(G) {
   ctx.globalAlpha = (0.4 + 0.5 * k) * (0.6 + 0.4 * Math.sin(G.time * rate)); ctx.drawImage(warnCanvas, 0, 0); ctx.globalAlpha = 1;
 }
 
-// H8: in the endgame, arrows at the edge of the view point to hunters off screen.
+// H8: arrows at the edge of the view point to every hunter off screen.
 function drawHunterArrows(G, ox, oy) {
-  const left = huntersLeft(G);
-  if (!left || (left > CONFIG.hunterArrowsAt && !targetMet(G)) || !G.rats[0]) return;
+  if (!huntersLeft(G) || !G.rats[0]) return;
   const cx = view.w / 2, cy = view.h / 2, M = 8, bob = Math.round(Math.sin(G.time * 6));
   for (const h of G.hunters) {
     if (!h.alive || h.dying) continue;
