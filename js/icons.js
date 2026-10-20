@@ -1,25 +1,26 @@
-// Plague Rat: menu and HUD icons (V25). Each icon is drawn as vector shapes on a 24×24 grid and
-// finished as a crisp vector with a top-to-bottom gradient, a dark outline and a soft drop shadow.
-// The star is the classic bevelled game star; the cog has eight even, flat-topped teeth.
+// Plague Rat: menu and HUD icons (V25). Each icon is drawn as vector shapes on a 24×24 grid, then
+// turned into detailed pixel art: rasterised onto an odd-sized pixel grid centred on a pixel (so
+// symmetrical icons come out exactly symmetrical), given a dark ink outline, a lit top-left edge and a
+// shaded bottom-right edge. The star is the bevelled game star: each point has a lit and a shaded half.
 'use strict';
 
 const circ = (cx, cy, r) => `M${cx - r} ${cy}a${r} ${r} 0 1 0 ${r * 2} 0a${r} ${r} 0 1 0 ${-r * 2} 0Z`;
 const rect = (x, y, w, h) => `M${x} ${y}h${w}v${h}h${-w}Z`;
 const starPath = (cx, cy, R, r, n = 5) => { let d = ''; for (let i = 0; i < n * 2; i++) { const a = -Math.PI / 2 + i * Math.PI / n, q = i % 2 ? r : R; d += (i ? 'L' : 'M') + (cx + Math.cos(a) * q).toFixed(2) + ' ' + (cy + Math.sin(a) * q).toFixed(2); } return d + 'Z'; };
-// A settings cog: evenly spaced flat-topped teeth (one centred at the top), joined by arcs round the body.
+// A settings cog: eight evenly spaced, square-topped teeth (one centred at the top), joined by arcs round the body.
 const cogPath = (cx, cy, R, r, teeth, baseHalf, topHalf) => {
   const P = (a, q) => (cx + Math.cos(a) * q).toFixed(3) + ' ' + (cy + Math.sin(a) * q).toFixed(3);
   let d = '';
   for (let i = 0; i < teeth; i++) {
     const a = -Math.PI / 2 + i * 2 * Math.PI / teeth, b0 = a - baseHalf, b1 = a + baseHalf;
-    d += (i ? `A${r} ${r} 0 0 1 ` : 'M') + P(b0, r) + 'L' + P(a - topHalf, R) + `A${R} ${R} 0 0 1 ` + P(a + topHalf, R) + 'L' + P(b1, r);
+    d += (i ? `A${r} ${r} 0 0 1 ` : 'M') + P(b0, r) + 'L' + P(a - topHalf, R) + 'L' + P(a + topHalf, R) + 'L' + P(b1, r);
   }
   return d + `A${r} ${r} 0 0 1 ` + P(-Math.PI / 2 - baseHalf, r) + 'Z';
 };
 const gearPath = (cx, cy, R, r, teeth) => { let d = ''; for (let i = 0; i < teeth * 4; i++) { const a = i * Math.PI * 2 / (teeth * 4) - Math.PI / (teeth * 4) * 1.5, q = (i % 4 < 2) ? R : r; d += (i ? 'L' : 'M') + (cx + Math.cos(a) * q).toFixed(2) + ' ' + (cy + Math.sin(a) * q).toFixed(2); } return d + 'Z'; };
 // Each icon: a list of parts. A part is { d } (filled, even-odd so holes cut out) or { d, w } (stroked, w wide).
 const ICON_SHAPES = {
-  star: [{ d: starPath(12, 13.2, 12, 5.6), star: true }],
+  star: [{ d: starPath(12, 13.2, 12, 5.6) }],
   play: [{ d: 'M6 3.5Q6 2 7.4 2.8L20.6 10.7Q22 11.6 20.6 12.6L7.4 20.6Q6 21.4 6 19.9Z' }],
   check: [{ d: 'M2.5 12.5L6 9.2L9.6 12.8L18.2 3.8L21.6 7.2L9.6 19.6Z' }],
   close: [{ d: 'M4.5 2.5L12 10L19.5 2.5L21.5 4.5L14 12L21.5 19.5L19.5 21.5L12 14L4.5 21.5L2.5 19.5L10 12L2.5 4.5Z' }],
@@ -31,7 +32,7 @@ const ICON_SHAPES = {
   crown: [{ d: 'M2.5 17.5L1.5 6.5L7 10.5L12 3L17 10.5L22.5 6.5L21.5 17.5Z' + circ(12, 12.5, 1.6) + circ(6.5, 14, 1.2) + circ(17.5, 14, 1.2) }, { d: rect(2.5, 18.8, 19, 3.2) }],
   timer: [{ d: circ(12, 13.5, 9) + circ(12, 13.5, 6.8) }, { d: rect(9.5, 1.5, 5, 2.5) + rect(11, 3.5, 2, 2) }, { d: 'M11 8.5h2v5.5l3.2 2.4-1.2 1.6L11 15Z' }],
   back: [{ d: 'M10.5 3L1.5 12L10.5 21V15.5H22.5V8.5H10.5Z' }],
-  gear: [{ d: cogPath(12, 12, 11.3, 8.4, 8, 0.26, 0.17) + circ(12, 12, 3.6) }],
+  gear: [{ d: cogPath(12, 12, 11.8, 7.9, 8, 0.3, 0.23) + circ(12, 12, 3.9) }],
   q: [{ d: 'M5.5 8.6C5.5 4.8 8.3 2.2 12.1 2.2c3.8 0 6.4 2.4 6.4 5.6 0 2.6-1.5 3.9-3.2 5-1.3.8-1.8 1.5-1.8 2.8v.8H9.7v-1.1c0-2.4 1-3.6 2.7-4.7 1.3-.8 2.1-1.5 2.1-2.7 0-1.3-1-2.2-2.4-2.2-1.5 0-2.6 1-2.7 2.9Z' }, { d: rect(9.7, 18.3, 3.9, 3.7) }],
   film: [{ d: 'M2 4h20v16H2Z' + rect(3.5, 5.5, 2, 2) + rect(7.5, 5.5, 2, 2) + rect(11.5, 5.5, 2, 2) + rect(15.5, 5.5, 2, 2) + rect(19, 5.5, 1.5, 2) + rect(3.5, 16.5, 2, 2) + rect(7.5, 16.5, 2, 2) + rect(11.5, 16.5, 2, 2) + rect(15.5, 16.5, 2, 2) + rect(19, 16.5, 1.5, 2) + rect(4, 9, 16, 6) }],
   sound: [{ d: 'M2 8.5h4.5L12.5 3.5v17L6.5 15.5H2Z' }, { d: 'M15.5 8.5a5 5 0 0 1 0 7', w: 2.2 }, { d: 'M18.3 5.5a9 9 0 0 1 0 13', w: 2.2 }],
@@ -52,26 +53,56 @@ const ICON_SHAPES = {
 const mixHex = (a, b, t) => { const p = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16)); const A = p(a), B = p(b); return '#' + A.map((v, i) => Math.round(v + (B[i] - v) * t).toString(16).padStart(2, '0')).join(''); };
 const ICON_INK = '#120f0c';
 
-let iconUid = 0;
-function starFacets(cx, cy, R, r) { // the classic bevelled game star: each point has a lit left half and a shaded right half
-  const pt = (i, q) => { const a = -Math.PI / 2 + i * Math.PI / 5; return (cx + Math.cos(a) * q).toFixed(2) + ' ' + (cy + Math.sin(a) * q).toFixed(2); };
-  let out = '';
-  for (let k = 0; k < 5; k++) {
-    const o = k * 2;
-    out += `<path d="M${cx} ${cy}L${pt(o - 1, r)}L${pt(o, R)}Z" fill="#fff" opacity=".28"/>`;
-    out += `<path d="M${cx} ${cy}L${pt(o, R)}L${pt(o + 1, r)}Z" fill="#000" opacity=".16"/>`;
+const iconCache = new Map();
+const ICON_SYM = { star: 'x', gear: 'xy', skull: 'x', target: 'xy', grate: 'xy', crown: 'x', pause: 'xy', close: 'xy', lock: 'x', film: 'xy', scroll: 'x', play: 'y', fire: 'x', cart: '', moon: '' };
+// A pixel-art settings cog, built from blocks like a hand-drawn one: a round body, square teeth straight
+// up, down, left and right, square teeth on the diagonals, and a round hole. Symmetrical both ways.
+function gearPixels(M, S, grid) {
+  M.fill(0);
+  const c = (S - 1) / 2, R = grid / 2, body = R * 0.63, hole = Math.max(1.6, R * 0.28);
+  const tw = Math.max(1, Math.round(R * 0.18)), dHalf = Math.max(1, Math.round(R * 0.16)), dAt = Math.round(R * 0.6);
+  for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) {
+    const X = x - c, Y = y - c, r = Math.hypot(X, Y);
+    const ortho = (Math.abs(X) <= tw && Math.abs(Y) <= R) || (Math.abs(Y) <= tw && Math.abs(X) <= R);
+    const diag = Math.abs(Math.abs(X) - dAt) <= dHalf && Math.abs(Math.abs(Y) - dAt) <= dHalf;
+    if ((r <= body + 0.6 || ortho || diag) && r > hole) M[y * S + x] = 1;
   }
-  return out;
 }
-function iconSmooth(name, col, size) { // a gradient-filled vector with an ink outline and a soft drop shadow
-  const id = 'ig' + (iconUid++), hi = mixHex(col, '#ffffff', 0.5), lo = mixHex(col, '#000000', 0.35);
-  const parts = ICON_SHAPES[name], sw = 24 / size * 1.6; // outline about 1.6 screen px whatever the size
-  const shape = (fill, stroke, extra = '') => parts.map(p => p.w
-    ? `<path d="${p.d}" fill="none" stroke="${stroke || fill}" stroke-width="${p.w + (stroke ? sw * 2 : 0)}" stroke-linecap="round" stroke-linejoin="round"${extra}/>`
-    : `<path d="${p.d}" fill="${fill}" fill-rule="evenodd"${stroke ? ` stroke="${stroke}" stroke-width="${sw * 2}" stroke-linejoin="round"` : ''}${extra}/>`).join('');
-  return `<svg class="px" width="${size}" height="${size}" viewBox="-1.2 -1.2 26.4 26.4" aria-hidden="true"><defs><linearGradient id="${id}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${hi}"/><stop offset=".55" stop-color="${col}"/><stop offset="1" stop-color="${lo}"/></linearGradient></defs>`
-    + `<g transform="translate(0.9 1.3)" opacity=".55">${shape(ICON_INK, ICON_INK)}</g>${shape(ICON_INK, ICON_INK)}${shape(`url(#${id})`)}${parts[0].star ? starFacets(12, 13.2, 12, 5.6) : ''}</svg>`;
+function iconPixel(name, col, size) {
+  let grid = Math.max(11, Math.min(19, Math.round(size / 1.6))); if (grid % 2 === 0) grid--; // odd, so the middle is a pixel
+  const S = grid + 2, cv = document.createElement('canvas'); cv.width = cv.height = S;
+  const g = cv.getContext('2d');
+  g.translate(1, 1); g.scale(grid / 24, grid / 24); g.fillStyle = g.strokeStyle = '#fff'; g.lineCap = g.lineJoin = 'round';
+  for (const p of ICON_SHAPES[name]) { const P = new Path2D(p.d); if (p.w) { g.lineWidth = p.w; g.stroke(P); } else g.fill(P, 'evenodd'); }
+  const a = g.getImageData(0, 0, S, S).data, M = new Uint8Array(S * S);
+  for (let i = 0; i < S * S; i++) M[i] = a[i * 4 + 3] > 115 ? 1 : 0;
+  if (name === 'gear') gearPixels(M, S, grid); // the cog is built from blocks straight on the pixel grid
+  const sym = ICON_SYM[name] || '';
+  if (sym.includes('x')) for (let y = 0; y < S; y++) for (let x = 0; x < S / 2; x++) { const v = M[y * S + x] | M[y * S + S - 1 - x]; M[y * S + x] = M[y * S + S - 1 - x] = v; }
+  if (sym.includes('y')) for (let y = 0; y < S / 2; y++) for (let x = 0; x < S; x++) { const v = M[y * S + x] | M[(S - 1 - y) * S + x]; M[y * S + x] = M[(S - 1 - y) * S + x] = v; }
+  const on = (x, y) => x >= 0 && y >= 0 && x < S && y < S && M[y * S + x] === 1;
+  const hi = mixHex(col, '#ffffff', 0.45), lo = mixHex(col, '#000000', 0.35), flat = grid < 13;
+  const isStar = name === 'star', k = 24 / grid;
+  let svg = '';
+  const px = (x, y, c) => { svg += `<rect x="${x}" y="${y}" width="1" height="1" fill="${c}"/>`; };
+  for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) {
+    if (on(x, y)) {
+      let c = col;
+      if (isStar) { // bevel: the left half of each point is lit, the right half shaded, a bright rim on top
+        const X = (x + 0.5 - 1) * k - 12, Y = (y + 0.5 - 1) * k - 13.2;
+        let ang = Math.atan2(Y, X) * 180 / Math.PI + 90; ang = ((ang % 72) + 72 + 36) % 72 - 36; // -36..36 around the nearest point
+        c = Math.hypot(X, Y) < 1.2 ? col : ang < -1 ? hi : ang > 1 ? lo : col;
+        if (!on(x, y - 1)) c = mixHex(col, '#ffffff', 0.7);
+      } else if (flat) c = !on(x, y - 1) ? hi : col;
+      else c = !on(x, y - 1) || !on(x - 1, y) ? hi : !on(x, y + 1) || !on(x + 1, y) || !on(x + 1, y + 1) ? lo : col;
+      px(x, y, c);
+    } else if (on(x - 1, y) || on(x + 1, y) || on(x, y - 1) || on(x, y + 1)) px(x, y, ICON_INK);
+  }
+  return `<svg class="px" width="${size}" height="${size}" viewBox="0 0 ${S} ${S}" shape-rendering="crispEdges" aria-hidden="true">${svg}</svg>`;
 }
 function drawIcon(name, col, s = 3) { // s is the size step the menus use (about 10.5 px each)
-  return ICON_SHAPES[name] ? iconSmooth(name, col, Math.round(s * 10.5)) : '';
+  if (!ICON_SHAPES[name]) return '';
+  const size = Math.round(s * 10.5), key = name + col + size;
+  if (!iconCache.has(key)) iconCache.set(key, iconPixel(name, col, size));
+  return iconCache.get(key);
 }
