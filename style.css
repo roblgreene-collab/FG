@@ -447,7 +447,10 @@ body.paused #banner { animation-play-state: paused; }
 .hchip.hazLine { color: #e8c860; text-align: left; } .hchip.hazLine.open { color: var(--plague); border-color: var(--plague); }
 /* R23: the level clock with the stars still in reach, in the spread meter's label row */
 #hud .label .clock { margin-left: auto; gap: 2px; color: var(--parch); font-size: 12px; letter-spacing: .02em; font-variant-numeric: tabular-nums; }
-#hud .label .clock .lost { opacity: .25; }
+#hud .label .clock .lost { opacity: .3; }
+#hud .label .clock svg { width: 13px; height: 13px; }
+body.land #hud .label .clock svg { width: 10px; height: 10px; }
+body.land #hud .label { gap: 4px; }
 @media (max-width: 419px) { #hud .label .lw { display: none; } }
 body.land #hud .label .lw { display: none; }
 .hchip.ppChip { margin-left: auto; color: #e8c8ff; font-size: 13px; letter-spacing: 0; flex: none; }

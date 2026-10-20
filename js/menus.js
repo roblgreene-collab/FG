@@ -26,7 +26,7 @@ function updateHud() {
   const F = LEVEL.features || {}, hz = !F.sewers ? '' : G.hasKey ? 'Sewers open' : 'Find the key';
   if (hudCache.hz !== hz) { hudCache.hz = hz; const el = $('hazLine'); el.hidden = !hz; el.innerHTML = pxIcon('grate', G.hasKey ? '#c05cff' : '#e8c860', 2) + hz; el.classList.toggle('open', !!G.hasKey); }
   const clk = fmtTime(G.time) + '|' + starsFor(levelIndex, G.time); // R23: the clock and the stars still in reach
-  if (hudCache.clk !== clk) { hudCache.clk = clk; const n = starsFor(levelIndex, G.time); $('clock').innerHTML = [0, 1, 2].map(i => `<span class="${i < n ? '' : 'lost'}">${pxIcon('star', '#ffd75a', 1)}</span>`).join('') + '&nbsp;' + fmtTime(G.time); }
+  if (hudCache.clk !== clk) { hudCache.clk = clk; const n = starsFor(levelIndex, G.time); $('clock').innerHTML = [0, 1, 2].map(i => `<span class="${i < n ? '' : 'lost'}">${pxIcon('star', '#ffd75a', 1.5)}</span>`).join('') + '&nbsp;' + fmtTime(G.time); }
   updateTips(G); checkSwarmMilestones(G);
   const P = G.powers, pw = [P.bite, P.biteArmed, P.boost, P.boostT > 0, P.biteBought, P.boostBought, !!G.spreader].join();
   if (hudCache.pw !== pw) { // P3, P4: powerup buttons in the bottom bar
@@ -129,43 +129,8 @@ function loadLevel(i) {
   if (loadedLevel !== i) { buildMap(LEVEL); mapCanvas = renderMap(); loadedLevel = i; }
   $('target').style.left = CONFIG.targetPercent + '%';
 }
-// V21: small pixel icons for the menus, drawn as crisp SVG squares.
-const PX_ICONS = {
-  skull: ['..#####..', '.#######.', '##..#..##', '##..#..##', '.#######.', '..##.##..', '..#.#.#..'],
-  target: ['..#####..', '.#.....#.', '#..###..#', '#..#.#..#', '#..###..#', '.#.....#.', '..#####..'],
-  grate: ['..#####..', '.#.#.#.#.', '#.#.#.#.#', '#.#.#.#.#', '#.#.#.#.#', '.#.#.#.#.', '..#####..'],
-  q: ['..####..', '.##..##.', '.....##.', '....##..', '...##...', '........', '...##...'],
-  gear: ['...##...', '.######.', '.##..##.', '##....##', '##....##', '.##..##.', '.######.', '...##...'],
-  film: ['########', '#.#..#.#', '########', '#......#', '#......#', '########', '#.#..#.#', '########'],
-  back: ['...#....', '..##....', '.#######', '########', '.#######', '..##....', '...#....'],
-  lock: ['..####..', '.#....#.', '.#....#.', '########', '###..###', '###..###', '########'],
-  check: ['.......#', '......##', '#....##.', '##..##..', '.####...', '..##....'],
-  close: ['##....##', '.##..##.', '..####..', '...##...', '..####..', '.##..##.', '##....##'],
-  sound: ['....#...', '...##.#.', '####.#.#', '####.#.#', '####.#.#', '...##.#.', '....#...'],
-  scroll: ['.######.', '#......#', '.#.##.#.', '.#....#.', '.#.##.#.', '.#....#.', '#......#', '.######.'],
-  pause: ['##..##', '##..##', '##..##', '##..##', '##..##', '##..##', '##..##'],
-  shake: ['#.####.#', '#.#..#.#', '..#..#..', '#.#..#.#', '#.####.#'],
-  star: ['...#...', '..###..', '#######', '.#####.', '..###..', '.##.##.', '##...##'],
-  maze: ['########', '#.....##', '#.###..#', '#.#.#.##', '#.#...##', '#.#####.', '#.......', '########'],
-  timer: ['..####..', '.#..#.#.', '#...#..#', '#...##.#', '#......#', '.#....#.', '..####..'],
-  hand: ['...#.#..', '..#.#.#.', '..#####.', '.######.', '.######.', '..####..', '..####..'],
-  rat: ['.....##.', '.######.', '########', '#######.', '.#..#...'],
-  crown: ['#..#..#', '##.#.##', '#######', '#.###.#', '#######'],
-  play: ['#....', '###..', '#####', '###..', '#....'],
-  wave: ['........', '.##..##.', '#..##..#', '........', '.##..##.', '#..##..#', '........'],
-  moon: ['..###...', '.##.....', '##......', '##......', '##......', '.##.....', '..###...'],
-  fire: ['...#....', '..##..#.', '..###.#.', '.#####..', '.######.', '########', '.######.'],
-  gate: ['########', '#.#.#.#.', '#.#.#.#.', '########', '#.#.#.#.', '#.#.#.#.', '#.#.#.#.'],
-  cart: ['..#####.', '.#######', '########', '.#....#.', '###..###', '.#....#.'],
-  rats: ['......##', '.#######', '########', '........', '.....##.', '.######.', '#######.'],
-};
-function pxIcon(name, col, s = 3) {
-  const r = PX_ICONS[name]; if (!r) return '';
-  const w = r[0].length, h = r.length;
-  let out = `<svg class="px" width="${w * s}" height="${h * s}" viewBox="0 0 ${w} ${h}" shape-rendering="crispEdges" aria-hidden="true">`;
-  r.forEach((row, y) => [...row].forEach((ch, x) => { if (ch === '#') out += `<rect x="${x}" y="${y}" width="1" height="1" fill="${col}"/>`; }));
-  return out + '</svg>';
-}
+// V21 + V25: menu and HUD icons (drawn in js/icons.js).
+const pxIcon = (name, col, s = 3) => drawIcon(name, col, s);
 function fillPxIcons(root = document) { root.querySelectorAll('i[data-px]').forEach(el => { el.outerHTML = pxIcon(el.dataset.px, el.dataset.c || '#efe2c0', +el.dataset.s || 3); }); }
 fillPxIcons();
 const coinImg = sz => `<img src="${UI_ICON_URL.pp}" alt="" style="width:${sz}px;height:${sz}px;image-rendering:pixelated">`;
