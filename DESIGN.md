@@ -224,6 +224,18 @@ Status **Planned** = recorded for later; not built until the designer says so.
 - More hazards: cats, or guards that kill rats.
 - Townsfolk types: e.g. a doctor who cures, a crowd that clusters at a market.
 - A best time and star rating saved per level.
+- *(Claude's review, 2026-10-20; none accepted yet)*
+  - **Endgame starvation:** once the townsfolk run out, the swarm starves while hunting the last hunters (most late-level losses). Options: hunters fleeing toward you once few remain, edge arrows to the last hunters, late townsfolk arriving at the district gates, or eating a hunter refilling the countdown.
+  - **Point farming:** points are kept after a loss and Level 1 pays ~60–90 in a minute, so replaying it beats any price. Options: points scale with the district, or first-clear / best-score bonuses only.
+  - **Fairer powerup loss:** if the level is lost, give back the unused bites/dashes instead of spending them.
+  - **Stars per district** (target, all hunters, time or rats left) to give a reason to replay; ties to the best-time idea above.
+  - **Townsfolk reactions** (Q3) for a more alive town: brief scream/scatter when a neighbour is infected, so crowds have to be herded.
+  - **Pause:** an in-game pause / quit-to-menu button; auto-pause and silence the music when the phone switches app or the tab is hidden.
+  - **Install and offline:** add a web-app manifest and offline cache so it can be added to the home screen and played offline (still a browser game, 1a); bundle the two fonts.
+  - **Juice:** screen shake and haptics (vibration) on catches, feasts and bursts; a near-death warning when the countdown is short and the swarm is small.
+  - **Onboarding:** Level 1 teaches one thing at a time with in-world prompts instead of the How to play page.
+  - **Accessibility:** colour-blind check of red/cyan hunter numbers and the green bite ring; a reduced-motion setting; separate music and effects volumes.
+  - **Project health:** move the test bot into the repo and re-run balance with sewers and powerups; split the 4,300-line file into a few scripts; tidy DESIGN.md (broken rules table at R13/R14, section order, R7/R12 text out of date).
 - *Tried and declined (2026-10-08):* repainting the in-game town and townsfolk to look more like the intro painting. Three mock-ups were made (a flat repaint, a brighter palette, and redrawn people and house fronts); the designer prefers the original in-game style, so it stays as it is.
 
 ## 7. Change Log
