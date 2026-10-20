@@ -255,12 +255,15 @@ function scatterFrom(src) {
 // ---------------------------------------------------------------------------
 // Render
 // ---------------------------------------------------------------------------
-function render() {
-  const G = game, L = G.rats[0] || G.trail[0];
-  const mw = MAP_W * TILE, mh = MAP_H * TILE;
+function updateCam(G) { // the camera keeps the Rat King centred (hunters use it to tell what's on screen, H4)
+  const L = G.rats[0] || G.trail[0], mw = MAP_W * TILE, mh = MAP_H * TILE;
   const cx = mw <= view.w ? (mw - view.w) / 2 : Math.max(0, Math.min(mw - view.w, L.x - view.w / 2));
   const cy = mh <= view.h ? (mh - view.h) / 2 : Math.max(0, Math.min(mh - view.h, L.y - view.h / 2));
   G.cam.x = Math.round(cx); G.cam.y = Math.round(cy);
+}
+function render() {
+  const G = game;
+  updateCam(G);
   const sh = shakeOffset(), ox = -G.cam.x + sh.x, oy = -G.cam.y + sh.y; // V22: screen shake moves the picture, not the camera
 
   ctx.fillStyle = '#120f0c'; ctx.fillRect(0, 0, view.w, view.h);

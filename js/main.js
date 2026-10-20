@@ -116,7 +116,7 @@ let last = performance.now();
 function frame(now) {
   const dt = Math.min(0.05, (now - last) / 1000); last = now;
   if (shake.t > 0 && !paused) shake.t = Math.max(0, shake.t - dt);
-  if (state === 'playing' && !paused) {
+  if (state === 'playing' && !paused && !dbg.manual) { // dbg.manual: the test bot steps the game itself
     const steps = Math.max(1, Math.round(dbg.timeScale));
     for (let i = 0; i < steps && state === 'playing'; i++) update(dt);
     updateHud();

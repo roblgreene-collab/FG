@@ -118,25 +118,40 @@ Status: **Locked** (agreed, must be honored), **Draft** (being tried out), **Ret
 | A9 | A soft double heartbeat thump for the low-swarm warning (V22). | Draft |
 
 ## 3c. Levels
-| # | Name | Theme | Townsfolk | Target | Start rats | Countdown (`decayInterval`) | Hunters (numbers) | Layout notes |
-|---|------|-------|-----------|--------|-----------|-----------|-----------|------|
-| 1 | The Market District | market | 90 | 60% | 8 | 1.5 s | none | Mixed blocks, a few alleys and churchyards |
-| 2 | The Docks | docks | 95 | 60% | 8 | 1.5 s | 12, 16 | A canal cuts the district in two; only 4 bridges cross it |
-| 3 | The Shambles | slums | 100 | 65% | 8 | 1.5 s | 14, 18, 22 | Most blocks split by alleys: a maze. **Sewers** from here on (R16) |
-| 4 | Frostgate | winter | 100 | 65% | 12 | 1.4 s | 14, 18, 22, 26 | Sewers |
-| 5 | The Palace Ward | night | 120 | 70% | 12 | 1.3 s | 16, 20, 24, 28, 32 | Dark: you only see what's lit. Sewers |
-| 6 | The Burning Quarter | ash | 125 | 70% | 14 | 1.3 s | 16, 20, 24, 28, 32 | **Sewers** (R16) + 26 street **fires** (R17) |
-| 7 | The Drowned Ward | flood | 130 | 70% | 14 | 1.35 s | 14, 18, 22, 26, 28 | Sewers + **floodwater** over ~40% of the streets, dry causeways (R18) |
-| 8 | The Walled Quarter | fort | 140 | 72% | 14 | 1.25 s | 14, 18, 22, 26, 30, 34 | Sewers + ~40 **portcullis gates** (R19) |
-| 9 | The Midsummer Fair | fair | 140 | 72% | 14 | 1.25 s | 14, 18, 22, 26, 30, 34 | Sewers + 4 **cart** routes (R20) |
-| 10 | The Cathedral Close | cathedral | 160 | 75% | 14 | 1.25 s | 14, 18, 22, 26, 28, 32 | Sewers + 14 fires + ~16 gates + 2 carts: everything at once |
+| # | Name | Theme | Townsfolk | Target | Start rats | Countdown (`decayInterval`) | Hunters (numbers) | ★★ / ★★★ under (R23) | Layout notes |
+|---|------|-------|-----------|--------|-----------|-----------|-----------|------|------|
+| 1 | The Market District | market | 90 | 60% | 8 | 1.5 s | none | 1:05 / 0:50 | Mixed blocks, a few alleys and churchyards |
+| 2 | The Docks | docks | 95 | 60% | 8 | 1.5 s | 12, 16 | 1:50 / 1:20 | A canal cuts the district in two; only 4 bridges cross it |
+| 3 | The Shambles | slums | 100 | 65% | 8 | 1.5 s | 14, 18, 22 | 2:30 / 2:00 | Most blocks split by alleys: a maze. **Sewers** from here on (R16) |
+| 4 | Frostgate | winter | 100 | 65% | 12 | 1.4 s | 14, 18, 22, 26 | 2:15 / 1:50 | Sewers |
+| 5 | The Palace Ward | night | 120 | 70% | 12 | 1.3 s | 16, 20, 24, 28, 32 | 2:40 / 2:15 | Dark: you only see what's lit. Sewers |
+| 6 | The Burning Quarter | ash | 125 | 70% | 14 | 1.3 s | 16, 20, 24, 28, 32 | 2:50 / 2:20 | **Sewers** (R16) + 26 street **fires** (R17) |
+| 7 | The Drowned Ward | flood | 130 | 70% | 14 | 1.35 s | 14, 18, 22, 26, 28 | 3:15 / 2:45 | Sewers + **floodwater** over ~40% of the streets, dry causeways (R18) |
+| 8 | The Walled Quarter | fort | 140 | 72% | 14 | 1.25 s | 14, 18, 22, 26, 30, 34 | 3:00 / 2:30 | Sewers + ~40 **portcullis gates** (R19) |
+| 9 | The Midsummer Fair | fair | 140 | 72% | 14 | 1.25 s | 14, 18, 22, 26, 30, 34 | 3:10 / 2:40 | Sewers + 4 **cart** routes (R20) |
+| 10 | The Cathedral Close | cathedral | 160 | 75% | 14 | 1.25 s | 14, 18, 22, 26, 28, 32 | 3:30 / 3:00 | Sewers + 14 fires + ~16 gates + 2 carts: everything at once |
 
 Hunters start at least 16 tiles from the swarm and at least 10 tiles from each other.
 
 ## 3d. Balance Notes
 Results from the test bot (`tools/bot.js`): it plays a district headless, knows where everyone is, paths to the nearest healthy townsperson or killable hunter, keeps clear of dangerous hunters and hazards, and never uses the sewers or powerups. Newest results first.
 
-<!-- latest -->
+**2026-10-20 build (pause, stars, scatter, hunter countdown reset, district points; `tools/bot.js` fast mode, 10 games per district).** The bot now steps the game directly with no drawing, so 100 games take about 3 minutes. Same 10 games per district on the build from before these changes, for comparison:
+
+| District | Wins now | Winning times now | Wins before |
+|---|---|---|---|
+| 1 | 10/10 | 0:55–1:03 | 10/10 |
+| 2 | 8/10 | 1:02–2:30 | 10/10 |
+| 3 | 10/10 | 1:48–2:44 | 8/10 |
+| 4 | 8/10 | 1:54–2:26 | 10/10 |
+| 5 | 6/10 | 2:23–2:58 | 6/10 |
+| 6 | 3/10 | 2:00–3:00 | 2/10 |
+| 7 | 6/10 | 2:55–3:18 | 6/10 |
+| 8 | 2/10 | 2:24–2:52 | 3/10 |
+| 9 | 3/10 | 2:18–3:23 | 1/10 |
+| 10 | 3/10 | 3:06–3:39 | 4/10 |
+
+Overall 59/100 now against 60/100 before: scattering townsfolk (R9) and the countdown reset after a feast (R5) roughly cancel out. Most losses on districts 6–10 still have 1–4 hunters left. The star goals (§3c) were set from these times: ★★ around the bot's typical winning time, ★★★ about 20% faster, which should take the sewers, powerups or a sharper route. The bot never uses the sewers or powerups, so a good player should beat it.
 
 Balance note: a pathfinding test bot wins Level 1 in about 1:45 with ~20 rats left, but the bot always knows where everyone is. The designer found the level too hard without that knowledge, which is why R12 (minimap) was added. Numbers unchanged pending a replay.
 

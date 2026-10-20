@@ -5,6 +5,7 @@
 // to the nearest healthy townsperson or killable hunter, keeps clear of dangerous hunters,
 // burning fires, carts and closing gates, and never uses the sewers or powerups.
 // So it is a cautious baseline: a good player should beat its times.
+// It steps the game directly (no drawing), so 100 games take about 3 minutes.
 //
 // Usage: node tools/bot.js [districts] [runs]      e.g. node tools/bot.js 1,2,3 4
 //   CFG='{"decayInterval":1.2}' node tools/bot.js 5 3   tries tunables on top of the level's own
@@ -20,6 +21,7 @@ const page = 'file://' + (process.env.PAGE || path.resolve(__dirname, '..', 'ind
   const errs = []; pg.on('pageerror', e => errs.push(e.message));
   await pg.route(/fonts\.(googleapis|gstatic)\.com/, r => r.abort());
   await pg.goto(page); await pg.waitForTimeout(500);
+  const started = Date.now();
   await pg.evaluate(() => { // install the bot: it steers before every game step
     const TILE = 16, D = window.__plague, step = window.update;
     window.update = dt => { if (window.__bot && game && !game.intro) botSteer(); step(dt); };
@@ -60,13 +62,17 @@ const page = 'file://' + (process.env.PAGE || path.resolve(__dirname, '..', 'ind
   const all = {};
   for (const li of levels) for (let run = 0; run < runs; run++) {
     await pg.evaluate(([li, ov]) => {
-      unlocked = LEVELS.length; state = 'title'; window.__plague.override = ov; window.__plague.timeScale = 6;
+      if (state === 'playing') state = 'lost'; // a run that hit the time cap
+      unlocked = LEVELS.length; state = 'title'; window.__plague.override = ov; window.__plague.manual = true;
       shakeOn = false; inventory = { bite: 0, boost: 0 }; window.__bot = true; startLevel(li);
     }, [li, JSON.parse(process.env.CFG || 'null')]);
+    await pg.waitForFunction(li => state === 'playing' && levelIndex === li && game.time === 0, li); // the map builds first
     let res;
-    for (let i = 0; i < 2400; i++) {
-      await pg.waitForTimeout(250);
-      res = await pg.evaluate(() => ({ state, inf: game.infected, need: Math.ceil(CONFIG.targetPercent * CONFIG.population / 100), left: game.hunters.filter(h => h.alive).length, rats: game.rats.length, t: Math.round(game.time), peak: game.peak, caught: !!game.caughtBy }));
+    for (let i = 0; i < 400; i++) { // fast mode: step the game directly at 60 steps per game second, no drawing
+      res = await pg.evaluate(() => {
+        for (let k = 0; k < 600 && state === 'playing'; k++) { if (!game.intro) updateCam(game); update(1 / 60); }
+        return ({ state, inf: game.infected, need: Math.ceil(CONFIG.targetPercent * CONFIG.population / 100), left: game.hunters.filter(h => h.alive).length, rats: game.rats.length, t: Math.round(game.time), peak: game.peak, caught: !!game.caughtBy });
+      });
       if (res.state !== 'playing') break;
     }
     (all[li + 1] = all[li + 1] || []).push(res);
@@ -77,6 +83,7 @@ const page = 'file://' + (process.env.PAGE || path.resolve(__dirname, '..', 'ind
     const wins = rs.filter(r => r.state === 'won'), ts = wins.map(r => r.t).sort((a, b) => a - b);
     console.log(`District ${lv}: won ${wins.length}/${rs.length}` + (ts.length ? `, times ${ts.map(t => Math.floor(t / 60) + ':' + String(t % 60).padStart(2, '0')).join(', ')}` : ''));
   }
+  console.log(`(${Math.round((Date.now() - started) / 1000)} s)`);
   if (errs.length) console.log('Page errors:', errs);
   await b.close();
 })();
