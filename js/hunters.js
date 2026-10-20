@@ -158,7 +158,7 @@ function killHunter(h) {
     from: G.rats.map(r => ({ x: r.x, y: r.y })),
     slot: G.rats.map((r, i) => ({ a: i * 2.39996, d: 6 + (i % 4) * 3 })), // golden-angle ring around him
   };
-  sfx.alert();
+  sfx.devour();
 }
 const FEAST = { gather: 0.25, devour: 0.6, retreat: 0.78 }; // phase ends, as fractions of feastTime
 function updateFeast(dt) {

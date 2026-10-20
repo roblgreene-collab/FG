@@ -43,6 +43,7 @@ const CONFIG = {
   pointsPerHunter: 3,      // P1: plague points for each hunter eaten
   pointsBaseMult: 0.6,     // P1: District 1 pays this share of the points above...
   pointsPerDistrict: 0.15, // P1: ...and each later district pays this much more (District 10: x1.95)
+  realisticSounds: true,   // A12: realistic voices, rats, eating, water and metal; false = the earlier synth bleeps
   streakWindow: 0.9,       // A10: infections this close together climb the scale
   hunterWarnMargin: 3,     // H9: a prey hunter flashes while the swarm is this many rats or fewer above his number
   swarmMilestones: [20, 30, 40], // R25: swarm sizes that get a banner, the first time each round

@@ -121,6 +121,7 @@ Status: **Locked** (agreed, must be honored), **Draft** (being tried out), **Ret
 | A9 | A soft double heartbeat thump for the low-swarm warning (V22). | Draft |
 | A10 | **Infection sound** (chosen from samples): a rat squeak plus a short sick "ugh" from the person (the voice's pitch varies each time), loud enough to be heard clearly over the music. **Streaks climb:** each infection within `streakWindow` (0.9 s) of the last plays its squeak one step higher on an A-minor pentatonic scale (A5 C6 D6 E6 G6 A6 C7 D7 E7, the music's key), staying on the top note after that; a longer gap starts again at the bottom. Many infections in the same instant (a super spreader burst) sound once. | Draft |
 | A11 | **Scatter scream:** a short panicked "eek!" when townsfolk scatter from a nearby infection (R9), quieter than the infection sound and at most one every 0.35 s. | Draft |
+| A12 | **Realistic sound palette** (chosen from samples; on by default with `realisticSounds`). Sounds that stand for something real are synthesised to sound like it, in several variants each, picked at random with a slight speed change so nothing repeats exactly: **rat squeaks** (fast warbling chirps around 3–5 kHz; on infection they still climb the A10 scale) and **dying squeals** when a rat dies; **infection**: a squeak plus a wet chesty cough (1–3 coughs) or a sick groan; **scatter**: short women's and men's screams (A11); **hunter spots the swarm**: a man shouting "Oi!" or "Hey!" (replaces A4's whistle); **feast**: the hunter screams, then bone crunches, wet tearing, squelches and squealing rats (replaces A4's crunch); **super spreader burst**: a wet pop and splatter with droplets, then coughing; **portcullis**: a heavy iron clank with ringing bars; **sewer key**: a jingle of keys; **sewer drop**: a splash with bubbles. Voices are built like a real voice (a buzzing vocal-cord pulse with natural wobble and breath, shaped into vowels by the throat's resonances). Menu and powerup sounds (buy, arm, boost, bonus chirp), the heartbeat (A9) and the music are unchanged. The sounds are made when sound first starts, a little each frame, so the game never stalls. **To go back** to the earlier synth sounds, set `realisticSounds` to false. | Draft |
 
 ## 3c. Levels
 | # | Name | Theme | Townsfolk | Target | Start rats | Countdown (`decayInterval`) | Hunters (numbers) | ★★ / ★★★ under (R23) | Layout notes |
@@ -237,6 +238,7 @@ All live in the `CONFIG` object in `js/config.js`. Tuning these never changes a 
 | `pointsPerInfection` / `pointsPerHunter` | 1 / 3 | Plague points earned, before the district scaling (P1) |
 | `pointsBaseMult` / `pointsPerDistrict` | 0.6 / 0.15 | District 1 pays ×0.6; each later district adds 0.15 (District 10: ×1.95) (P1) |
 | `scatterRadius` / `scatterTime` / `scatterSpeedMult` | 32 px / 1 s / 2.5 | Townsfolk this close to an infection run off for this long at this × their speed (R9) |
+| `realisticSounds` | true | true = the realistic sound palette (A12); false = the earlier synth sounds |
 | `streakWindow` | 0.9 s | Infections this close together climb the scale (A10) |
 | `hunterWarnMargin` | 3 | A prey hunter flashes while the swarm is this many rats or fewer above his number (H9) |
 | `swarmMilestones` | 20, 30, 40 | Swarm sizes that get a banner (R25) |
@@ -271,6 +273,7 @@ All live in the `CONFIG` object in `js/config.js`. Tuning these never changes a 
 ## 7. Change Log
 | Date | Change | Approved by |
 |------|--------|-------------|
+| 2026-10-20 | Added A12: realistic sound palette (rat squeaks and squeals, coughs, groans, screams, hunter shouts, devouring, splatter, iron clank, keys, splash), chosen from samples. The earlier synth sounds are kept behind `realisticSounds` (set false to revert) | Designer |
 | 2026-10-20 | Added H9 (prey hunters flash red when the swarm is within 3 rats of their number; arrows and minimap too), R25 (Big / Huge / Mega swarm banners at 20, 30, 40 rats) and R26 (hunter-eaten banners with how many are left, then All hunters eaten) | Designer |
 | 2026-10-20 | New infection sound chosen from samples: squeak plus a sick groan, louder, climbing a scale during quick streaks (A10); scatter scream (A11); the old chirp kept for a feast's bonus rats (A1) | Designer |
 | 2026-10-20 | Hunter arrows shown all the time for every off-screen hunter, not only in the endgame (H8; `hunterArrowsAt` removed). Screen shake made much stronger; iPhone haptic fallback added (V22) | Designer |

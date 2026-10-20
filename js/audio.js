@@ -14,8 +14,10 @@ function tone(freq, freq2, start, dur, type, vol) {
   gn.gain.setValueAtTime(vol, t); gn.gain.exponentialRampToValueAtTime(0.0001, t + dur);
   o.connect(gn); gn.connect(actx.destination); o.start(t); o.stop(t + dur + 0.02);
 }
-const sfx = {
-  infect(step = 0) { infectSfx(step); }, // A10
+// A12: with `realisticSounds` on, sounds that stand for something real use the sound bank (js/soundbank.js);
+// the earlier synth versions (OLD_SFX) stay for anything else, and for everything if it is switched off.
+const REAL = () => CONFIG.realisticSounds;
+const OLD_SFX = {
   bonus() { tone(650 + Math.random() * 250, 1500, 0, 0.07, 'square', 0.04); }, // H7: the feast's bonus rats appear
   die() { tone(240, 80, 0, 0.18, 'triangle', 0.09); },
   squeak() { tone(1400 + Math.random() * 300, 2100, 0, 0.05, 'square', 0.025); },
@@ -31,6 +33,19 @@ const sfx = {
   boost() { tone(400, 1600, 0, 0.2, 'square', 0.04); },
   heart() { tone(90, 50, 0, 0.12, 'sine', 0.35); tone(80, 45, 0.16, 0.14, 'sine', 0.28); },                                         // V22 low-swarm warning                                                                               // P4
   sewer() { tone(500, 120, 0, 0.22, 'sawtooth', 0.05); tone(160, 700, 0.2, 0.2, 'triangle', 0.06); },                               // R16 down one grate, up another
+};
+const sfx = {
+  ...OLD_SFX,
+  infect(step = 0) { infectSfx(step); }, // A10
+  die() { if (REAL()) playBank('dying', { vol: 0.15 }); else OLD_SFX.die(); },
+  squeak() { if (REAL()) playBank('squeak', { vol: 0.12 }); else OLD_SFX.squeak(); },
+  alert() { if (REAL()) playBank('shout', { vol: 0.35 }); else OLD_SFX.alert(); },          // H4: a hunter spots the swarm
+  devour() { if (REAL()) playBank('screamM', { vol: 0.35, rate: 0.9 }); else OLD_SFX.alert(); }, // H7: the hunter screams as the rats pile on
+  kill() { if (REAL()) { playBank('chew', { vol: 0.3 }); if (Math.random() < 0.4) playBank('squeak', { vol: 0.12, at: 0.05 }); } else OLD_SFX.kill(); },
+  clank() { if (REAL()) playBank('clank', { vol: 0.3 }); else OLD_SFX.clank(); },
+  key() { if (REAL()) playBank('keys', { vol: 0.35 }); else OLD_SFX.key(); },
+  sewer() { if (REAL()) playBank('splash', { vol: 0.4 }); else OLD_SFX.sewer(); },
+  blast() { if (REAL()) { playBank('splatter', { vol: 0.45 }); playBank('cough', { vol: 0.25, at: 0.5 }); playBank('cough', { vol: 0.22, at: 0.8, rate: 1.15 }); } else OLD_SFX.blast(); },
 };
 
 // A10: infection sounds. Each infection is a rat squeak plus a short sick groan from the victim.
@@ -67,7 +82,13 @@ function infectSfx(step) { // step = how many infections in a row came quickly (
   const t = actx.currentTime + 0.005;
   if (t - sfxLastInfect < 0.045) return; // a burst infecting many at once sounds once, not as a wall of noise
   sfxLastInfect = t;
-  const f = STREAK_NOTES[Math.min(step, STREAK_NOTES.length - 1)] * (1 + (Math.random() - 0.5) * 0.02);
+  const k = Math.min(step, STREAK_NOTES.length - 1);
+  if (REAL()) { // A12: a real squeak, raised by the same scale steps, and a cough or a groan
+    playBank('squeak', { vol: 0.22, rate: STREAK_NOTES[k] / STREAK_NOTES[0] });
+    playBank(Math.random() < 0.55 ? 'cough' : 'groan', { vol: 0.3, at: 0.04 });
+    return;
+  }
+  const f = STREAK_NOTES[k] * (1 + (Math.random() - 0.5) * 0.02);
   ratSqueak(f, t, 0.16);
   sickGroan(t + 0.025, 0.22, 120 + Math.random() * 110);
 }
@@ -76,6 +97,7 @@ function screamSfx() { // A11 + R9: a short panicked "eek!" when townsfolk scatt
   if (!actx || muted) return;
   const t = actx.currentTime + 0.01;
   if (t - sfxLastScream < 0.35) return; sfxLastScream = t;
+  if (REAL()) { playBank(Math.random() < 0.5 ? 'screamF' : 'screamM', { vol: 0.16 }); return; } // A12
   const p = 900 + Math.random() * 350, o = actx.createOscillator(), lfo = actx.createOscillator(), lg = actx.createGain(), bp = actx.createBiquadFilter(), g = sfxEnv(t, 0.015, 0.26, 0.2);
   o.type = 'sawtooth'; o.frequency.setValueAtTime(p, t); o.frequency.exponentialRampToValueAtTime(p * 1.45, t + 0.07); o.frequency.exponentialRampToValueAtTime(p * 1.1, t + 0.28);
   lfo.frequency.value = 26; lg.gain.value = p * 0.05; lfo.connect(lg); lg.connect(o.frequency);
