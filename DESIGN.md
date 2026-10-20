@@ -113,7 +113,7 @@ Status: **Locked** (agreed, must be honored), **Draft** (being tried out), **Ret
 | A8 | **End-of-level jingles**, played with the music instruments as the end screen appears (about 0.7 s after the level ends; the chase music stops first). **Win:** a ~2.5 s triumphant fanfare in A major: a snare flam, a bright lead with harmony over A → D → E with driving bass and drums, a snare roll, then a crash on a held A chord with a rising sparkle. **Lose:** a ~4 s sad tune in A minor: a slow falling lead with harmony over Am → Dm → E → low Am with heartbeat kicks, ending on a falling squeak. They follow the Sound setting and fade out if the next level starts while they're still ringing. Replaces the old win/lose beeps from A1. | Draft |
 
 ## 4. Tunable Numbers
-All live in the `CONFIG` object at the top of the script in `index.html`. Tuning these never changes a rule.
+All live in the `CONFIG` object in `js/config.js`. Tuning these never changes a rule.
 
 | Name | Value | Notes |
 |------|-------|-------|
