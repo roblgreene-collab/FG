@@ -227,7 +227,8 @@ function infect(c) {
     G.particles.push({ x: c.x, y: c.y - 5, vx: Math.cos(a) * s, vy: Math.sin(a) * s, life: 0.5, max: 0.5, col: Math.random() < .5 ? PLAGUE : PLAGUE_DARK, size: 1 + (Math.random() < .3) });
   }
   G.texts.push({ x: c.x - 3, y: c.y - 16, text: '+' + CONFIG.ratsPerInfection, col: PLAGUE, life: 0.8 });
-  sfx.infect();
+  G.streak = G.time - (G.lastInfect ?? -9) < CONFIG.streakWindow ? (G.streak || 0) + 1 : 0; G.lastInfect = G.time; // A10
+  sfx.infect(G.streak);
   awardPoints(CONFIG.pointsPerInfection); // P1
   if (G.powers.biteArmed) makeSpreader(c); // P3
   scatterFrom(c); // R9
@@ -246,7 +247,7 @@ function scatterFrom(src) {
       if (dot > bestDot) { bestDot = dot; best = [x, y]; }
     }
     if (!best) continue;
-    if (!(c.scare > 0)) game.texts.push({ x: c.x - 1, y: c.y - 22, text: '!', col: '#e9dcbc', life: 0.5 });
+    if (!(c.scare > 0)) { game.texts.push({ x: c.x - 1, y: c.y - 22, text: '!', col: '#e9dcbc', life: 0.5 }); screamSfx(); } // A11
     [c.dx, c.dy] = best; c.t = c.scare = CONFIG.scatterTime;
     if (c.dx) c.flip = c.dx < 0;
   }

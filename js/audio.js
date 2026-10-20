@@ -15,7 +15,8 @@ function tone(freq, freq2, start, dur, type, vol) {
   o.connect(gn); gn.connect(actx.destination); o.start(t); o.stop(t + dur + 0.02);
 }
 const sfx = {
-  infect() { tone(650 + Math.random() * 250, 1500, 0, 0.07, 'square', 0.04); },
+  infect(step = 0) { infectSfx(step); }, // A10
+  bonus() { tone(650 + Math.random() * 250, 1500, 0, 0.07, 'square', 0.04); }, // H7: the feast's bonus rats appear
   die() { tone(240, 80, 0, 0.18, 'triangle', 0.09); },
   squeak() { tone(1400 + Math.random() * 300, 2100, 0, 0.05, 'square', 0.025); },
   alert() { tone(900, 1300, 0, 0.08, 'square', 0.05); tone(1300, 900, 0.09, 0.1, 'square', 0.05); },
@@ -31,6 +32,56 @@ const sfx = {
   heart() { tone(90, 50, 0, 0.12, 'sine', 0.35); tone(80, 45, 0.16, 0.14, 'sine', 0.28); },                                         // V22 low-swarm warning                                                                               // P4
   sewer() { tone(500, 120, 0, 0.22, 'sawtooth', 0.05); tone(160, 700, 0.2, 0.2, 'triangle', 0.06); },                               // R16 down one grate, up another
 };
+
+// A10: infection sounds. Each infection is a rat squeak plus a short sick groan from the victim.
+// Quick infections (within `streakWindow`) climb a scale (A-minor pentatonic, the music's key); a gap resets it.
+const STREAK_NOTES = [880, 1047, 1175, 1319, 1568, 1760, 2093, 2349, 2637]; // A5 C6 D6 E6 G6 A6 C7 D7 E7
+let sfxNoiseBuf = null, sfxLastInfect = -1;
+function sfxNoise() {
+  if (!sfxNoiseBuf || sfxNoiseBuf.sampleRate !== actx.sampleRate) {
+    const n = actx.sampleRate * 0.5; sfxNoiseBuf = actx.createBuffer(1, n, actx.sampleRate);
+    const d = sfxNoiseBuf.getChannelData(0); for (let i = 0; i < n; i++) d[i] = Math.random() * 2 - 1;
+  }
+  return sfxNoiseBuf;
+}
+function sfxEnv(t, a, d, vol) { const g = actx.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + a); g.gain.exponentialRampToValueAtTime(0.0001, t + a + d); g.connect(actx.destination); return g; }
+function ratSqueak(f, t, vol) { // a quick bent chirp with a little octave sparkle
+  const o = actx.createOscillator(), g = sfxEnv(t, 0.006, 0.11, vol);
+  o.type = 'square'; o.frequency.setValueAtTime(f * 0.8, t); o.frequency.exponentialRampToValueAtTime(f * 1.22, t + 0.035); o.frequency.exponentialRampToValueAtTime(f, t + 0.1);
+  o.connect(g); o.start(t); o.stop(t + 0.14);
+  const o2 = actx.createOscillator(), g2 = sfxEnv(t + 0.02, 0.004, 0.06, vol * 0.35);
+  o2.type = 'triangle'; o2.frequency.setValueAtTime(f * 2, t + 0.02); o2.connect(g2); o2.start(t + 0.02); o2.stop(t + 0.1);
+}
+function sickGroan(t, vol, p) { // a short voiced "ugh" through a vowel-ish filter, with a breathy start
+  const o = actx.createOscillator(), lp = actx.createBiquadFilter(), bp = actx.createBiquadFilter(), g = sfxEnv(t, 0.02, 0.2, vol);
+  o.type = 'sawtooth'; o.frequency.setValueAtTime(p, t); o.frequency.linearRampToValueAtTime(p * 1.08, t + 0.04); o.frequency.exponentialRampToValueAtTime(p * 0.68, t + 0.22);
+  lp.type = 'lowpass'; lp.frequency.setValueAtTime(1300, t); lp.frequency.exponentialRampToValueAtTime(500, t + 0.22);
+  bp.type = 'peaking'; bp.frequency.value = 650; bp.Q.value = 3; bp.gain.value = 9;
+  o.connect(lp); lp.connect(bp); bp.connect(g); o.start(t); o.stop(t + 0.25);
+  const n = actx.createBufferSource(), nf = actx.createBiquadFilter(), ng = sfxEnv(t, 0.005, 0.07, vol * 0.6);
+  n.buffer = sfxNoise(); nf.type = 'bandpass'; nf.frequency.value = 1600; nf.Q.value = 1.2;
+  n.connect(nf); nf.connect(ng); n.start(t, Math.random() * 0.3); n.stop(t + 0.09);
+}
+function infectSfx(step) { // step = how many infections in a row came quickly (0 = the first)
+  if (!actx || muted) return;
+  const t = actx.currentTime + 0.005;
+  if (t - sfxLastInfect < 0.045) return; // a burst infecting many at once sounds once, not as a wall of noise
+  sfxLastInfect = t;
+  const f = STREAK_NOTES[Math.min(step, STREAK_NOTES.length - 1)] * (1 + (Math.random() - 0.5) * 0.02);
+  ratSqueak(f, t, 0.16);
+  sickGroan(t + 0.025, 0.22, 120 + Math.random() * 110);
+}
+let sfxLastScream = -1;
+function screamSfx() { // A11 + R9: a short panicked "eek!" when townsfolk scatter (at most one every 0.35 s)
+  if (!actx || muted) return;
+  const t = actx.currentTime + 0.01;
+  if (t - sfxLastScream < 0.35) return; sfxLastScream = t;
+  const p = 900 + Math.random() * 350, o = actx.createOscillator(), lfo = actx.createOscillator(), lg = actx.createGain(), bp = actx.createBiquadFilter(), g = sfxEnv(t, 0.015, 0.26, 0.2);
+  o.type = 'sawtooth'; o.frequency.setValueAtTime(p, t); o.frequency.exponentialRampToValueAtTime(p * 1.45, t + 0.07); o.frequency.exponentialRampToValueAtTime(p * 1.1, t + 0.28);
+  lfo.frequency.value = 26; lg.gain.value = p * 0.05; lfo.connect(lg); lg.connect(o.frequency);
+  bp.type = 'bandpass'; bp.frequency.value = 1900; bp.Q.value = 1.6;
+  o.connect(bp); bp.connect(g); o.start(t); lfo.start(t); o.stop(t + 0.3); lfo.stop(t + 0.3);
+}
 
 // A3: "Ring a Ring o' Roses" as a driving chase theme that builds with the
 // plague. The tune is the nursery rhyme over a darker A-minor progression. The

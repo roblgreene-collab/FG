@@ -190,7 +190,7 @@ function updateFeast(dt) {
     G.texts.push({ x: h.x - 3, y: h.y - 18, text: '+' + CONFIG.hunterBounty, col: PLAGUE, life: 1.1 });
     G.trail = [{ x: G.rats[0].x, y: G.rats[0].y }];
     G.feast = null;
-    sfx.infect();
+    sfx.bonus();
   }
 }
 const SKELETON = [ // a picked-clean hunter lying in the street: skull, ribs, spine, legs

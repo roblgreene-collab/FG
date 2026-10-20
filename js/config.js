@@ -43,6 +43,7 @@ const CONFIG = {
   pointsPerHunter: 3,      // P1: plague points for each hunter eaten
   pointsBaseMult: 0.6,     // P1: District 1 pays this share of the points above...
   pointsPerDistrict: 0.15, // P1: ...and each later district pays this much more (District 10: x1.95)
+  streakWindow: 0.9,       // A10: infections this close together climb the scale
   warnRats: 3,             // V22: the low-swarm warning shows at this many rats or fewer
   scatterRadius: 32,       // R9: px, healthy townsfolk this close to a new infection run off
   scatterTime: 1.0,        // R9: seconds they run for

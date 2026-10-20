@@ -105,7 +105,7 @@ Status: **Locked** (agreed, must be honored), **Draft** (being tried out), **Ret
 ## 3b. Audio
 | ID | Rule | Status |
 |----|------|--------|
-| A1 | Short synth sound effects: a squeak on each infection, a low blip when a rat dies. (Win and lose jingles now follow A8.) | Draft |
+| A1 | Short synth sound effects: a low blip when a rat dies, and a short chirp when a feast's bonus rats appear. (The infection sound now follows A10; win and lose jingles follow A8.) | Draft |
 | A2 | One "Sound" button (in the bottom bar beside the pause button while playing, the Sound setting in Settings, or the M key) mutes and unmutes everything, music included. | Draft |
 | A3 | Background music: "Ring a Ring o' Roses" as a driving chase theme. The nursery-rhyme melody is played by a punchy saw/square lead over a darker A-minor progression (Am Am Am Em F F G Am, then an instrumental fill bar over E that pulls back to Am). Two verses alternate: plain, then ornamented with passing notes. 6/8 time; tempo and layers follow A5. It plays during a level (including the well intro and feasts) and fades out at the end screen. | Draft |
 | A3a | *(old A3)* Music-box square-wave melody over a slow triangle bass, about 12 s per loop. | Retired |
@@ -116,6 +116,8 @@ Status: **Locked** (agreed, must be honored), **Draft** (being tried out), **Ret
 | A7 | **Logo startup sound**, an original 90s-console-style sting synchronised to the Pixel Mullet video (it starts when the video starts playing, so it stays in step): a dark synth chord swelling open under the typed text with soft typing ticks (0.5–3 s); a deep boom, a falling whoosh and a crystal shimmer as the mullet appears (3.3 s); a rising bell chime for each letter of PIXEL MULLET (3.9–6 s); then a lush, wide chord bloom with a shimmering top that fades out with the video (6.2–10 s). Skipping the logo fades it out. | Draft |
 | A8 | **End-of-level jingles**, played with the music instruments as the end screen appears (about 0.7 s after the level ends; the chase music stops first). **Win:** a ~2.5 s triumphant fanfare in A major: a snare flam, a bright lead with harmony over A → D → E with driving bass and drums, a snare roll, then a crash on a held A chord with a rising sparkle. **Lose:** a ~4 s sad tune in A minor: a slow falling lead with harmony over Am → Dm → E → low Am with heartbeat kicks, ending on a falling squeak. They follow the Sound setting and fade out if the next level starts while they're still ringing. Replaces the old win/lose beeps from A1. | Draft |
 | A9 | A soft double heartbeat thump for the low-swarm warning (V22). | Draft |
+| A10 | **Infection sound** (chosen from samples): a rat squeak plus a short sick "ugh" from the person (the voice's pitch varies each time), loud enough to be heard clearly over the music. **Streaks climb:** each infection within `streakWindow` (0.9 s) of the last plays its squeak one step higher on an A-minor pentatonic scale (A5 C6 D6 E6 G6 A6 C7 D7 E7, the music's key), staying on the top note after that; a longer gap starts again at the bottom. Many infections in the same instant (a super spreader burst) sound once. | Draft |
+| A11 | **Scatter scream:** a short panicked "eek!" when townsfolk scatter from a nearby infection (R9), quieter than the infection sound and at most one every 0.35 s. | Draft |
 
 ## 3c. Levels
 | # | Name | Theme | Townsfolk | Target | Start rats | Countdown (`decayInterval`) | Hunters (numbers) | ★★ / ★★★ under (R23) | Layout notes |
@@ -232,6 +234,7 @@ All live in the `CONFIG` object in `js/config.js`. Tuning these never changes a 
 | `pointsPerInfection` / `pointsPerHunter` | 1 / 3 | Plague points earned, before the district scaling (P1) |
 | `pointsBaseMult` / `pointsPerDistrict` | 0.6 / 0.15 | District 1 pays ×0.6; each later district adds 0.15 (District 10: ×1.95) (P1) |
 | `scatterRadius` / `scatterTime` / `scatterSpeedMult` | 32 px / 1 s / 2.5 | Townsfolk this close to an infection run off for this long at this × their speed (R9) |
+| `streakWindow` | 0.9 s | Infections this close together climb the scale (A10) |
 | `warnRats` | 3 | Low-swarm warning at this many rats or fewer (V22) |
 | `stars` (per level) | see §3c | Time goals for 2 and 3 stars (R23) |
 | `biteCost` / `boostCost` | 60 / 40 | Powerup prices in plague points (P2) |
@@ -263,6 +266,7 @@ All live in the `CONFIG` object in `js/config.js`. Tuning these never changes a 
 ## 7. Change Log
 | Date | Change | Approved by |
 |------|--------|-------------|
+| 2026-10-20 | New infection sound chosen from samples: squeak plus a sick groan, louder, climbing a scale during quick streaks (A10); scatter scream (A11); the old chirp kept for a feast's bonus rats (A1) | Designer |
 | 2026-10-20 | Hunter arrows shown all the time for every off-screen hunter, not only in the endgame (H8; `hunterArrowsAt` removed). Screen shake made much stronger; iPhone haptic fallback added (V22) | Designer |
 | 2026-10-20 | From the review, the designer chose: arrows to the last hunters (H8); eating a hunter restarts the die-off countdown (R5, Locked, approved; H7); plague points scale with the district (P1); stars for finishing under per-district time goals (R23, R10); townsfolk scatter from a nearby infection (R9, answers Q3); pause and auto-pause (R22, A2); screen shake and vibration with a Settings switch, and a low-swarm warning with a heartbeat (V22, A9); District 1 tips (R24); test bot moved into the repo (`tools/bot.js`); code split into `style.css` and `js/`; DESIGN.md tidied (section order, rule order, broken table, out-of-date R7/R12/V13/V15/V16/V17 text) | Designer |
 | 2026-10-08 | Powerups made pricier so points don't pile up: bite 40 → 60, speed boost 25 → 40. The super spreader bite now gives 3 bites like the boost's 3 dashes; remaining bites are lost at the end of the level where the first was used (P2, P3, P4) | Designer |
