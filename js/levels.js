@@ -278,7 +278,7 @@ function updateHazards(dt) {
     const inside = e => e.x > x0 && e.x < x1 && e.y > y0 && e.y < y1;
     if (inside(L) || G.citizens.some(inside) || G.hunters.some(h => h.alive && inside(h))) continue;
     g.closed = true;
-    if (Math.abs(x0 - L.x) < view.w && Math.abs(y0 - L.y) < view.h) sfx.clank();
+    // (silent: the gate sound was removed at the designer's request, A12)
   }
   // R17 fires burn any rat standing in the flames
   for (const f of HAZ.fires) {
