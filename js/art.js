@@ -694,25 +694,87 @@ function drawChurchyard(g, x0, y0, rng) {
   }
 }
 
-function drawTree(g, cx, cy, rng) {
-  disc(g, cx + 3, cy + 4, 10, 'rgba(0,0,0,.35)');
-  if (THEME.snow || rng() < (THEME.laundry ? 0.6 : 0.3)) { // dead or winter-bare tree
-    g.fillStyle = '#3a2a1c';
-    for (let b = 0; b < 6; b++) {
-      let bx = cx, by = cy; const a = b / 6 * Math.PI * 2 + rng();
-      for (let k = 0; k < 7 + rng() * 4; k++) { bx += Math.cos(a + (rng() - .5) * .6); by += Math.sin(a + (rng() - .5) * .6); g.fillRect(Math.round(bx), Math.round(by), 1, 1); }
-    }
-    disc(g, cx, cy, 2, '#4a3524');
-    if (THEME.snow) for (let i = 0; i < 14; i++) px1(g, cx + (rng() * 16 | 0) - 8, cy + (rng() * 16 | 0) - 8, '#eef3f7');
-    return;
+// V28: trees.
+// Leafy trees: a canopy of overlapping leaf clumps, each lit from the top-left in four tones with a dark
+// outline round the whole crown, a trunk peeping out below and a soft shadow. Bare trees: thick limbs that
+// taper and fork into twigs, lit on one side, with their shadow on the ground; in Frostgate, snow lies along
+// the tops of the branches and drifts at the foot.
+const TREE_GREENS = [ // [outline, dark, mid, light, highlight]
+  ['#16260f', '#24401f', '#32552a', '#46703a', '#6b9a4c'],
+  ['#18240e', '#2c4320', '#3e5c27', '#557a32', '#7fa04a'],
+  ['#132018', '#1f3a2a', '#2d5038', '#3f6b48', '#5f8f62'],
+];
+function treePut(g, x, y, c) { g.fillStyle = c; g.fillRect(x, y, 1, 1); }
+function drawLeafyTree(g, cx, cy, rng) {
+  const pal = TREE_GREENS[Math.floor(rng() * TREE_GREENS.length)], R = 9 + Math.floor(rng() * 3);
+  // clumps: back ones first, so the front-top ones sit over them
+  const clumps = [];
+  const n = 6 + Math.floor(rng() * 2);
+  for (let i = 0; i < n; i++) {
+    const a = i / n * Math.PI * 2 + rng() * 0.5, d = R * (0.45 + rng() * 0.12);
+    clumps.push({ x: cx + Math.cos(a) * d, y: cy + Math.sin(a) * d * 0.9, r: R * (0.42 + rng() * 0.1) });
   }
-  // layered canopy: dark rim, mid body, lit clusters top-left
-  disc(g, cx, cy, 10, '#24401f');
-  disc(g, cx - 1, cy - 1, 8, '#32552a');
-  disc(g, cx - 3, cy - 3, 5, '#41692f');
-  disc(g, cx + 3, cy - 2, 3, '#3a5f2c');
-  disc(g, cx - 4, cy - 4, 2, '#56813c');
-  disc(g, cx + 2, cy + 3, 2, '#2a4823');
+  clumps.sort((p, q) => (q.x + q.y) - (p.x + p.y)); // bottom-right (in shade) drawn first
+  clumps.push({ x: cx - 1, y: cy - 1, r: R * 0.55 });  // the crown's middle on top
+  // soft shadow and a little trunk peeping out below
+  g.fillStyle = 'rgba(0,0,0,.28)';
+  for (let y = -5; y <= 5; y++) for (let x = -R; x <= R; x++) if ((x * x) / (R * R) + (y * y) / 25 <= 1) g.fillRect(Math.round(cx + 4 + x), Math.round(cy + R * 0.5 + 1 + y), 1, 1);
+  g.fillStyle = '#3a2618'; g.fillRect(cx - 1, cy + R - 3, 3, 5); g.fillStyle = '#5a3c24'; g.fillRect(cx - 1, cy + R - 3, 1, 5);
+  // owner map: which clump is on top at each pixel
+  const S = R * 2 + 6, ox = Math.round(cx) - R - 3, oy = Math.round(cy) - R - 3, own = new Int8Array(S * S).fill(-1);
+  clumps.forEach((c, i) => {
+    for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) {
+      const dx = ox + x + 0.5 - c.x, dy = oy + y + 0.5 - c.y;
+      if (dx * dx + dy * dy <= c.r * c.r) own[y * S + x] = i;
+    }
+  });
+  const on = (x, y) => x >= 0 && y >= 0 && x < S && y < S && own[y * S + x] >= 0;
+  for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) {
+    const i = own[y * S + x];
+    if (i < 0) { if (on(x - 1, y) || on(x + 1, y) || on(x, y - 1) || on(x, y + 1)) treePut(g, ox + x, oy + y, pal[0]); continue; }
+    const c = clumps[i], dx = (ox + x + 0.5 - c.x) / c.r, dy = (oy + y + 0.5 - c.y) / c.r;
+    const lit = -(dx + dy) * 0.7 + 0.15; // light from the top-left of each clump
+    // a clump's edge against a clump on top of it is shaded, so the clumps read as separate lumps of leaves
+    const under = [[1, 0], [0, 1], [1, 1]].some(([a, b]) => on(x + a, y + b) && own[(y + b) * S + x + a] > i);
+    let tone = lit > 0.55 ? 4 : lit > 0.15 ? 3 : lit > -0.35 ? 2 : 1;
+    if (under) tone = Math.max(1, tone - 1);
+    const h = ((ox + x) * 73856093 ^ (oy + y) * 19349663) >>> 0; // a fixed per-pixel dapple, so leaves look irregular
+    if (tone === 4 && h % 3 === 0) tone = 3; else if (tone === 3 && h % 7 === 0) tone = 4; else if (tone === 2 && h % 9 === 0) tone = 1;
+    treePut(g, ox + x, oy + y, pal[tone]);
+  }
+}
+// Bare tree: limbs drawn as tapering lines that fork, with a lit side and a ground shadow.
+function drawBareTree(g, cx, cy, rng) {
+  const segs = [];
+  const grow = (x, y, a, len, w, depth) => {
+    const ex = x + Math.cos(a) * len, ey = y + Math.sin(a) * len;
+    segs.push([x, y, ex, ey, w]);
+    if (depth > 0) {
+      const spread = 0.45 + rng() * 0.3;
+      grow(ex, ey, a - spread, len * (0.62 + rng() * 0.1), Math.max(1, w - 1), depth - 1);
+      grow(ex, ey, a + spread, len * (0.55 + rng() * 0.1), Math.max(1, w - 1), depth - 1);
+    }
+  };
+  const limbs = 4 + Math.floor(rng() * 3);
+  for (let i = 0; i < limbs; i++) grow(cx, cy, i / limbs * Math.PI * 2 + rng() * 0.6, 4.5 + rng() * 1.5, 2, 2);
+  const line = (x0, y0, x1, y1, w, fn) => { const n = Math.ceil(Math.hypot(x1 - x0, y1 - y0) * 2); for (let k = 0; k <= n; k++) { const t = k / n, x = x0 + (x1 - x0) * t, y = y0 + (y1 - y0) * t; for (let a = 0; a < w; a++) for (let b = 0; b < w; b++) fn(Math.round(x - (w - 1) / 2 + a), Math.round(y - (w - 1) / 2 + b)); } };
+  const px = new Map(); // x,y -> thickness, so thick parts and the trunk can be lit
+  for (const [x0, y0, x1, y1, w] of segs) line(x0, y0, x1, y1, w, (x, y) => px.set(x + ',' + y, Math.max(px.get(x + ',' + y) || 0, w)));
+  for (let y = -2; y <= 2; y++) for (let x = -2; x <= 2; x++) if (x * x + y * y <= 5) px.set((Math.round(cx) + x) + ',' + (Math.round(cy) + y), 3);
+  const has = (x, y) => px.has(x + ',' + y);
+  g.fillStyle = 'rgba(0,0,0,.25)'; // shadow on the ground, down and to the right
+  for (const k of px.keys()) { const [x, y] = k.split(',').map(Number); if (!has(x + 2, y + 2)) g.fillRect(x + 2, y + 2, 1, 1); }
+  for (const [k, w] of px) {
+    const [x, y] = k.split(',').map(Number);
+    const litEdge = !has(x, y - 1) || !has(x - 1, y);
+    treePut(g, x, y, w >= 3 ? (litEdge ? '#6a5038' : '#4a3524') : w === 2 ? (litEdge ? '#5a4330' : '#3e2c1e') : '#35261a');
+    if (THEME.snow && !has(x, y - 1) && (w >= 2 || rng() < 0.6)) treePut(g, x, y - (w >= 2 ? 0 : 1), w >= 2 ? '#eef3f7' : '#dfe8ee'); // snow along the tops
+  }
+  if (THEME.snow) for (let i = -3; i <= 3; i++) { treePut(g, Math.round(cx) + i, Math.round(cy) + 4, '#e8eef2'); if (Math.abs(i) < 2) treePut(g, Math.round(cx) + i, Math.round(cy) + 5, '#d4dee6'); } // a drift at the foot
+}
+function drawTree(g, cx, cy, rng) {
+  if (THEME.snow || rng() < (THEME.laundry ? 0.6 : 0.3)) drawBareTree(g, cx, cy, rng);
+  else drawLeafyTree(g, cx, cy, rng);
 }
 
 function renderMap() {
