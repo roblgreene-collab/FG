@@ -482,3 +482,11 @@ body.land #bottomBar .barMid { flex-direction: column; gap: 14px; }
 body.land #barHint { flex-direction: column; align-items: flex-start; gap: 8px; }
 /* pause panel: three icon tiles in a row */
 .m-tiles { display: flex; justify-content: space-around; margin: 16px 0 6px; }
+/* V27: spacing fixes. Buttons default to the left of their grid cell (button { justify-self: start }), which
+   pushed the title's icon buttons off-centre (their labels differ in width): centre every icon button. */
+.m-ib { justify-self: center; }
+.m-icons, .m-tiles { display: grid; grid-template-columns: repeat(3, 1fr); justify-items: center; }
+/* narrow phones: the top bar's label drops the word "spread" (the target icon says it) so the % always shows */
+@media (max-width: 429px) { #hud .label > span:first-child > span, #hud .label > span:first-child { font-size: 0; gap: 0; } #hud .label > span:first-child svg { width: 14px; height: 14px; } }
+/* narrow phones: the Districts header fits its title and both chips */
+@media (max-width: 379px) { .m-head .m-h { font-size: 34px !important; } .m-head { gap: 6px; } .m-head .m-chip { padding: 3px 6px; font-size: 12px; } }
