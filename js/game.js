@@ -492,7 +492,6 @@ function makeVignette() {
 // V16: while playing, the level fills only the space between the top and bottom HUD bars.
 function setFramed(on) {
   $('hud').hidden = !on; $('bottomBar').hidden = !on;
-  (on ? $('muteSlot') : document.body).appendChild($('mute'));
   if (!on) { $('tip').hidden = true; clearBanners(); } // the sound button lives in the bar while playing
   document.body.classList.toggle('framed', on);
   resize();

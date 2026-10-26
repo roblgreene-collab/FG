@@ -205,15 +205,6 @@ button {
 button:hover { filter: brightness(1.1); }
 button:active { transform: translate(2px, 2px); box-shadow: 2px 2px 0 #000; }
 button:focus-visible { outline: 3px solid var(--parch); outline-offset: 3px; }
-#mute {
-  position: fixed; right: 16px; bottom: calc(env(safe-area-inset-bottom, 0px) + 12px); z-index: 3;
-  font-size: 12px; padding: 6px 10px; background: var(--panel); color: var(--dim);
-  border: 2px solid var(--edge); box-shadow: none;
-}
-#muteSlot #mute { position: static; }
-.barBtns { display: flex; gap: 6px; align-items: stretch; }
-#pauseBtn { display: grid; place-items: center; padding: 0 8px; background: var(--panel); border: 2px solid var(--edge); box-shadow: none; min-height: 28px; }
-body.land .barBtns { justify-content: center; width: 100%; }
 /* V22: low-swarm warning, the swarm tile pulses red */
 #swarmBox.warn { animation: swarmWarn .5s steps(2) infinite; }
 @keyframes swarmWarn { 50% { border-color: var(--blood); box-shadow: 0 0 0 2px rgba(208,74,50,.5) inset; } }
@@ -464,6 +455,30 @@ body.land #hud .swarm { width: 100%; text-align: center; }
 body.land #hud .status { flex-direction: column; align-items: stretch; gap: 6px; }
 body.land .hchip.ppChip { margin-left: 0; }
 body.land .hchip { display: flex; }
-/* the sound button and minimap in the bottom bar, in the same style */
-#muteSlot #mute { font: 600 12px var(--font-ui); letter-spacing: .06em; text-transform: uppercase; padding: 6px 10px; background: #120d0a; color: var(--parch); border: 2px solid #a08a64; box-shadow: inset 0 0 0 1px rgba(192,92,255,.3), 2px 2px 0 #000; }
+/* the minimap in the bottom bar, in the menu style */
 #bottomBar #minimap { border: 2px solid #a08a64; box-shadow: inset 0 0 0 1px rgba(192,92,255,.3), 2px 2px 0 #000; }
+
+/* V26: decluttered HUD. Pause sits at the top left of the top bar; sound lives in the pause panel and Settings. */
+.hudPause { flex: none; order: -1; width: 32px; height: 32px; min-height: 0; padding: 0; display: grid; place-items: center; pointer-events: auto; background: #1d1813; border: 2px solid #a08a64; box-shadow: inset 0 0 0 2px #0b0806, 2px 2px 0 #000; }
+.hudPause:active { transform: translate(1px, 1px); box-shadow: inset 0 0 0 2px #0b0806, 1px 1px 0 #000; }
+#hud .meter { flex: 1; min-width: 0; }
+#minimap { width: clamp(112px, 31vw, 168px); }
+/* powerup buttons: icon only; uses left as dots underneath; a faint outline when not owned */
+.pwGroup { flex-direction: column; gap: 8px; }
+.pw { width: 60px; height: 60px; padding: 0; display: grid; place-items: center; align-content: center; grid-template-rows: none; }
+.pw b, .pw .st { display: none; }
+.pw .ico { width: 40px; height: 36px; }
+.pw::after { content: attr(data-pips); position: absolute; left: 0; right: 0; bottom: 2px; text-align: center; font: 600 8px/1 var(--font-ui); letter-spacing: 2px; color: var(--parch); }
+.pw[data-state="none"] { opacity: .22; box-shadow: none; }
+@media (max-height: 560px) { .pw { width: 52px; height: 52px; } }
+@media (max-width: 379px) { .pw { width: 54px; height: 54px; } }
+body.land .pw { width: 56px; height: 56px; padding: 0; }
+body.land .pwGroup { flex-direction: row; }
+body.land #bottomBar .barMid { flex-direction: column; gap: 14px; }
+/* keyboard players: key caps instead of a sentence */
+#barHint { display: flex; flex-wrap: wrap; gap: 6px 10px; justify-content: center; align-items: center; font-size: 10px; line-height: 1; }
+#barHint kbd { display: inline-grid; place-items: center; min-width: 20px; height: 20px; padding: 0 4px; margin-right: 2px; font: 600 11px var(--font-ui); color: var(--parch); background: #1d1813; border: 2px solid #a08a64; box-shadow: 0 2px 0 #000; }
+#barHint span { white-space: nowrap; }
+body.land #barHint { flex-direction: column; align-items: flex-start; gap: 8px; }
+/* pause panel: three icon tiles in a row */
+.m-tiles { display: flex; justify-content: space-around; margin: 16px 0 6px; }

@@ -13,6 +13,7 @@
 <canvas id="game"></canvas>
 
 <div id="hud" class="frame" hidden>
+  <button id="pauseBtn" class="hudPause" type="button" aria-label="Pause"><i data-px="pause" data-c="#efe2c0" data-s="1.7"></i></button>
   <div class="meter">
     <div class="label"><span><i data-px="target" data-c="#c05cff" data-s="2"></i><span class="lw">Plague&nbsp;</span>spread</span><span class="clock" id="clock" title="Finish faster for more stars"></span><b id="pct">0%</b></div>
     <div class="bar"><div id="pctFill"></div><div id="target"></div></div>
@@ -119,7 +120,6 @@
       <div class="m-info" id="lcInfo" hidden></div>
       <div class="m-sub"><span class="m-eyebrow" style="color:#9cff3a">Powerups</span><span class="m-chip" title="Plague points"><img data-ico="pp" alt=""><span id="ppHave">0</span></span></div>
       <div class="m-pwgrid" id="shopList"></div>
-      <p class="m-note" id="shopNote" hidden></p>
       <div style="height:14px"></div>
       <button id="lcGo" class="m-btn m-btnP" type="button">Start</button>
     </div>
@@ -129,7 +129,6 @@
 <div class="screen m-screen m-dim" id="endScreen" hidden style="justify-content:center">
   <div class="m-wrap" style="flex:none">
     <div class="m-panel teeth m-pad m-scroll" style="text-align:center">
-      <div id="endCrown" hidden style="display:flex;justify-content:center;margin-bottom:6px"><i data-px="crown" data-c="#e0b040" data-s="7"></i></div>
       <div class="m-eyebrow" id="endEyebrow"></div><h2 class="m-h" id="endTitle" style="margin:4px 0 14px"></h2>
       <div class="m-starsBig" id="endStars" hidden></div><p class="m-goalNote" id="endGoal" hidden></p>
       <div class="m-bar"><i id="endFill"></i><b id="endMark"></b></div>
@@ -151,10 +150,12 @@
     <div class="m-panel teeth m-pad" style="text-align:center">
       <div class="m-eyebrow" id="pauseEyebrow"></div><h2 class="m-h" style="margin:4px 0 14px">Paused</h2>
       <button id="resumeBtn" class="m-btn m-btnP" type="button"><span>Resume</span></button>
-      <div style="height:12px"></div>
-      <button id="restartBtn" class="m-btn m-btnS sm" type="button" style="width:100%">Restart district</button>
-      <div style="height:10px"></div>
-      <div class="m-two"><button id="pauseLevelsBtn" class="m-btn m-btnS sm" type="button"><i data-px="scroll" data-c="#a08a64" data-s="2"></i>Districts</button><button id="pauseHomeBtn" class="m-btn m-btnS sm" type="button">Menu</button></div>
+      <div class="m-tiles">
+        <button id="restartBtn" class="m-ib" type="button"><span class="sq"><i data-px="restart" data-c="#efe2c0" data-s="3.2"></i></span>Restart</button>
+        <button id="pauseLevelsBtn" class="m-ib" type="button"><span class="sq"><i data-px="scroll" data-c="#efe2c0" data-s="3.2"></i></span>Districts</button>
+        <button id="pauseHomeBtn" class="m-ib" type="button"><span class="sq"><i data-px="home" data-c="#efe2c0" data-s="3.2"></i></span>Menu</button>
+      </div>
+      <div class="m-row" style="padding-bottom:4px"><span><i data-px="sound" data-c="#efe2c0" data-s="2"></i>Sound</span><div class="m-seg" role="group" aria-label="Sound"><button id="psndOn" type="button" aria-pressed="true">On</button><button id="psndOff" type="button" aria-pressed="false">Off</button></div></div>
     </div>
   </div>
 </div>
@@ -175,7 +176,7 @@
 <div id="banner" hidden aria-live="polite"><b></b><small></small></div>
 
 <div id="bottomBar" class="frame" hidden>
-  <div class="barSide"><canvas id="minimap" hidden></canvas><div class="barBtns"><button id="pauseBtn" type="button" aria-label="Pause"><i data-px="pause" data-c="#efe2c0" data-s="2"></i></button><span id="muteSlot"></span></div></div>
+  <div class="barSide"><canvas id="minimap" hidden></canvas></div>
   <div class="barMid">
     <div class="pwGroup">
     <button id="pwBite" class="pw" type="button" tabindex="-1" data-state="none" aria-label="Super spreader bite"><img class="ico" data-ico="bite" alt=""><b>Bite</b><span class="st"></span><i class="key">1</i></button>
@@ -183,12 +184,11 @@
     </div>
     <div class="stickWrap">
       <div id="stick" hidden aria-hidden="true"><div id="knob"></div></div>
-      <p id="barHint">WASD or arrows to run<br>M mutes the sound</p>
+      <p id="barHint"><span><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> run</span><span><kbd>1</kbd><kbd>2</kbd> powers</span><span><kbd>P</kbd> pause</span></p>
     </div>
   </div>
 </div>
 
-<button id="mute" type="button">Sound: on</button>
 
 <script src="js/config.js"></script>
 <script src="js/levels.js"></script>

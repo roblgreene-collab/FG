@@ -21,6 +21,8 @@ const gearPath = (cx, cy, R, r, teeth) => { let d = ''; for (let i = 0; i < teet
 // Each icon: a list of parts. A part is { d } (filled, even-odd so holes cut out) or { d, w } (stroked, w wide).
 const ICON_SHAPES = {
   star: [{ d: starPath(12, 13.2, 12, 5.6) }],
+  restart: [{ d: 'M19.5 12a7.5 7.5 0 1 1-2.6-5.7', w: 3 }, { d: 'M12.5 1.5h9.5v9.5Z' }],
+  home: [{ d: 'M12 2.5L1.5 11.5h3V21.5h5.5v-6h4v6h5.5V11.5h3Z' }],
   play: [{ d: 'M6 3.5Q6 2 7.4 2.8L20.6 10.7Q22 11.6 20.6 12.6L7.4 20.6Q6 21.4 6 19.9Z' }],
   check: [{ d: 'M2.5 12.5L6 9.2L9.6 12.8L18.2 3.8L21.6 7.2L9.6 19.6Z' }],
   close: [{ d: 'M4.5 2.5L12 10L19.5 2.5L21.5 4.5L14 12L21.5 19.5L19.5 21.5L12 14L4.5 21.5L2.5 19.5L10 12L2.5 4.5Z' }],

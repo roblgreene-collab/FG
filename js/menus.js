@@ -37,6 +37,9 @@ function updateHud() {
     o.dataset.state = !P.boostBought ? 'none' : P.boostT > 0 ? 'active' : P.boost ? 'ready' : 'used';
     o.querySelector('.st').textContent = o.dataset.state === 'none' ? 'none' : o.dataset.state === 'active' ? 'go!' : P.boost ? `${P.boost} left` : 'used';
   }
+  const pip = (n, max) => '●'.repeat(n) + '○'.repeat(Math.max(0, max - n)); // V26: uses left as dots
+  $('pwBite').dataset.pips = P.biteBought ? pip(P.bite, CONFIG.biteCharges) : '';
+  $('pwBoost').dataset.pips = P.boostBought ? pip(P.boost, CONFIG.boostCharges) : '';
   if (P.boostT > 0) $('boostLeft').style.width = (P.boostT / CONFIG.boostTime * 100) + '%';
   if (hudCache.pp !== plaguePoints) { // P1: plague points, with a little flash when they go up
     const el = $('ppHud').parentNode;
@@ -400,8 +403,6 @@ function renderShop() {
     return `<div class="m-pwt${bought ? ' owned' : ''}" title="${pw.desc().replace(/"/g, '&quot;')}"><img src="${UI_ICON_URL[id]}" alt=""><div class="nm">${names[id]}</div>
       <button type="button" data-buy="${id}" ${can ? '' : 'disabled'}>${bought ? 'Owned' : `${coinImg(14)}${cost}`}</button></div>`;
   }).join('');
-  const none = plaguePoints === 0 && !P.biteBought && !P.boostBought;
-  $('shopNote').hidden = !none; $('shopNote').textContent = 'Infect townsfolk and eat hunters to earn plague points.';
 }
 $('shopList').addEventListener('click', e => { const b = e.target.closest('[data-buy]'); if (b && !b.disabled) buyPower(b.dataset.buy); });
 
@@ -584,7 +585,6 @@ function endGame(won, reason) {
     $('endGoal').innerHTML = W.newBest ? '<b>New best time!</b>' : W.stars === 3 ? 'All three stars' : `${W.stars + 1} stars: under <b>${fmtTime(W.stars === 1 ? g2 : g3)}</b>`;
   }
   // V3 + V21: headline, a progress bar against the target, three tiles, the Bill of Mortality folded away
-  $('endCrown').hidden = !won;
   $('endEyebrow').textContent = `District ${levelIndex + 1} · ${LEVEL.name}`;
   $('endTitle').textContent = won ? (last ? 'The city has fallen' : 'District taken') : reason === 'caught' ? 'Caught!' : left && targetMet(G) ? 'Hunters escaped' : 'Swarm died out';
   $('endTitle').style.color = won ? 'var(--plague)' : 'var(--blood)';

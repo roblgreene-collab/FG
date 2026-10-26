@@ -96,11 +96,12 @@ document.addEventListener('visibilitychange', () => {
 });
 
 function toggleMute() {
-  muted = !muted; $('mute').textContent = 'Sound: ' + (muted ? 'off' : 'on');
-  $('sndOn').setAttribute('aria-pressed', String(!muted)); $('sndOff').setAttribute('aria-pressed', String(muted));
+  muted = !muted; // A2: the Sound switch in Settings and in the pause panel, or the M key
+  for (const [on, off] of [['sndOn', 'sndOff'], ['psndOn', 'psndOff']]) { $(on).setAttribute('aria-pressed', String(!muted)); $(off).setAttribute('aria-pressed', String(muted)); }
   if (music.gain) music.gain.gain.setValueAtTime(muted ? 0 : 1, actx.currentTime);
 }
-$('mute').addEventListener('click', e => { toggleMute(); e.currentTarget.blur(); });
+$('psndOn').addEventListener('click', () => { if (muted) toggleMute(); });
+$('psndOff').addEventListener('click', () => { if (!muted) toggleMute(); });
 
 loadLevel(selected);
 newGame();
