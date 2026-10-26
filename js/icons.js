@@ -39,7 +39,9 @@ const ICON_SHAPES = {
   film: [{ d: 'M2 4h20v16H2Z' + rect(3.5, 5.5, 2, 2) + rect(7.5, 5.5, 2, 2) + rect(11.5, 5.5, 2, 2) + rect(15.5, 5.5, 2, 2) + rect(19, 5.5, 1.5, 2) + rect(3.5, 16.5, 2, 2) + rect(7.5, 16.5, 2, 2) + rect(11.5, 16.5, 2, 2) + rect(15.5, 16.5, 2, 2) + rect(19, 16.5, 1.5, 2) + rect(4, 9, 16, 6) }],
   sound: [{ d: 'M2 8.5h4.5L12.5 3.5v17L6.5 15.5H2Z' }, { d: 'M15.5 8.5a5 5 0 0 1 0 7', w: 2.2 }, { d: 'M18.3 5.5a9 9 0 0 1 0 13', w: 2.2 }],
   pause: [{ d: rect(4.5, 3, 5.5, 18) + rect(14, 3, 5.5, 18) }],
-  controls: [{ d: circ(15.6, 12.5, 7.8) + circ(15.6, 12.5, 5.4) }, { d: circ(15.6, 12.5, 3.3) }, { d: rect(0.6, 3.6, 6.4, 6.4) + rect(0.6, 14.4, 6.4, 6.4) }],
+  controls: [ // an arcade joystick: ball on a stick, a collar, a wide base and a button
+    { d: rect(10.6, 9.5, 2.8, 9) }, { d: rect(7.2, 16.4, 9.6, 2.4) }, { d: rect(1.5, 18.2, 21, 4.8) },
+    { d: circ(12, 6.6, 5.2), accent: true }, { d: rect(17.6, 15.2, 3.4, 2.6), accent: true }],
   shake: [{ d: 'M8 2h8a1.5 1.5 0 0 1 1.5 1.5v17A1.5 1.5 0 0 1 16 22H8a1.5 1.5 0 0 1-1.5-1.5v-17A1.5 1.5 0 0 1 8 2Z' + rect(8.2, 4.5, 7.6, 12.5) + circ(12, 19.3, 1) }, { d: 'M3.5 8l-1.6 2 1.6 2-1.6 2', w: 1.6 }, { d: 'M20.5 8l1.6 2-1.6 2 1.6 2', w: 1.6 }],
   scroll: [{ d: 'M6 4h12v16H6Z' + rect(8.2, 8, 7.6, 1.4) + rect(8.2, 11, 7.6, 1.4) + rect(8.2, 14, 5.5, 1.4) }, { d: 'M4 2.2h16a2 2 0 0 1 0 4H4a2 2 0 0 1 0-4Z' }, { d: 'M4 17.8h16a2 2 0 0 1 0 4H4a2 2 0 0 1 0-4Z' }],
   rat: [{ d: 'M2.5 15.6C2.5 12.2 5.6 10.4 9.6 10.4C13 10.4 15.6 11 17.6 12.2L22.9 14.6C23.5 14.9 23.3 15.8 22.6 15.9L17.6 16.9C15.9 18.3 13.3 18.9 10 18.9H5.6C3.8 18.9 2.5 17.7 2.5 15.6Z' + circ(19.4, 14.3, 0.85) }, { d: circ(15.6, 10.9, 2.3) }, { d: rect(6.2, 18.2, 2, 2.6) + rect(12.8, 18.2, 2, 2.6) }, { d: 'M3.2 16.6C0.4 17 0.6 21.4 3.8 21.4H9.6', w: 1.7 }],
@@ -76,12 +78,16 @@ function gearPixels(M, S, grid) {
   }
 }
 // The same outline-and-shading finish for any mask, painting pixel by pixel with put(x, y, colour).
-function shadePixels(M, S, col, put, flat) {
+// A (optional) marks pixels in the accent colour; where the two colours meet, each side is shaded as an edge.
+function shadePixels(M, S, col, put, flat, A, accent) {
   const on = (x, y) => x >= 0 && y >= 0 && x < S && y < S && M[y * S + x] === 1;
-  const hi = mixHex(col, '#ffffff', 0.45), lo = mixHex(col, '#000000', 0.35);
+  const grp = (x, y) => A && A[y * S + x] ? 1 : 0;
+  const same = (x, y, g) => on(x, y) && grp(x, y) === g;
   for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) {
-    if (on(x, y)) put(x, y, flat ? (!on(x, y - 1) ? hi : col) : !on(x, y - 1) || !on(x - 1, y) ? hi : !on(x, y + 1) || !on(x + 1, y) || !on(x + 1, y + 1) ? lo : col);
-    else if (on(x - 1, y) || on(x + 1, y) || on(x, y - 1) || on(x, y + 1)) put(x, y, ICON_INK);
+    if (on(x, y)) {
+      const g = grp(x, y), c = g ? accent : col, hi = mixHex(c, '#ffffff', 0.45), lo = mixHex(c, '#000000', 0.35);
+      put(x, y, flat ? (!same(x, y - 1, g) ? hi : c) : !same(x, y - 1, g) || !same(x - 1, y, g) ? hi : !same(x, y + 1, g) || !same(x + 1, y, g) || !same(x + 1, y + 1, g) ? lo : c);
+    } else if (on(x - 1, y) || on(x + 1, y) || on(x, y - 1) || on(x, y + 1)) put(x, y, ICON_INK);
   }
 }
 // H8: the in-game hunter arrows, in the icon style: a notched arrowhead pointing at the hunter, rasterised
@@ -118,6 +124,13 @@ function iconPixel(name, col, size) {
   }
   const a = g.getImageData(0, 0, S, S).data, M = new Uint8Array(S * S);
   for (let i = 0; i < S * S; i++) M[i] = a[i * 4 + 3] > 115 ? 1 : 0;
+  let A = null; // parts marked accent: true are drawn in the plague purple
+  if (ICON_SHAPES[name].some(p => p.accent)) {
+    g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, S, S); g.translate(1, 1); g.scale(grid / 24, grid / 24);
+    for (const p of ICON_SHAPES[name]) if (p.accent) { const P = new Path2D(p.d); if (p.w) { g.lineWidth = p.w; g.stroke(P); } else g.fill(P, 'evenodd'); }
+    const b = g.getImageData(0, 0, S, S).data; A = new Uint8Array(S * S);
+    for (let i = 0; i < S * S; i++) A[i] = b[i * 4 + 3] > 115 && M[i] ? 1 : 0;
+  }
   if (name === 'gear') gearPixels(M, S, grid); // the cog is built from blocks straight on the pixel grid
   const sym = ICON_SYM[name] || '';
   if (sym.includes('x')) for (let y = 0; y < S; y++) for (let x = 0; x < S / 2; x++) { const v = M[y * S + x] | M[y * S + S - 1 - x]; M[y * S + x] = M[y * S + S - 1 - x] = v; }
@@ -136,7 +149,7 @@ function iconPixel(name, col, size) {
       px(x, y, c);
     } else if (on(x - 1, y) || on(x + 1, y) || on(x, y - 1) || on(x, y + 1)) px(x, y, ICON_INK);
   }
-  if (!isStar) shadePixels(M, S, col, px, flat);
+  if (!isStar) shadePixels(M, S, col, px, flat, A, '#c05cff');
   return `<svg class="px" width="${size}" height="${size}" viewBox="0 0 ${S} ${S}" shape-rendering="crispEdges" aria-hidden="true">${svg}</svg>`;
 }
 function drawIcon(name, col, s = 3) { // s is the size step the menus use (about 10.5 px each)
