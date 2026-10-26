@@ -270,6 +270,15 @@ All live in the `CONFIG` object in `js/config.js`. Tuning these never changes a 
   - **Install and offline:** a web-app manifest and offline cache so it can be added to the home screen and played offline (still a browser game, 1a); bundle the two fonts.
   - **Accessibility options:** a colour-blind check of red/cyan hunter numbers and the green bite ring; separate music and effects volumes.
   - **Tips for later districts:** like R24, a one-time tip the first time a hunter, the sewer key or each obstacle appears.
+- *(Sewer ideas from Claude, 2026-10-26, not chosen yet; would change R16)*
+  - **Choose your exit:** come out of the grate in the direction you're pushing the joystick, instead of at random.
+  - **More, better-placed grates:** six to eight, some mid-district near crowds, not only the four corners.
+  - **Burst out infecting:** the swarm erupts from the exit grate and infects every healthy person nearby (a small super-spreader burst).
+  - **Sewer rats join:** the first trip through each grate adds a few rats (e.g. +3), once per grate per attempt.
+  - **Breather:** the die-off countdown is full again when the swarm comes up.
+  - **Hunters thrown off:** hunters chasing you forget you, and any near the exit grate are knocked down for a couple of seconds.
+  - **Easier to start using:** grates open from the start (no key), or the key is nearer, or a hunter drops it when eaten.
+  - **Show the way:** grates on the minimap all the time (dim until opened), and a short tip the first time the key is picked up.
 - *Tried and declined (2026-10-08):* repainting the in-game town and townsfolk to look more like the intro painting. Three mock-ups were made (a flat repaint, a brighter palette, and redrawn people and house fronts); the designer prefers the original in-game style, so it stays as it is.
 
 ## 7. Change Log
