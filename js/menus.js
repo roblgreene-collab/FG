@@ -322,8 +322,6 @@ function setFx(on) { shakeOn = on; try { localStorage.setItem(FX_KEY, on ? 'on' 
 $('fxOn').addEventListener('click', () => setFx(true));
 $('fxOff').addEventListener('click', () => setFx(false));
 applyFx();
-$('sndOn').addEventListener('click', () => { if (muted) toggleMute(); });
-$('sndOff').addEventListener('click', () => { if (!muted) toggleMute(); });
 $('resetYes').addEventListener('click', () => {
   unlocked = 1; selected = 0; // the next game starts from the first district
   plaguePoints = 0; savePoints(); // P1: a reset also empties the plague points

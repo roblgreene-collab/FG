@@ -4,9 +4,13 @@
 // ---------------------------------------------------------------------------
 // Sound: tiny synth blips, started only after the player presses Begin.
 // ---------------------------------------------------------------------------
-let actx = null, muted = false;
+// A2: music and sound effects switch on and off separately; both are remembered on this device.
+const AUDIO_KEY = 'plague-rat-audio';
+let actx = null, musicOff = false, sfxOff = false;
+try { const a = JSON.parse(localStorage.getItem(AUDIO_KEY) || '{}'); musicOff = !!a.musicOff; sfxOff = !!a.sfxOff; } catch (e) { /* storage blocked */ }
+const saveAudio = () => { try { localStorage.setItem(AUDIO_KEY, JSON.stringify({ musicOff, sfxOff })); } catch (e) { /* storage blocked */ } };
 function tone(freq, freq2, start, dur, type, vol) {
-  if (!actx || muted) return;
+  if (!actx || sfxOff) return;
   const t = actx.currentTime + start;
   const o = actx.createOscillator(), gn = actx.createGain();
   o.type = type; o.frequency.setValueAtTime(freq, t);
@@ -79,7 +83,7 @@ function sickGroan(t, vol, p) { // a short voiced "ugh" through a vowel-ish filt
   n.connect(nf); nf.connect(ng); n.start(t, Math.random() * 0.3); n.stop(t + 0.09);
 }
 function infectSfx(step) { // step = how many infections in a row came quickly (0 = the first)
-  if (!actx || muted) return;
+  if (!actx || sfxOff) return;
   const t = actx.currentTime + 0.005;
   if (t - sfxLastInfect < 0.045) return; // a burst infecting many at once sounds once, not as a wall of noise
   sfxLastInfect = t;
@@ -95,7 +99,7 @@ function infectSfx(step) { // step = how many infections in a row came quickly (
 }
 let sfxLastScream = -1;
 function screamSfx() { // A11 + R9: a short panicked "eek!" when townsfolk scatter (at most one every 0.35 s)
-  if (!actx || muted) return;
+  if (!actx || sfxOff) return;
   const t = actx.currentTime + 0.01;
   if (t - sfxLastScream < 0.35) return; sfxLastScream = t;
   if (REAL()) { playBank(Math.random() < 0.5 ? 'screamF' : 'screamM', { vol: 0.16 }); return; } // A12
@@ -266,15 +270,15 @@ function startMusic() {
   if (!actx || music.timer) return;
   if (!music.gain) setupMusicGraph();
   music.gain.gain.cancelScheduledValues(actx.currentTime);
-  music.gain.gain.setValueAtTime(muted ? 0 : 1, actx.currentTime);
+  music.gain.gain.setValueAtTime(musicOff ? 0 : 1, actx.currentTime);
   music.next = actx.currentTime + 0.08; music.step = 0; music.verse = 0; music.tier = 0;
   music.timer = setInterval(() => stepMusic(actx.currentTime + 0.18), 40);
 }
 function stopMusic() {
   clearInterval(music.timer); music.timer = null;
   if (music.gain) { // let the reverb tail die rather than cutting off, then restore the level
-    const t = actx.currentTime; music.gain.gain.cancelScheduledValues(t); music.gain.gain.setValueAtTime(muted ? 0 : 1, t); music.gain.gain.linearRampToValueAtTime(0, t + 0.4);
-    setTimeout(() => { if (!music.timer && music.gain) { music.gain.gain.cancelScheduledValues(actx.currentTime); music.gain.gain.setValueAtTime(muted ? 0 : 1, actx.currentTime); } }, 1800);
+    const t = actx.currentTime; music.gain.gain.cancelScheduledValues(t); music.gain.gain.setValueAtTime(musicOff ? 0 : 1, t); music.gain.gain.linearRampToValueAtTime(0, t + 0.4);
+    setTimeout(() => { if (!music.timer && music.gain) { music.gain.gain.cancelScheduledValues(actx.currentTime); music.gain.gain.setValueAtTime(musicOff ? 0 : 1, actx.currentTime); } }, 1800);
   }
 }
 
@@ -282,7 +286,7 @@ function stopMusic() {
 function jingleBus() {
   if (!music.gain) setupMusicGraph();
   stopJingle();
-  const bus = actx.createGain(); bus.gain.value = muted ? 0 : 1; bus.connect(actx.destination); music.jingle = bus;
+  const bus = actx.createGain(); bus.gain.value = musicOff ? 0 : 1; bus.connect(actx.destination); music.jingle = bus;
   const dry = actx.createGain(), wet = actx.createGain(), rev = actx.createConvolver();
   rev.buffer = music.rev.buffer; dry.connect(bus); wet.gain.value = 0.32; wet.connect(rev); rev.connect(bus);
   return { dry, wet };

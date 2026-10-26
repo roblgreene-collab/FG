@@ -260,7 +260,7 @@ function warmBank() {
 }
 // Play one variant of a sound. opts: vol, rate (speed and pitch), at (seconds from now), lp (a muffling filter in Hz)
 function playBank(name, opts = {}) {
-  if (!actx || muted || !BANK_RECIPES[name]) return;
+  if (!actx || sfxOff || !BANK_RECIPES[name]) return;
   bankReady(); if (!BANK.sets[name] || !BANK.sets[name].length) buildOne(name); // not warmed up yet: make one now
   const set = BANK.sets[name];
   const src = actx.createBufferSource(), g = actx.createGain(), t = actx.currentTime + (opts.at || 0) + 0.005;

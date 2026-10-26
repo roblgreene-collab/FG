@@ -95,13 +95,23 @@ document.addEventListener('visibilitychange', () => {
   } else if (!paused && actx && actx.state !== 'running') actx.resume().catch(() => {}); // back: sound returns (a paused level waits for Resume)
 });
 
-function toggleMute() {
-  muted = !muted; // A2: the Sound switch in Settings and in the pause panel, or the M key
-  for (const [on, off] of [['sndOn', 'sndOff'], ['psndOn', 'psndOff']]) { $(on).setAttribute('aria-pressed', String(!muted)); $(off).setAttribute('aria-pressed', String(muted)); }
-  if (music.gain) music.gain.gain.setValueAtTime(muted ? 0 : 1, actx.currentTime);
+// A2: separate Music and Sound effects switches (in Settings and the pause panel); M mutes or unmutes everything.
+function syncAudioUI() {
+  for (const [id, off] of [['mus', musicOff], ['sfx', sfxOff], ['pmus', musicOff], ['psfx', sfxOff]]) {
+    $(id + 'On').setAttribute('aria-pressed', String(!off)); $(id + 'Off').setAttribute('aria-pressed', String(off));
+  }
 }
-$('psndOn').addEventListener('click', () => { if (muted) toggleMute(); });
-$('psndOff').addEventListener('click', () => { if (!muted) toggleMute(); });
+function setAudio(mOff, sOff) {
+  musicOff = mOff; sfxOff = sOff; saveAudio(); syncAudioUI();
+  if (actx && music.gain) music.gain.gain.setValueAtTime(musicOff ? 0 : 1, actx.currentTime);   // chase music, intro, logo
+  if (actx && music.jingle) music.jingle.gain.setValueAtTime(musicOff ? 0 : 1, actx.currentTime); // end-of-level jingle
+}
+function toggleMute() { const anyOn = !musicOff || !sfxOff; setAudio(anyOn, anyOn); }
+for (const p of ['', 'p']) {
+  $(p + 'musOn').addEventListener('click', () => setAudio(false, sfxOff)); $(p + 'musOff').addEventListener('click', () => setAudio(true, sfxOff));
+  $(p + 'sfxOn').addEventListener('click', () => setAudio(musicOff, false)); $(p + 'sfxOff').addEventListener('click', () => setAudio(musicOff, true));
+}
+syncAudioUI();
 
 loadLevel(selected);
 newGame();

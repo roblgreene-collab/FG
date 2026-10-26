@@ -486,7 +486,7 @@ function playLogoSting(videoTime) {
   if (!actx) return;
   if (!music.gain) setupMusicGraph();
   music.gain.gain.cancelScheduledValues(actx.currentTime);
-  music.gain.gain.setValueAtTime(muted ? 0 : 1, actx.currentTime);
+  music.gain.gain.setValueAtTime(musicOff ? 0 : 1, actx.currentTime);
   const bus = actx.createGain(); bus.connect(music.gain); logoBus = bus;
   const dry = actx.createGain(), wet = actx.createGain(), rev = actx.createConvolver();
   rev.buffer = music.rev.buffer; dry.connect(bus); wet.gain.value = 0.6; wet.connect(rev); rev.connect(bus);
@@ -581,7 +581,7 @@ function playIntroJingle() {
   if (!actx) return;
   if (!music.gain) setupMusicGraph();
   music.gain.gain.cancelScheduledValues(actx.currentTime);
-  music.gain.gain.setValueAtTime(muted ? 0 : 1, actx.currentTime);
+  music.gain.gain.setValueAtTime(musicOff ? 0 : 1, actx.currentTime);
   const bus = actx.createGain(); bus.connect(music.gain); cut.bus = bus;
   const dry = actx.createGain(), wet = actx.createGain(), rev = actx.createConvolver();
   rev.buffer = music.rev.buffer; dry.connect(bus); wet.gain.value = 0.35; wet.connect(rev); rev.connect(bus);
