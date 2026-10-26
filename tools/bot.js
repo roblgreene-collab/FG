@@ -3,7 +3,8 @@
 // Plays districts in a headless browser and prints one line per run.
 // It knows where everyone is (like a player watching the minimap), paths along the streets
 // to the nearest healthy townsperson or killable hunter, keeps clear of dangerous hunters,
-// burning fires, carts and closing gates, and never uses the sewers or powerups.
+// burning fires, carts and closing gates, and never uses powerups. It doesn't seek out the sewers, but when
+// its path crosses an open grate it comes up at the exit with the most healthy townsfolk nearby.
 // So it is a cautious baseline: a good player should beat its times.
 // It steps the game directly (no drawing), so 100 games take about 3 minutes.
 //
@@ -27,6 +28,11 @@ const page = 'file://' + (process.env.PAGE || path.resolve(__dirname, '..', 'ind
     window.update = dt => { if (window.__bot && game && !game.intro) botSteer(); step(dt); };
     function botSteer() {
       const G = game; if (G.card) { dismissLevelCard(); return; }
+      if (G.sewer) { // R16: come up at the exit with the most healthy townsfolk nearby
+        let best = HAZ.exits.indexOf(G.sewer.from), most = -1;
+        HAZ.exits.forEach((e, i) => { if (e === G.sewer.from) return; const n = G.citizens.filter(c => !c.infected && Math.hypot(c.x - e.x, c.y - e.y) < 96).length; if (n > most) { most = n; best = i; } });
+        emergeSewer(HAZ.exits[best]); window.__sewerTrips = (window.__sewerTrips || 0) + 1; return;
+      }
       const L = G.rats[0]; if (!L) return;
       const n = G.rats.length, sx = L.x / TILE | 0, sy = L.y / TILE | 0, avoid = new Set();
       const add = (x, y, r) => { for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) if (Math.abs(dx) + Math.abs(dy) <= r) avoid.add((x + dx) + ',' + (y + dy)); };
@@ -64,19 +70,19 @@ const page = 'file://' + (process.env.PAGE || path.resolve(__dirname, '..', 'ind
     await pg.evaluate(([li, ov]) => {
       if (state === 'playing') state = 'lost'; // a run that hit the time cap
       unlocked = LEVELS.length; state = 'title'; window.__plague.override = ov; window.__plague.manual = true;
-      shakeOn = false; inventory = { bite: 0, boost: 0 }; window.__bot = true; startLevel(li);
+      shakeOn = false; inventory = { bite: 0, boost: 0 }; window.__bot = true; window.__sewerTrips = 0; startLevel(li);
     }, [li, JSON.parse(process.env.CFG || 'null')]);
     await pg.waitForFunction(li => state === 'playing' && levelIndex === li && game.time === 0, li); // the map builds first
     let res;
     for (let i = 0; i < 400; i++) { // fast mode: step the game directly at 60 steps per game second, no drawing
       res = await pg.evaluate(() => {
         for (let k = 0; k < 600 && state === 'playing'; k++) { if (!game.intro) updateCam(game); update(1 / 60); }
-        return ({ state, inf: game.infected, need: Math.ceil(CONFIG.targetPercent * CONFIG.population / 100), left: game.hunters.filter(h => h.alive).length, rats: game.rats.length, t: Math.round(game.time), peak: game.peak, caught: !!game.caughtBy });
+        return ({ state, inf: game.infected, need: Math.ceil(CONFIG.targetPercent * CONFIG.population / 100), left: game.hunters.filter(h => h.alive).length, rats: game.rats.length, t: Math.round(game.time), peak: game.peak, caught: !!game.caughtBy, trips: window.__sewerTrips || 0 });
       });
       if (res.state !== 'playing') break;
     }
     (all[li + 1] = all[li + 1] || []).push(res);
-    console.log(`District ${li + 1} run ${run + 1}: ${res.state === 'won' ? 'WON ' : 'lost'} ${Math.floor(res.t / 60)}:${String(res.t % 60).padStart(2, '0')}  infected ${res.inf}/${res.need}  hunters left ${res.left}  rats ${res.rats} (peak ${res.peak})${res.caught ? '  caught' : ''}`);
+    console.log(`District ${li + 1} run ${run + 1}: ${res.state === 'won' ? 'WON ' : 'lost'} ${Math.floor(res.t / 60)}:${String(res.t % 60).padStart(2, '0')}  infected ${res.inf}/${res.need}  hunters left ${res.left}  rats ${res.rats} (peak ${res.peak})${res.caught ? '  caught' : ''}${res.trips ? `  sewer trips ${res.trips}` : ''}`);
   }
   console.log('\nSummary');
   for (const [lv, rs] of Object.entries(all)) {

@@ -47,6 +47,8 @@ const CONFIG = {
   streakWindow: 0.9,       // A10: infections this close together climb the scale
   hunterWarnMargin: 3,     // H9: a prey hunter flashes while the swarm is this many rats or fewer above his number
   swarmMilestones: [20, 30, 40], // R25: swarm sizes that get a banner, the first time each round
+  sewerStunRadius: 64,     // R16: px, hunters this close to the grate you come out of are knocked down...
+  sewerStunTime: 3,        // R16: ...for this many seconds
   warnRats: 3,             // V22: the low-swarm warning shows at this many rats or fewer
   scatterRadius: 32,       // R9: px, healthy townsfolk this close to a new infection run off
   scatterTime: 1.0,        // R9: seconds they run for

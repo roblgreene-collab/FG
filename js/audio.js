@@ -40,6 +40,7 @@ const sfx = {
   die() { if (REAL()) playBank('dying', { vol: 0.15 }); else OLD_SFX.die(); },
   squeak() { if (REAL()) playBank('squeak', { vol: 0.12 }); else OLD_SFX.squeak(); },
   alert() { if (REAL()) playBank('shout', { vol: 0.35 }); else OLD_SFX.alert(); },          // H4: a hunter spots the swarm
+  knock() { if (REAL()) { playBank('cry', { vol: 0.32, rate: 0.8 }); playBank('splash', { vol: 0.2, rate: 0.6 }); } else tone(140, 60, 0, 0.2, 'triangle', 0.12); }, // R16: hunters knocked down
   devour() { if (REAL()) playBank('screamM', { vol: 0.35, rate: 0.9 }); else OLD_SFX.alert(); }, // H7: the hunter screams as the rats pile on
   kill() { if (REAL()) { playBank('chew', { vol: 0.3 }); if (Math.random() < 0.4) playBank('squeak', { vol: 0.12, at: 0.05 }); } else OLD_SFX.kill(); },
   clank() { if (REAL()) playBank('clank', { vol: 0.3 }); else OLD_SFX.clank(); },

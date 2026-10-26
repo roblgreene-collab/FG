@@ -14,6 +14,7 @@ window.addEventListener('keydown', e => {
     if (e.code === 'Digit1') buyPower('bite'); else if (e.code === 'Digit2') buyPower('boost'); else if (e.code === 'Enter' || e.code === 'Space') dismissLevelCard();
     return;
   }
+  if (state === 'playing' && game.sewer && !e.repeat) { e.preventDefault(); sewerKey(e); return; } // R16: the sewer map
   if (paused) { // V22: Escape, P or Enter resumes
     if (!e.repeat && ['Escape', 'KeyP', 'Enter', 'Space'].includes(e.code)) { e.preventDefault(); resumeGame(); }
     return;
@@ -67,7 +68,7 @@ $('homeBtn').addEventListener('click', () => { selected = Math.min(unlocked - 1,
 // the game also pauses itself when the phone switches app or the tab is hidden.
 let paused = false;
 function pauseGame() {
-  if (state !== 'playing' || paused || game.card || !$('endScreen').hidden) return;
+  if (state !== 'playing' || paused || game.card || game.sewer || !$('endScreen').hidden) return;
   paused = true; keys.clear();
   stick.id = null; stick.x = stick.y = 0; knobEl.style.transform = ''; stickEl.classList.remove('active');
   if (actx && actx.state === 'running') actx.suspend().catch(() => {});
@@ -123,6 +124,7 @@ function frame(now) {
     for (let i = 0; i < steps && state === 'playing'; i++) update(dt);
     updateHud();
     renderMinimap();
+    if (game.sewer) drawSewerMap(); // R16
   }
   if (state === 'cutscene') drawCutscene(dt);
   else if (state === 'splash' || state === 'logo') { ctx.fillStyle = '#000'; ctx.fillRect(0, 0, view.w, view.h); }

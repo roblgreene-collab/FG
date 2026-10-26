@@ -101,6 +101,7 @@ function update(dt) {
   if (G.intro) { updateIntro(dt); return; } // V9: the swarm climbs out of the well first
   if (G.feast) { updateFeast(dt); return; } // H7: the world waits while the swarm eats
   if (G.card) { stepFx(dt); return; }       // R21: nothing moves until the title card is dismissed
+  if (G.sewer) return;                       // R16: everything waits while the player picks a sewer exit
   G.time += dt;
 
   // R1: lead rat follows the player's input

@@ -58,6 +58,70 @@ const TIPS = [
   { text: () => 'Keep biting! When the <b>timer</b> runs out a rat dies', done: (G, T) => T > 4.5 },
   { text: () => `Infect <b>${Math.ceil(CONFIG.targetPercent * CONFIG.population / 100)}</b> people to take the district`, done: (G, T) => T > 4.5 },
 ];
+// R16: the sewer map. The whole district, dimmed, with every exit numbered, the healthy townsfolk and the
+// hunters, so the player can pick where to come up. Tap an exit (or press its number, or ←/→ then Enter).
+const SEWER_PX = 4; // map pixels per tile on the sewer map
+const sewerMapEl = $('sewerMap');
+let sewerBg = null, sewerSel = 0;
+function sewerChoices() { return HAZ.exits.map((e, i) => ({ ...e, n: i + 1, here: e === game.sewer.from })); }
+function openSewerMap() {
+  const W = MAP_W * SEWER_PX, H = MAP_H * SEWER_PX;
+  sewerMapEl.width = W; sewerMapEl.height = H;
+  if (!sewerBg || sewerBg.level !== levelIndex) { // the district itself, shrunk and darkened like the view from below
+    sewerBg = makeCanvas(W, H); sewerBg.level = levelIndex;
+    const g = sewerBg.getContext('2d'); g.imageSmoothingEnabled = true; g.drawImage(mapCanvas, 0, 0, W, H);
+    g.fillStyle = 'rgba(8,10,20,.55)'; g.fillRect(0, 0, W, H);
+  }
+  const ch = sewerChoices(), from = ch.findIndex(c => c.here);
+  sewerSel = (from + 1) % ch.length;
+  $('sewerScreen').hidden = false; $('tip').hidden = true; stickEl.hidden = true;
+  drawSewerMap(); focusKb($('sewerBack'));
+}
+function closeSewerMap() { $('sewerScreen').hidden = true; stickEl.hidden = !isTouch(); }
+function drawSewerMap() {
+  if (!game || !game.sewer) return;
+  const g = sewerMapEl.getContext('2d'), k = SEWER_PX / TILE, t = performance.now() / 1000;
+  g.imageSmoothingEnabled = false; g.drawImage(sewerBg, 0, 0);
+  g.fillStyle = '#e9dcbc'; // healthy townsfolk
+  for (const c of game.citizens) if (!c.infected && !c.gone) g.fillRect(Math.round(c.x * k) - 1, Math.round(c.y * k) - 1, 2, 2);
+  for (const h of game.hunters) if (h.alive && !h.dying) { // hunters, with their numbers
+    const x = Math.round(h.x * k), y = Math.round(h.y * k), col = hunterCol(h);
+    g.fillStyle = '#120f0c'; g.fillRect(x - 3, y - 3, 7, 7); g.fillStyle = col; g.fillRect(x - 2, y - 2, 5, 5);
+    pixText(g, String(h.number), x + 5, y - 3, col);
+  }
+  sewerChoices().forEach((e, i) => { // the exits: a numbered grate ring, the selected one pulsing
+    const x = Math.round(e.x * k), y = Math.round(e.y * k), sel = i === sewerSel && !e.here;
+    const r = sel ? 8 + Math.round(Math.sin(t * 8)) : 7;
+    g.fillStyle = '#120f0c'; g.beginPath(); g.arc(x, y, r + 2, 0, Math.PI * 2); g.fill();
+    g.fillStyle = e.here ? '#4a3e30' : sel ? '#ffd75a' : PLAGUE; g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fill();
+    g.fillStyle = '#120f0c'; g.beginPath(); g.arc(x, y, r - 2, 0, Math.PI * 2); g.fill();
+    const label = e.here ? 'IN' : e.well ? 'W' : String(e.n);
+    pixText(g, label, x - Math.floor((label.length * 4 - 1) / 2), y - 2, e.here ? '#a8987a' : sel ? '#ffd75a' : '#efe2c0');
+    if (e.well && !e.here) pixText(g, 'WELL', x - 7, y + r + 3, '#efe2c0');
+  });
+  const L = game.rats[0], here = game.sewer.from; // you are here
+  if (L) pixText(g, 'YOU', Math.round(here.x * k) - 5, Math.round(here.y * k) + 11, '#c05cff');
+}
+function pickSewer(i) { const e = sewerChoices()[i]; if (e && !e.here) emergeSewer(HAZ.exits[i]); }
+sewerMapEl.addEventListener('pointerdown', e => {
+  e.preventDefault();
+  const r = sewerMapEl.getBoundingClientRect(), sx = (e.clientX - r.left) / r.width * sewerMapEl.width, sy = (e.clientY - r.top) / r.height * sewerMapEl.height;
+  const k = SEWER_PX / TILE; let best = -1, bd = 1e9;
+  sewerChoices().forEach((c, i) => { const d = Math.hypot(c.x * k - sx, c.y * k - sy); if (!c.here && d < bd) { bd = d; best = i; } });
+  if (best >= 0 && bd < 26) pickSewer(best); // generous, so fingers find it
+});
+$('sewerBack').addEventListener('click', () => { if (game && game.sewer) emergeSewer(game.sewer.from); });
+function sewerKey(e) { // keyboard: number keys, or ←/→ to move the highlight and Enter to go; Escape climbs back out
+  const ch = sewerChoices(), n = ch.length;
+  if (/^Digit[1-9]$/.test(e.code)) { const i = +e.code.slice(5) - 1; if (i < n) pickSewer(i); }
+  else if (e.code === 'KeyW' && ch[n - 1].well) pickSewer(n - 1);
+  else if (['ArrowRight', 'ArrowDown', 'ArrowLeft', 'ArrowUp'].includes(e.code)) {
+    const d = e.code === 'ArrowRight' || e.code === 'ArrowDown' ? 1 : -1;
+    do sewerSel = (sewerSel + d + n) % n; while (ch[sewerSel].here);
+  } else if (e.code === 'Enter' || e.code === 'Space') pickSewer(sewerSel);
+  else if (e.code === 'Escape') emergeSewer(game.sewer.from);
+}
+
 // R25, R26: big banners in the middle of the play area, one at a time (later ones wait their turn).
 const bannerQ = [];
 function banner(text, sub, cls) { bannerQ.push([text, sub, cls]); if ($('banner').hidden) nextBanner(); }
@@ -210,7 +274,7 @@ $('levelList').addEventListener('click', e => {
   selected = +b.dataset.i; renderLevelList(); $('levelList').scrollTop = top;
 });
 
-const SCREENS = ['titleScreen', 'levelScreen', 'endScreen', 'splash', 'levelCard', 'howScreen', 'settingsScreen', 'pauseScreen'];
+const SCREENS = ['titleScreen', 'levelScreen', 'endScreen', 'splash', 'levelCard', 'howScreen', 'settingsScreen', 'pauseScreen', 'sewerScreen'];
 function hideScreens() { for (const id of SCREENS) $(id).hidden = true; showMenuBg(false); }
 function enterMenu() { state = 'title'; stopMusic(); hideScreens(); setFramed(false); mini.hidden = true; stickEl.hidden = true; }
 const focusKb = el => { if (!isTouch()) el.focus(); };

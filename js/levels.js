@@ -206,8 +206,12 @@ function buildHazards(lv) {
       addGate([0, 1, 2].map(k => [x, y0 + k]), 'v');
     }
   }
-  // R16 sewer grates sit at the four corner crossroads
-  if (F.sewers) HAZ.grates = [[2, 2], [MAP_W - 3, 2], [2, MAP_H - 3], [MAP_W - 3, MAP_H - 3]].map(([tx, ty]) => ({ tx, ty, x: tx * TILE + 8, y: ty * TILE + 8 }));
+  // R16 sewer grates sit at crossroads: the four corners and four inside the district
+  const cross = (bx, by) => [2 + bx * PERIOD, 2 + by * PERIOD], BX = BLOCKS_X, BY = BLOCKS_Y;
+  if (F.sewers) HAZ.grates = [cross(0, 0), cross(BX, 0), cross(0, BY), cross(BX, BY), cross(2, 1), cross(BX - 2, 1), cross(2, BY - 1), cross(BX - 2, BY - 1)]
+    .map(([tx, ty]) => ({ tx, ty, x: tx * TILE + 8, y: ty * TILE + 8 }));
+  // ...and the well the swarm climbs out of is an exit too (you come up on the plaza in front of it)
+  HAZ.exits = F.sewers ? HAZ.grates.concat({ well: true, x: START.x, y: START.y }) : [];
   const nearGrate = (tx, ty) => HAZ.grates.some(g => Math.abs(g.tx - tx) + Math.abs(g.ty - ty) < 4);
   // R17 fires on single street tiles, spaced apart
   for (let n = 0, tries = 0; n < (F.fires || 0) && tries < 6000; tries++) {
@@ -247,6 +251,7 @@ function setupHazards(G, rng) {
       const x = tx * TILE + 8, y = ty * TILE + 8;
       if (Math.hypot(x - START.x, y - START.y) < TILE * 18) continue;
       if (HAZ.lanes.some(l => Math.abs((l.axis === 'h' ? y : x) - l.c) < 12)) continue;
+      if (HAZ.grates.some(g => Math.abs(g.tx - tx) + Math.abs(g.ty - ty) < 3)) continue; // not on a grate
       G.key = { x, y }; break;
     }
   }
@@ -306,20 +311,38 @@ function updateHazards(dt) {
   if (G.key && !G.hasKey && Math.hypot(L.x - G.key.x, L.y - G.key.y) < 10) {
     G.hasKey = true;
     for (let k = 0; k < 16; k++) { const a = Math.random() * Math.PI * 2; G.particles.push({ x: G.key.x, y: G.key.y - 4, vx: Math.cos(a) * 30, vy: Math.sin(a) * 30 - 10, life: 0.8, max: 0.8, col: pick(Math.random, ['#ffd75a', '#e0b040', '#fff2b0']), size: 1 }); }
-    sfx.key();
+    sfx.key(); banner('Sewers open!', 'Step on a grate to travel', 'all'); // R16 + R26
   }
   if (G.hasKey) {
     const near = HAZ.grates.find(g => Math.hypot(L.x - g.x, L.y - g.y) < 7);
     if (!near) { if (HAZ.grates.every(g => Math.hypot(L.x - g.x, L.y - g.y) > 16)) G.sewerArmed = true; }
-    else if (G.sewerArmed) {
-      const others = HAZ.grates.filter(g => g !== near), dest = others[Math.floor(Math.random() * others.length)];
-      const burst = (x, y) => { for (let k = 0; k < 14; k++) { const a = Math.random() * Math.PI * 2; G.particles.push({ x, y, vx: Math.cos(a) * 26, vy: Math.sin(a) * 26 - 12, life: 0.6, max: 0.6, col: pick(Math.random, ['#7aa6c2', PLAGUE, '#3a4a40']), size: 1 }); } };
-      burst(near.x, near.y);
-      G.rats.forEach((r, i) => { r.x = dest.x + (i ? (Math.random() - .5) * 10 : 0); r.y = dest.y + (i ? (Math.random() - .5) * 10 : 0); });
-      G.trail = [{ x: dest.x, y: dest.y }];
-      G.sewerArmed = false; burst(dest.x, dest.y); sfx.sewer();
-    }
+    else if (G.sewerArmed) enterSewer(near);
   }
+}
+
+// R16: down a grate. Everything stops (countdown, clock, townsfolk, hunters) while the player picks a way
+// out on the sewer map (js/menus.js); emergeSewer() brings the swarm up there.
+const sewerSplash = (x, y) => { for (let k = 0; k < 14; k++) { const a = Math.random() * Math.PI * 2; game.particles.push({ x, y, vx: Math.cos(a) * 26, vy: Math.sin(a) * 26 - 12, life: 0.6, max: 0.6, col: pick(Math.random, ['#7aa6c2', PLAGUE, '#3a4a40']), size: 1 }); } };
+function enterSewer(from) {
+  const G = game;
+  G.sewer = { from }; G.sewerArmed = false; keys.clear();
+  stick.id = null; stick.x = stick.y = 0; knobEl.style.transform = ''; stickEl.classList.remove('active');
+  sewerSplash(from.x, from.y); sfx.sewer();
+  openSewerMap();
+}
+function emergeSewer(dest) {
+  const G = game; if (!G.sewer) return;
+  G.sewer = null; closeSewerMap();
+  G.rats.forEach((r, i) => { r.x = dest.x + (i ? (Math.random() - .5) * 10 : 0); r.y = dest.y + (i ? (Math.random() - .5) * 10 : 0); });
+  G.trail = [{ x: dest.x, y: dest.y }];
+  G.sewerArmed = false; sewerSplash(dest.x, dest.y); sfx.sewer();
+  // R16: hunters close to the exit are knocked flat for a few seconds
+  let hit = 0;
+  for (const h of G.hunters) if (h.alive && !h.dying && Math.hypot(h.x - dest.x, h.y - dest.y) < CONFIG.sewerStunRadius) {
+    h.stun = CONFIG.sewerStunTime; h.mode = 'wander'; hit++;
+    G.texts.push({ x: h.x - 8, y: h.y - 30, text: 'THUD', col: '#ffd75a', life: 0.9 });
+  }
+  if (hit) { sfx.knock(); jolt(3, 0.3, 50); }
 }
 
 // ---- drawing -----------------------------------------------------------------

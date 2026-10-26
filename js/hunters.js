@@ -102,6 +102,11 @@ function updateHunters(dt) {
   for (const h of G.hunters) {
     if (!h.alive || h.dying) continue;
     const danger = n < h.number; // H3 + H6: equal or more rats makes him prey
+    if (h.stun > 0) { // R16: knocked down by the swarm bursting out of the sewer: he can't move or catch anyone
+      h.stun -= dt; h.danger = danger;
+      if (!danger && G.rats.some(r => Math.hypot(r.x - h.x, r.y - (h.y - 3)) < CONFIG.infectRadius + 1)) { killHunter(h); return; }
+      continue;
+    }
     const onScreen = h.x > G.cam.x - 4 && h.x < G.cam.x + view.w + 4 && h.y > G.cam.y - 4 && h.y < G.cam.y + view.h + 4;
     const mode = !onScreen ? 'wander' : danger ? 'chase' : 'flee'; // H4: he hunts whatever he can see
     if (mode === 'chase' && h.mode !== 'chase') { sfx.alert(); G.texts.push({ x: h.x - 1, y: h.y - 26, text: '!', col: HUNTER_DANGER, life: 0.9 }); }
@@ -223,6 +228,13 @@ function drawHunter(h, ox, oy) {
     shake = Math.round(Math.sin(game.feast.t * 60) * 1.5);
   }
   const s = (hunterRed(h) ? hunterSprites.danger : hunterSprites.prey)[h.frame];
+  if (h.stun > 0 && !h.dying) { // R16: lying flat on his back, with dizzy stars circling his head
+    const W = s.width, H = s.height, cx = Math.round(h.x + ox), cy = Math.round(h.y - 3 + oy);
+    ctx.fillStyle = 'rgba(0,0,0,.32)'; ctx.fillRect(cx - H / 2, cy + W / 2 - 1, H, 2);
+    ctx.save(); ctx.translate(cx, cy); ctx.rotate(-Math.PI / 2); ctx.drawImage(s, -W / 2 - 1, -H / 2); ctx.restore();
+    for (let k = 0; k < 3; k++) { const a = game.time * 5 + k * 2.1; ctx.fillStyle = k % 2 ? '#ffd75a' : '#fff2b0'; ctx.fillRect(Math.round(cx - 6 + Math.cos(a) * 5), Math.round(cy - 6 + Math.sin(a) * 2), 1 + (k === 0), 1 + (k === 0)); }
+    return;
+  }
   const W = s.width, H = s.height, x = Math.round(h.x - W / 2 + ox) + shake, y = Math.round(h.y - H + 2 + oy);
   drawFootShadow(x, y + H - 2, W);
   // catch-pole with a net over his shoulder
