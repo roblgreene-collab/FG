@@ -60,6 +60,7 @@ const TIPS = [
 ];
 // R16: the sewer map. The whole district, dimmed, with every exit numbered, the healthy townsfolk and the
 // hunters, so the player can pick where to come up. Tap an exit (or press its number, or ←/→ then Enter).
+// The keyboard highlight is white and only shown to keyboard players, never on a phone.
 const SEWER_PX = 4; // map pixels per tile on the sewer map
 const sewerMapEl = $('sewerMap');
 let sewerBg = null, sewerSel = 0;
@@ -90,13 +91,13 @@ function drawSewerMap() {
     pixText(g, String(h.number), x + 5, y - 3, col);
   }
   sewerChoices().forEach((e, i) => { // the exits: a numbered grate ring, the selected one pulsing
-    const x = Math.round(e.x * k), y = Math.round(e.y * k), sel = i === sewerSel && !e.here;
+    const x = Math.round(e.x * k), y = Math.round(e.y * k), sel = i === sewerSel && !e.here && (!isTouch() || game.sewer.keys); // keyboard only
     const r = sel ? 8 + Math.round(Math.sin(t * 8)) : 7;
     g.fillStyle = '#120f0c'; g.beginPath(); g.arc(x, y, r + 2, 0, Math.PI * 2); g.fill();
-    g.fillStyle = e.here ? '#4a3e30' : sel ? '#ffd75a' : PLAGUE; g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fill();
+    g.fillStyle = e.here ? '#4a3e30' : sel ? '#ffffff' : PLAGUE; g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fill();
     g.fillStyle = '#120f0c'; g.beginPath(); g.arc(x, y, r - 2, 0, Math.PI * 2); g.fill();
     const label = e.here ? 'IN' : e.well ? 'W' : String(e.n);
-    pixText(g, label, x - Math.floor((label.length * 4 - 1) / 2), y - 2, e.here ? '#a8987a' : sel ? '#ffd75a' : '#efe2c0');
+    pixText(g, label, x - Math.floor((label.length * 4 - 1) / 2), y - 2, e.here ? '#a8987a' : sel ? '#ffffff' : '#efe2c0');
     if (e.well && !e.here) pixText(g, 'WELL', x - 7, y + r + 3, '#efe2c0');
   });
   const L = game.rats[0], here = game.sewer.from; // you are here
@@ -117,6 +118,7 @@ function sewerKey(e) { // keyboard: number keys, or ←/→ to move the highligh
   else if (e.code === 'KeyW' && ch[n - 1].well) pickSewer(n - 1);
   else if (['ArrowRight', 'ArrowDown', 'ArrowLeft', 'ArrowUp'].includes(e.code)) {
     const d = e.code === 'ArrowRight' || e.code === 'ArrowDown' ? 1 : -1;
+    if (!game.sewer.keys) { game.sewer.keys = true; if (isTouch()) return; } // first arrow on a touch device just shows the highlight
     do sewerSel = (sewerSel + d + n) % n; while (ch[sewerSel].here);
   } else if (e.code === 'Enter' || e.code === 'Space') pickSewer(sewerSel);
   else if (e.code === 'Escape') emergeSewer(game.sewer.from);
