@@ -35,13 +35,12 @@ function newGame() {
     particles: [], texts: [], cam: { x: 0, y: 0 },
     hunters: spawnHunters(), huntersKilled: 0, powers: newPowers(), spreader: null, blasts: [], pointsEarned: 0, caughtBy: null, flowT: 0, flow: null, feast: null, intro: null,
   };
-  // V29: some townsfolk have jobs. A separate random sequence, so everyone else stays exactly where they were.
+  // V29: some townsfolk have jobs (sweepers, water carriers, town criers). A separate random sequence, so everyone else stays exactly where they were.
   const jr = mulberry32(4242 + levelIndex * 101 + 999);
   for (const c of citizens) {
     if (jr() >= CONFIG.jobShare) continue;
-    const r = jr(); c.job = r < 0.35 ? 'sweeper' : r < 0.65 ? 'water' : r < 0.8 ? 'crier' : 'doctor';
+    const r = jr(); c.job = r < 0.42 ? 'sweeper' : r < 0.8 ? 'water' : 'crier';
     c.jobPhase = jr() * 10;
-    if (c.job === 'doctor') c.sprites = makePersonSprites(jr, { doctor: true });
   }
   setupHazards(game, rng);
   setupIntro(game);
@@ -429,8 +428,8 @@ function drawHunterArrows(G, ox, oy) {
 }
 
 // V29: townsfolk at work. Drawn over (or behind) the person's sprite in its own pixels; mirrored with the sprite.
-const JOB_PACE = { sweeper: 0.45, water: 0.9, crier: 0.3, doctor: 0.8 };
-const JOB_REST = { sweeper: 0.55, water: 0.15, crier: 0.75, doctor: 0.2 };
+const JOB_PACE = { sweeper: 0.45, water: 0.9, crier: 0.3 };
+const JOB_REST = { sweeper: 0.55, water: 0.15, crier: 0.75 };
 function drawJob(c, x, y, W, H, behind) {
   const X = dx => c.flip ? x + W - 1 - dx : x + dx, p = (dx, dy, col) => { ctx.fillStyle = col; ctx.fillRect(X(dx), y + dy, 1, 1); };
   const t = game.time + c.jobPhase, bob = c.frame ? 1 : 0;
@@ -449,12 +448,7 @@ function drawJob(c, x, y, W, H, behind) {
     p(10, 6, '#c99470'); p(10, 5, '#c99470'); p(10 + ring, 4, '#3a2a1c');
     p(10 + ring, 2, '#e0b040'); p(11 + ring, 2, '#e0b040'); p(10 + ring, 3, '#b8862a'); p(11 + ring, 3, '#b8862a'); p(10 + ring, 1, '#ffe08a');
     if (ring && Math.sin(t * 7) > 0.9) { p(13, 1, '#ffe08a'); p(14, 0, '#ffe08a'); }
-  } else if (c.job === 'doctor') { // a wide-brimmed hat, the long white beak mask with a red glass eye, and a cane
-    for (let k = 1; k <= 10; k++) p(k, 1, '#141214');
-    for (let k = 3; k <= 8; k++) { p(k, 0, '#141214'); p(k, -1, '#1e1a1e'); }
-    p(9, 4, '#e8dcc0'); p(10, 4, '#e8dcc0'); p(11, 4, '#d8ccb0'); p(12, 5, '#c8bca0'); p(9, 5, '#d8ccb0'); p(10, 5, '#c8bca0'); p(11, 5, '#c8bca0');
-    p(7, 3, '#a8322c');
-    for (let k = 0; k < 6; k++) p(10, 8 + k, '#3a2a1c'); p(9, 8, '#3a2a1c');
+
   }
 }
 

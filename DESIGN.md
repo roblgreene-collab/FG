@@ -107,9 +107,9 @@ Status: **Locked** (agreed, must be honored), **Draft** (being tried out), **Pro
 | V25 | **Detailed pixel icons** (style A, chosen from mock-ups). Menu and HUD icons are pixel art at about twice the old resolution instead of 7×7 grids: each is drawn as a shape, set onto an odd-sized pixel grid centred on a pixel (so symmetrical icons are exactly symmetrical), and given a dark ink outline, a lit top-left edge and a shaded bottom-right edge in its own colour; very small icons use simpler shading. They keep the old sizes and colours. The **star** is a full five-point star with a bevel: each point has a lit left half and a shaded right half, and a bright rim on top. The **settings cog** follows the classic pixel-art cog (after a reference the designer supplied): a ring-shaped body with a wide hole and a small diamond hub in the middle, square teeth straight up, down, left and right, and diagonal teeth that step out at 45° like staircases, with clear gaps between all eight; symmetrical both ways. The HUD clock's stars are slightly larger. | Draft |
 | V26 | **Decluttered play screen** (chosen from mock-ups). **Top bar:** the pause button is a small square at its top-left (R22). **Bottom bar:** no sound button (A2); the minimap is a little bigger; the two **powerup buttons** are plain square icon tiles stacked beside the joystick, with no words: the uses left show as small dots under the icon (●●○), an armed or active powerup glows as before, and one you don't own is a faint outline. On keyboards, the controls reminder is a row of small key caps instead of a sentence: **W A S D** run, **1 2** powers, **P** pause. **Menus:** the end screen has no crown (its buttons are unchanged), and the level card no longer shows the "Infect townsfolk and eat hunters to earn plague points" line. | Draft |
 | V28 | **Trees** (chosen from mock-ups). **Leafy trees** are a crown of 6–7 overlapping leaf clumps (one of three greens), each lit from the top-left in four tones with dappled leaves, a dark outline round the whole crown, a trunk showing below and a soft shadow down and to the right. **Bare trees** (dead trees, and every tree in Frostgate) have four to six thick limbs that taper and fork twice into twigs, lit bark on one side and their shadow on the ground; in Frostgate snow lies along the tops of the branches and drifts at the foot. Purely visual. | Draft |
-| V29 | **Townsfolk at work** (proposed, awaiting the designer). About `jobShare` (12%) of each district's townsfolk have a job, chosen from a separate random sequence so everyone else is unchanged: **sweepers** (slow, swishing a broom, kicking up dust), **water carriers** (a yoke with a bucket at each end), **town criers** (mostly standing, ringing a hand bell) and **plague doctors** (dark hooded cloak, wide-brimmed hat, white beak mask with a red glass eye, cane). Purely visual: they are infected and scatter like anyone else. | Proposed |
-| V30 | **Window light** (proposed, awaiting the designer). Candle-lit windows cast a warm, flickering pool of light onto the street in front; lanterns, forges, street lamps and braziers cast the same soft additive light instead of flat circles. In the Palace Ward lit windows also light the dark. | Proposed |
-| V31 | **Plague pyres** (proposed, awaiting the designer). Each street fire (R17) is a pyre: a criss-cross log stack on scorched ground with one to three sooty, rope-bound shrouded bodies, sometimes a plague-grey foot showing. Smouldering: embers glow in the logs and smoke rises; burning: a wide blaze with sparks and a strong glow; burnt down: smoke drifts off the charred dead. Timing and danger unchanged. | Proposed |
+| V29 | **Townsfolk at work** (chosen from mock-ups). About `jobShare` (12%) of each district's townsfolk have a job, chosen from a separate random sequence so everyone else is unchanged: **sweepers** (slow, swishing a broom over the cobbles, kicking up dust), **water carriers** (a yoke across the shoulders with a bucket of water bobbing at each end) and **town criers** (mostly standing, ringing a gold hand bell). Purely visual: they are infected and scatter like anyone else. (A plague doctor was mocked up and left out; the designer is keeping it for a boss, §3e.) | Draft |
+| V30 | **Window light** (chosen from mock-ups). Candle-lit windows cast a warm, flickering pool of light onto the street in front; lanterns, forges, street lamps and braziers cast the same soft additive light instead of flat circles. In the Palace Ward lit windows also light the dark. | Draft |
+| V31 | **Plague pyres** (chosen from mock-ups). Each street fire (R17) is a pyre: a criss-cross log stack on scorched ground with one to three sooty, rope-bound shrouded bodies, sometimes a plague-grey foot showing. Smouldering: embers glow in the logs and smoke rises; burning: a wide blaze with sparks and a strong glow; burnt down: smoke drifts off the charred dead. Timing and danger unchanged (R17). | Draft |
 
 ## 3b. Audio
 | ID | Rule | Status |
@@ -208,7 +208,7 @@ On the first numbers (hunters up to 36–40, 12 start rats, a deadly fire or car
 ## 3e. Planned Mechanics (designer's ideas, NOT in the build yet)
 Status **Planned** = recorded for later; not built until the designer says so.
 
-*(None at the moment. The Rat Hunter, H1–H6, was built on 2026-10-06. See §3.)*
+- **Plague doctor boss** (designer's idea, to explore later): a plague doctor (dark cloak, wide-brimmed hat, white beak mask) as a boss. Details to come from the designer.
 
 ## 4. Tunable Numbers
 All live in the `CONFIG` object in `js/config.js`. Tuning these never changes a rule.
@@ -244,7 +244,7 @@ All live in the `CONFIG` object in `js/config.js`. Tuning these never changes a 
 | `fireCycle` / `fireLit` / `fireOut` | 5 s / 1.2 s / 3.0 s | Fire cycle: smoulder until `fireLit`, burn until `fireOut`, then out (R17) |
 | `pointsPerInfection` / `pointsPerHunter` | 1 / 3 | Plague points earned, before the district scaling (P1) |
 | `pointsBaseMult` / `pointsPerDistrict` | 0.6 / 0.15 | District 1 pays ×0.6; each later district adds 0.15 (District 10: ×1.95) (P1) |
-| `jobShare` | 0.12 | Share of townsfolk with a job (V29, proposed) |
+| `jobShare` | 0.12 | Share of townsfolk with a job (V29) |
 | `scatterRadius` / `scatterTime` / `scatterSpeedMult` | 32 px / 1 s / 2.5 | Townsfolk this close to an infection run off for this long at this × their speed (R9) |
 | `realisticSounds` | true | true = the realistic sound palette (A12); false = the earlier synth sounds |
 | `streakWindow` | 0.9 s | Infections this close together climb the scale (A10) |
@@ -287,6 +287,7 @@ All live in the `CONFIG` object in `js/config.js`. Tuning these never changes a 
 ## 7. Change Log
 | Date | Change | Approved by |
 |------|--------|-------------|
+| 2026-11-14 | Published townsfolk jobs (sweepers, water carriers, town criers; V29), window light (V30) and plague pyres (V31). Plague doctor left out of the jobs and kept for a future boss (§3e) | Designer |
 | 2026-11-14 | Built and mocked up, not yet published: townsfolk jobs (V29), window light (V30), plague pyres (V31) | Awaiting designer |
 | 2026-10-26 | Trees redrawn: leafy crowns of lit leaf clumps with an outline, trunk and shadow; bare trees with tapering, forking limbs; snow on branches in Frostgate (V28) | Designer |
 | 2026-10-26 | Separate Music and Sound effects switches in Settings and the pause panel, remembered on the device; new music-note icon (A2, R22, R14) | Designer |

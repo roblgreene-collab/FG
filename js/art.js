@@ -1133,10 +1133,10 @@ function mix(a, b, t) {
 const sores = f => f.map((row, y) => y === 3 ? row.replace(/s(?=s)/, 'x') : y === 7 || y === 8 ? row.replace('s', 'x') : row);
 // Visual rule V1: purple belongs to the plague, so healthy palettes contain no purple.
 const PLAGUE = '#c05cff', PLAGUE_DARK = '#7d34c4';
-function makePersonSprites(rng, opts = {}) { // opts.doctor: a plague doctor's dark hooded cloak (V29)
-  const outfit = OUTFITS[opts.doctor ? 'hood' : pick(rng, ['cap', 'bare', 'bare', 'dress', 'dress', 'hood'])];
+function makePersonSprites(rng) {
+  const outfit = OUTFITS[pick(rng, ['cap', 'bare', 'bare', 'dress', 'dress', 'hood'])];
   const skin = pick(rng, ['#e2b48f', '#c99470', '#9a6a48', '#f0c9a8']);
-  const cloth = opts.doctor ? '#26222a' : pick(rng, ['#7d3a33', '#3d5677', '#a07c3c', '#3f6b4a', '#56603a', '#8a5a3a', '#6b6a62', '#8c4a2a']);
+  const cloth = pick(rng, ['#7d3a33', '#3d5677', '#a07c3c', '#3f6b4a', '#56603a', '#8a5a3a', '#6b6a62', '#8c4a2a']);
   const legs = pick(rng, ['#3a2f26', '#2c3340', '#4a3d2c']);
   const pal = {
     a: pick(rng, ['#4a3a28', '#3a3a3e', '#7a5a2a', '#5a2a24']),
