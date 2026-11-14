@@ -365,19 +365,26 @@ function drawHazards(G, ox, oy) {
       for (let k = 0; k < 2; k++) { const x = tx * TILE + ((G.time * 6 + k * 8 + tx * 5) % 14), y = ty * TILE + 4 + k * 7; ctx.fillRect(Math.round(x + ox), Math.round(y + oy), 3, 1); }
     }
   }
-  // fires
+  // fires (V31: plague pyres; R17 timing). Smouldering: embers glow in the logs and smoke rises.
+  // Burning: flames roar up across the whole pyre with sparks. Then smoke drifts off the charred dead.
   for (const f of HAZ.fires) {
-    const x = f.tx * TILE + 8, y = f.ty * TILE + 12;
+    const x = f.tx * TILE + 8, y = f.ty * TILE + 10;
     if (!vis(x, y)) continue;
-    const p = firePhase(f), sx = x + ox, sy = y + oy;
+    const p = firePhase(f), sx = x + ox, sy = y + oy, t = G.time + f.phase;
     if (p < CONFIG.fireLit) { // smouldering: a warning
-      ctx.globalAlpha = 0.25 + 0.25 * (p / CONFIG.fireLit); disc(ctx, sx, sy - 3, 7, '#ff7a20'); ctx.globalAlpha = 1;
-      for (let k = 0; k < 5; k++) { const a = k * 1.3 + G.time * 2; ctx.fillStyle = Math.sin(G.time * 10 + k) > 0 ? '#ff9a30' : '#a03a10'; ctx.fillRect(Math.round(sx + Math.cos(a) * 4), Math.round(sy - 2 + Math.sin(a) * 2), 1, 1); }
-      if (Math.random() < 0.1) G.particles.push({ x, y: y - 6, vx: Math.random() * 4 - 2, vy: -12, life: 1, max: 1, col: '#6e6a72', size: 2 });
-    } else if (p < CONFIG.fireOut) { // burning
-      ctx.globalAlpha = 0.3; disc(ctx, sx, sy - 4, 12, '#ff8a30'); ctx.globalAlpha = 1;
-      drawFlame(sx, sy, G.time + f.phase, 14 * Math.min(1, (p - CONFIG.fireLit) * 4, (CONFIG.fireOut - p) * 4));
-      if (Math.random() < 0.3) G.particles.push({ x: x + Math.random() * 8 - 4, y: y - 10, vx: Math.random() * 6 - 3, vy: -22, life: 0.6, max: 0.6, col: pick(Math.random, ['#ffa030', '#ffe080']), size: 1 });
+      const k = p / CONFIG.fireLit;
+      ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 0.25 + 0.35 * k; const gs = glowSprite(9, '#ff6a20'); ctx.drawImage(gs, sx - 10, sy - 10); ctx.globalCompositeOperation = 'source-over';
+      for (let e = 0; e < 9; e++) { ctx.globalAlpha = 1; ctx.fillStyle = Math.sin(t * 9 + e * 2.3) > 0.2 ? '#ff9a30' : '#b8401a'; ctx.fillRect(Math.round(sx - 6 + ((e * 5) % 13)), Math.round(sy - 1 + (e % 3) * 2), 1, 1); }
+      ctx.globalAlpha = 1;
+      if (Math.random() < 0.15) G.particles.push({ x: x + Math.random() * 10 - 5, y: y - 4, vx: Math.random() * 4 - 2, vy: -12, life: 1.2, max: 1.2, col: pick(Math.random, ['#6e6a72', '#55525a']), size: 2 });
+    } else if (p < CONFIG.fireOut) { // burning: deadly
+      const k = Math.min(1, (p - CONFIG.fireLit) * 4, (CONFIG.fireOut - p) * 4);
+      ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 0.55 * k + 0.15; const gs = glowSprite(16, '#ff7a28'); ctx.drawImage(gs, sx - 17, sy - 20); ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1;
+      for (const dx of [-5, 0, 5]) drawFlame(sx + dx, sy + 3, t + dx * 0.37, (dx ? 11 : 15) * k);
+      if (Math.random() < 0.45) G.particles.push({ x: x + Math.random() * 12 - 6, y: y - 12, vx: Math.random() * 8 - 4, vy: -26, life: 0.7, max: 0.7, col: pick(Math.random, ['#ffa030', '#ffe080', '#ff6a20']), size: 1 });
+      if (Math.random() < 0.12) G.particles.push({ x: x + Math.random() * 8 - 4, y: y - 18, vx: Math.random() * 4 - 2, vy: -10, life: 1.4, max: 1.4, col: '#3a3638', size: 2 });
+    } else if (Math.random() < 0.06) { // died down: smoke off the charred dead
+      G.particles.push({ x: x + Math.random() * 10 - 5, y: y - 4, vx: Math.random() * 4 - 1, vy: -8, life: 1.6, max: 1.6, col: pick(Math.random, ['#5e5a62', '#4a464e']), size: 2 });
     }
   }
   // gates

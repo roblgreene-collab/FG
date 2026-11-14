@@ -35,6 +35,14 @@ function newGame() {
     particles: [], texts: [], cam: { x: 0, y: 0 },
     hunters: spawnHunters(), huntersKilled: 0, powers: newPowers(), spreader: null, blasts: [], pointsEarned: 0, caughtBy: null, flowT: 0, flow: null, feast: null, intro: null,
   };
+  // V29: some townsfolk have jobs. A separate random sequence, so everyone else stays exactly where they were.
+  const jr = mulberry32(4242 + levelIndex * 101 + 999);
+  for (const c of citizens) {
+    if (jr() >= CONFIG.jobShare) continue;
+    const r = jr(); c.job = r < 0.35 ? 'sweeper' : r < 0.65 ? 'water' : r < 0.8 ? 'crier' : 'doctor';
+    c.jobPhase = jr() * 10;
+    if (c.job === 'doctor') c.sprites = makePersonSprites(jr, { doctor: true });
+  }
   setupHazards(game, rng);
   setupIntro(game);
 }
@@ -141,7 +149,7 @@ function update(dt) {
   for (const c of G.citizens) {
     if (c.super) { if (!c.gone) updateSpreader(c, dt); continue; } // P3
     c.t -= dt; if (c.scare > 0) c.scare -= dt;
-    const sp = CONFIG.citizenSpeed * (c.infected ? CONFIG.infectedSpeedMult : c.scare > 0 ? CONFIG.scatterSpeedMult : 1) * slowAt(c.x, c.y) * dt;
+    const sp = CONFIG.citizenSpeed * (c.infected ? CONFIG.infectedSpeedMult : c.scare > 0 ? CONFIG.scatterSpeedMult : JOB_PACE[c.job] || 1) * slowAt(c.x, c.y) * dt;
     let stuck = false;
     if (c.dx || c.dy) {
       const bx = c.x, by = c.y;
@@ -153,8 +161,12 @@ function update(dt) {
     }
     if (c.t <= 0 || stuck) {
       const opts = [[1, 0], [-1, 0], [0, 1], [0, -1]].filter(([x, y]) => !blocked(c.x + x * 6, c.y + y * 6, 3, 3));
-      if (Math.random() < 0.15 || !opts.length) { c.dx = c.dy = 0; c.t = 0.6 + Math.random(); }
+      const rest = JOB_REST[c.job] || 0.15; // V29: sweepers stop to sweep, criers mostly stand and ring
+      if (Math.random() < rest || !opts.length) { c.dx = c.dy = 0; c.t = (c.job === 'crier' ? 2 : 0.6) + Math.random() * (c.job ? 2 : 1); }
       else { [c.dx, c.dy] = opts[Math.floor(Math.random() * opts.length)]; c.t = 1.5 + Math.random() * 3; }
+    }
+    if (c.job === 'sweeper' && !c.infected && !(c.scare > 0) && Math.random() < dt * 3) { // dust kicked up by the broom
+      const d = c.flip ? -1 : 1; G.particles.push({ x: c.x + d * (5 + Math.random() * 3), y: c.y + 1, vx: d * (4 + Math.random() * 6), vy: -3 - Math.random() * 3, life: 0.6, max: 0.6, col: pick(Math.random, ['#a99b80', '#8e8370', '#c2b597']), size: 1 });
     }
     if (c.infected && Math.random() < dt * 1.6) {
       G.particles.push({ x: c.x + (Math.random() * 6 - 3), y: c.y - 14, vx: 0, vy: -8, life: 0.9, max: 0.9, col: PLAGUE, size: 1 });
@@ -275,8 +287,14 @@ function render() {
     if (a.type === 'smoke') continue;
     const sx = a.x + ox, sy = a.y + oy;
     if (sx < -20 || sy < -20 || sx > view.w + 20 || sy > view.h + 20) continue;
-    ctx.globalAlpha = 0.14 + 0.05 * Math.sin(G.time * 9 + a.x) + Math.random() * 0.03;
-    disc(ctx, sx, sy, a.r, a.col);
+    // V30: soft light that brightens what's under it (additive), flickering like a flame
+    const flick = a.type === 'window' ? 0.75 + 0.15 * Math.sin(G.time * 3 + a.x * 0.7) + 0.1 * Math.sin(G.time * 11 + a.y) : 0.8 + 0.2 * Math.sin(G.time * 9 + a.x) + Math.random() * 0.1;
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.globalAlpha = (a.type === 'window' ? 0.45 : 0.42) * flick;
+    const gs = glowSprite(a.r, a.col), wy = a.type === 'window' ? 5 : 0; // window light falls on the street in front
+    ctx.drawImage(gs, Math.round(sx - gs.width / 2), Math.round(sy + wy - gs.height / 2));
+    if (a.type === 'window') { ctx.globalAlpha = 0.5 * flick; const gw = glowSprite(4, '#ffd27a'); ctx.drawImage(gw, Math.round(sx - gw.width / 2), Math.round(sy - gw.height / 2)); }
+    ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1;
     if (a.type === 'brazier') { ctx.globalAlpha = 1; drawFlame(sx, sy + 2, G.time + a.x, 6); }
     else if (a.type === 'ember' && Math.random() < 0.04) G.particles.push({ x: a.x + Math.random() * 6 - 3, y: a.y, vx: Math.random() * 8 - 4, vy: -14, life: 0.9, max: 0.9, col: pick(Math.random, ['#ff9a30', '#ffcf60']), size: 1 });
   }
@@ -322,8 +340,10 @@ function render() {
         disc(ctx, Math.round(c.x + ox), Math.round(c.y + oy), 6, PLAGUE); ctx.globalAlpha = 1;
       }
       drawFootShadow(x, y + H - 2, W);
+      if (c.job === 'water') drawJob(c, x, y, W, H, true); // buckets hang behind the body
       if (c.flip) { ctx.save(); ctx.scale(-1, 1); ctx.drawImage(s, -x - W, y); ctx.restore(); }
       else ctx.drawImage(s, x, y);
+      if (c.job) drawJob(c, x, y, W, H, false);
     }
   }
   for (const p of G.particles) {
@@ -408,6 +428,45 @@ function drawHunterArrows(G, ox, oy) {
   }
 }
 
+// V29: townsfolk at work. Drawn over (or behind) the person's sprite in its own pixels; mirrored with the sprite.
+const JOB_PACE = { sweeper: 0.45, water: 0.9, crier: 0.3, doctor: 0.8 };
+const JOB_REST = { sweeper: 0.55, water: 0.15, crier: 0.75, doctor: 0.2 };
+function drawJob(c, x, y, W, H, behind) {
+  const X = dx => c.flip ? x + W - 1 - dx : x + dx, p = (dx, dy, col) => { ctx.fillStyle = col; ctx.fillRect(X(dx), y + dy, 1, 1); };
+  const t = game.time + c.jobPhase, bob = c.frame ? 1 : 0;
+  if (c.job === 'sweeper') { // a broom held out in front, its head swishing side to side over the cobbles
+    const sw = c.infected || c.scare > 0 ? 0 : Math.round(Math.sin(t * 9) * 2);
+    for (let k = 0; k < 5; k++) p(9 + k, 8 + k, '#6b4f33');
+    for (let k = 0; k < 4; k++) { p(12 + k + sw, 13, '#b8934a'); p(12 + k + sw, 14, k % 2 ? '#8a6a2a' : '#a07c3c'); }
+  } else if (c.job === 'water') { // a yoke over the shoulders with a bucket of water at each end
+    if (!behind) { for (let k = -2; k <= 13; k++) { p(k, 6, k < 0 || k > 11 ? '#5a3d26' : '#9a7a4a'); if (k < 2 || k > 9) p(k, 5, '#b8935a'); } return; } // the yoke, lit on top
+    for (const bx of [-1, 12]) {
+      for (let k = 7; k < 10 + bob; k++) p(bx, k, '#8a7a5a');
+      for (let a = -1; a <= 1; a++) { p(bx + a, 9 + bob, '#3a2a1c'); p(bx + a, 10 + bob, a ? '#8aa6c0' : '#4b7a9a'); p(bx + a, 11 + bob, '#9a7448'); p(bx + a, 12 + bob, '#5a3d26'); p(bx + a, 13 + bob, '#9a7448'); }
+    }
+  } else if (c.job === 'crier') { // a hand bell held up and rung, with a glint when it swings
+    const ring = c.dx || c.dy || c.infected ? 0 : Math.round(Math.sin(t * 7));
+    p(10, 6, '#c99470'); p(10, 5, '#c99470'); p(10 + ring, 4, '#3a2a1c');
+    p(10 + ring, 2, '#e0b040'); p(11 + ring, 2, '#e0b040'); p(10 + ring, 3, '#b8862a'); p(11 + ring, 3, '#b8862a'); p(10 + ring, 1, '#ffe08a');
+    if (ring && Math.sin(t * 7) > 0.9) { p(13, 1, '#ffe08a'); p(14, 0, '#ffe08a'); }
+  } else if (c.job === 'doctor') { // a wide-brimmed hat, the long white beak mask with a red glass eye, and a cane
+    for (let k = 1; k <= 10; k++) p(k, 1, '#141214');
+    for (let k = 3; k <= 8; k++) { p(k, 0, '#141214'); p(k, -1, '#1e1a1e'); }
+    p(9, 4, '#e8dcc0'); p(10, 4, '#e8dcc0'); p(11, 4, '#d8ccb0'); p(12, 5, '#c8bca0'); p(9, 5, '#d8ccb0'); p(10, 5, '#c8bca0'); p(11, 5, '#c8bca0');
+    p(7, 3, '#a8322c');
+    for (let k = 0; k < 6; k++) p(10, 8 + k, '#3a2a1c'); p(9, 8, '#3a2a1c');
+  }
+}
+
+// V30: a soft round light, brightest in the middle, cached per size and colour.
+const glowCache = new Map();
+function glowSprite(r, col) {
+  const k = r + col; if (glowCache.has(k)) return glowCache.get(k);
+  const c = makeCanvas(r * 2 + 2, r * 2 + 2), g = c.getContext('2d'), gr = g.createRadialGradient(r + 1, r + 1, 0, r + 1, r + 1, r);
+  gr.addColorStop(0, col); gr.addColorStop(0.4, col + '99'); gr.addColorStop(1, col + '00');
+  g.fillStyle = gr; g.fillRect(0, 0, c.width, c.height); glowCache.set(k, c); return c;
+}
+
 // A soft two-row oval shadow under a standing figure.
 function drawFootShadow(x, y, W) {
   ctx.fillStyle = 'rgba(0,0,0,.32)'; ctx.fillRect(x + 3, y, W - 6, 2);
@@ -429,7 +488,7 @@ function drawNight(G, ox, oy) {
     lctx.fillStyle = gr; lctx.fillRect(x - r, y - r, r * 2, r * 2);
   };
   if (G.rats[0]) light(G.rats[0].x + ox, G.rats[0].y + oy, 70);
-  for (const a of ambient) if (a.type !== 'smoke') light(a.x + ox, a.y + oy, a.type === 'lamp' ? 44 : 30);
+  for (const a of ambient) if (a.type !== 'smoke') light(a.x + ox, a.y + oy + (a.type === 'window' ? 5 : 0), a.type === 'lamp' ? 44 : a.type === 'window' ? 22 : 30);
   for (const h of G.hunters) if (h.alive) light(h.x + ox, h.y - 6 + oy, 34); // hunters carry lanterns
   for (const c of G.citizens) if (c.infected) light(c.x + ox, c.y - 4 + oy, 12); // the sick glow
   ctx.drawImage(lightCanvas, 0, 0);

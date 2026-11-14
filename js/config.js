@@ -50,6 +50,7 @@ const CONFIG = {
   sewerStunRadius: 64,     // R16: px, hunters this close to the grate you come out of are knocked down...
   sewerStunTime: 3,        // R16: ...for this many seconds
   warnRats: 3,             // V22: the low-swarm warning shows at this many rats or fewer
+  jobShare: 0.12,          // V29: share of townsfolk with a job (sweeper, water carrier, crier, plague doctor)
   scatterRadius: 32,       // R9: px, healthy townsfolk this close to a new infection run off
   scatterTime: 1.0,        // R9: seconds they run for
   scatterSpeedMult: 2.5,   // R9: their speed while running, x citizenSpeed

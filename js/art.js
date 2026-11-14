@@ -173,13 +173,30 @@ function drawFloodWater(g, rng) {
   }
 }
 
-// R17: soot scorched into the street around every fire pit, and a ring of loose stones.
-function drawScorch(g, rng) {
+// R17 + V31: each fire is a pyre of plague dead on a scorched patch of street: a criss-cross stack of logs
+// with one to three shrouded bodies on top, their linen singed and blackened, a foot or hand poking out.
+function drawScorch(g, mapRng) {
+  let rng = mapRng;
+  const P = (x, y, c) => { g.fillStyle = c; g.fillRect(x, y, 1, 1); };
   for (const f of HAZ.fires) {
     const cx = f.tx * TILE + 8, cy = f.ty * TILE + 9;
-    blob(rng, cx, cy, 9, (bx, by) => { g.globalAlpha = 0.45; px1(g, bx, by, '#141010'); g.globalAlpha = 1; });
-    disc(g, cx, cy, 5, '#1c1612'); disc(g, cx, cy, 3, '#2a1a12');
-    for (let k = 0; k < 8; k++) { const a = k / 8 * Math.PI * 2; g.fillStyle = '#5a524a'; g.fillRect(Math.round(cx + Math.cos(a) * 6) - 1, Math.round(cy + Math.sin(a) * 4), 2, 2); px1(g, Math.round(cx + Math.cos(a) * 6) - 1, Math.round(cy + Math.sin(a) * 4), '#7a7068'); }
+    blob(mapRng, cx, cy, 9, (bx, by) => { g.globalAlpha = 0.5; px1(g, bx, by, '#120e0c'); g.globalAlpha = 1; }); // scorched ground
+    rng = mulberry32(f.tx * 7919 + f.ty * 104729); // the pyre's own randomness, so the rest of the district is drawn exactly as before
+    for (let k = 0; k < 10; k++) { g.globalAlpha = 0.6; px1(g, cx - 8 + Math.floor(rng() * 16), cy + 4 + Math.floor(rng() * 4), pick(rng, ['#3a3430', '#5a524a', '#2a2420'])); g.globalAlpha = 1; } // ash
+    g.fillStyle = 'rgba(0,0,0,.4)'; g.fillRect(cx - 6, cy + 4, 14, 2); // shadow
+    // logs: three along, two across on top of them, charred at the ends
+    for (let i = 0; i < 3; i++) { const y = cy - 1 + i * 2; g.fillStyle = '#4a3220'; g.fillRect(cx - 7, y, 14, 2); g.fillStyle = '#6b4a30'; g.fillRect(cx - 7, y, 14, 1); P(cx - 7, y, '#1c1410'); P(cx + 6, y + 1, '#1c1410'); }
+    for (const x of [cx - 5, cx + 3]) { g.fillStyle = '#3e2a1a'; g.fillRect(x, cy - 3, 2, 9); g.fillStyle = '#5e4028'; g.fillRect(x, cy - 3, 1, 9); P(x, cy - 3, '#1c1410'); }
+    // the dead, wrapped in linen bound with rope
+    const n = 1 + Math.floor(rng() * 3);
+    for (let k = 0; k < n; k++) {
+      const by = cy - 4 + k * 2 - (n > 2 ? 1 : 0), bx = cx - 5 + Math.floor(rng() * 2), len = 10 + Math.floor(rng() * 2);
+      g.fillStyle = '#7e7466'; g.fillRect(bx, by, len, 3); g.fillStyle = '#9a907e'; g.fillRect(bx + 1, by, len - 2, 1); g.fillStyle = '#4e463c'; g.fillRect(bx, by + 2, len, 1); // sooty, singed linen
+      P(bx, by + 1, '#857c6c'); g.fillStyle = '#857c6c'; g.fillRect(bx + len - 1, by, 1, 3); // rounded head and feet ends
+      for (const r of [2, 5, 8]) if (r < len - 1) { P(bx + r, by, '#5a4a36'); P(bx + r, by + 1, '#4a3c2c'); P(bx + r, by + 2, '#3e3226'); } // rope bands
+      for (let s = 0; s < 7; s++) { g.globalAlpha = 0.8; P(bx + Math.floor(rng() * len), by + Math.floor(rng() * 3), pick(rng, ['#2a221c', '#3a2e24', '#1a1410'])); g.globalAlpha = 1; } // singed
+      if (rng() < 0.5) { P(bx + len, by + 1, '#b49ad6'); P(bx + len, by + 2, '#8f76b0'); } // a plague-grey foot poking out
+    }
   }
 }
 
@@ -371,6 +388,7 @@ function drawWindow(g, x, y, kind, shutter) { // 4x4, with a stone sill below an
     return;
   }
   const glass = kind === 'lit' ? ['#d99a36', '#f4cc6a'] : ['#1b242a', '#4b6270'];
+  if (kind === 'lit') ambient.push({ type: 'window', x: x + 2, y: y + 2, r: 15, col: '#ffb24a' }); // V30: its candlelight spills onto the street
   g.fillStyle = glass[0]; g.fillRect(x + 1, y + 1, 2, 2); px1(g, x + 1, y + 1, glass[1]);
   if (shutter) { g.fillStyle = shutter; g.fillRect(x - 1, y, 1, 4); g.fillRect(x + 4, y, 1, 4); }
 }
@@ -1115,10 +1133,10 @@ function mix(a, b, t) {
 const sores = f => f.map((row, y) => y === 3 ? row.replace(/s(?=s)/, 'x') : y === 7 || y === 8 ? row.replace('s', 'x') : row);
 // Visual rule V1: purple belongs to the plague, so healthy palettes contain no purple.
 const PLAGUE = '#c05cff', PLAGUE_DARK = '#7d34c4';
-function makePersonSprites(rng) {
-  const outfit = OUTFITS[pick(rng, ['cap', 'bare', 'bare', 'dress', 'dress', 'hood'])];
+function makePersonSprites(rng, opts = {}) { // opts.doctor: a plague doctor's dark hooded cloak (V29)
+  const outfit = OUTFITS[opts.doctor ? 'hood' : pick(rng, ['cap', 'bare', 'bare', 'dress', 'dress', 'hood'])];
   const skin = pick(rng, ['#e2b48f', '#c99470', '#9a6a48', '#f0c9a8']);
-  const cloth = pick(rng, ['#7d3a33', '#3d5677', '#a07c3c', '#3f6b4a', '#56603a', '#8a5a3a', '#6b6a62', '#8c4a2a']);
+  const cloth = opts.doctor ? '#26222a' : pick(rng, ['#7d3a33', '#3d5677', '#a07c3c', '#3f6b4a', '#56603a', '#8a5a3a', '#6b6a62', '#8c4a2a']);
   const legs = pick(rng, ['#3a2f26', '#2c3340', '#4a3d2c']);
   const pal = {
     a: pick(rng, ['#4a3a28', '#3a3a3e', '#7a5a2a', '#5a2a24']),
